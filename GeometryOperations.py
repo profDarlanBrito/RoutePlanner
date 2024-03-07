@@ -216,16 +216,15 @@ def compute_area_normal_hemisphere(c0: ndarray, p0: ndarray, n: ndarray, s_norma
         return 0.0
 
     rho: float = (c0 - p0) @ n / np.linalg.norm(n)
-    r_2: float = R**2 - rho**2
+    r_2: float = R ** 2 - rho ** 2
 
     if rho >= 0:
         return 2 * np.pi * np.sqrt(r_2) * (R - rho) if r_2 > 0 else 0.0
     else:
-        return 2 * np.pi * R**2
+        return 2 * np.pi * R ** 2
 
 
 def get_plane_frustum(frustum: pv.PolyData) -> list[tuple[ndarray, ndarray]]:
-
     planes = []
     # above_plane
     # bellow_plane
@@ -243,7 +242,8 @@ def get_plane_frustum(frustum: pv.PolyData) -> list[tuple[ndarray, ndarray]]:
     return planes
 
 
-def get_point_intersection_plane_with_sphere(pi_sphere: ndarray, pi_frustum: ndarray, position_sphere: ndarray, radius_sphere: float):
+def get_point_intersection_plane_with_sphere(pi_sphere: ndarray, pi_frustum: ndarray, position_sphere: ndarray,
+                                             radius_sphere: float):
     """
     Args:
         pi_sphere (ndarray): _description_
@@ -301,7 +301,7 @@ def get_viewed_area():
 
     # Calculate the length of the lateral surface of an inscribed cylinder
     h = np.cos(np.pi / n_resolution) * r_mesh
-    l = np.sqrt(np.abs(4 * h**2 - 4 * r_mesh**2))
+    l = np.sqrt(np.abs(4 * h ** 2 - 4 * r_mesh ** 2))
 
     # Find the radius of the spheres
     z_resolution = int(np.ceil(cy_hight / l))
@@ -561,7 +561,7 @@ def get_intersection_points_line_sphere(line_parametric_eq, sphere_eq):
     x_sphere, y_sphere, z_sphere, r = sphere_eq
 
     # Substitute the parametric equations of the line into the equation of the sphere
-    sphere_eq_subs = Eq((x_expr - x_sphere) ** 2 + (y_expr - y_sphere) ** 2 + (z_expr - z_sphere) ** 2, r**2)
+    sphere_eq_subs = Eq((x_expr - x_sphere) ** 2 + (y_expr - y_sphere) ** 2 + (z_expr - z_sphere) ** 2, r ** 2)
 
     # Solve for t to find the point(s) of intersection
     solutions = solve(sphere_eq_subs, t)
@@ -650,7 +650,7 @@ def plane_with_circle_intersection(plane_eq, circle_eq):
     cx, cy, cz, r = circle_eq
 
     plane = a * x + b * y + c * z + d
-    sphere = (x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 - r**2
+    sphere = (x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 - r ** 2
 
     solution = solve((plane, sphere), (x, y, z))
 
@@ -661,8 +661,194 @@ def get_viewed_area_from():
     print("Starting viewed area computing")
 
 
+def draw_cylinder_with_hemisphere(plotter,
+                                  cy_direction: ndarray,
+                                  cy_height: float,
+                                  n_resolution: int,
+                                  cy_radius: float,
+                                  cy_center: ndarray):
+    print('Drawing cylinder with hemispheres')
+    meshes = {}
+    # Calculate the length of the lateral surface of an inscribed cylinder
+    h = np.cos(np.pi / n_resolution) * cy_radius
+    l = np.sqrt(np.abs(4 * h ** 2 - 4 * cy_radius ** 2))
+
+    # Find the radius of the spheres
+    z_resolution = int(np.ceil(cy_height / l))
+    h = cy_height / z_resolution
+    spheres_radius = np.max([l, h]) / 2
+
+    cylinder = pv.CylinderStructured(
+        center=cy_center,
+        direction=cy_direction,
+        radius=cy_radius,
+        height=cy_height,
+        theta_resolution=n_resolution,
+        z_resolution=z_resolution,
+    )
+    cylinder_dict = {'mesh': cylinder,
+                     'center': cy_center,
+                     'direction': cy_direction,
+                     'radius': cy_radius,
+                     'height': cy_height,
+                     'theta_resolution': n_resolution,
+                     'z_resolution': z_resolution}
+    meshes['cylinder'] = cylinder_dict
+    plotter.add_mesh(cylinder)
+    # Create the hemispheres and add them to the faces of the cylinder
+    meshes['hemispheres'] = []
+    cell_count = 0
+    for cell in get_geometric_objects_cell(cylinder):
+        pos_cell = cell.center
+        points_cell = cell.points[:3]
+        norm_vec = find_normal_vector(*points_cell)
+        sub_mesh = pv.Sphere(radius=spheres_radius, center=pos_cell, direction=norm_vec, phi_resolution=10, end_phi=90)
+        hemisphere_dict = {'mesh': sub_mesh, 'radius': spheres_radius, 'center': pos_cell, 'direction': norm_vec,
+                           'phi_resolution': 10, 'end_phi': 90}
+        meshes['hemispheres'].append(hemisphere_dict)
+        if cell_count == 20:
+            txt_point = pos_cell
+            plotter.add_point_labels(txt_point, [f'{cell_count}'])
+        cell_count += 1
+        plotter.add_mesh(sub_mesh, show_edges=True)
+    return meshes
+
+
+def orient_camera_to_normal(plotter, normal):
+    # Get camera parameters
+    position = np.array(plotter.camera.position)
+    focal_point = np.array(plotter.camera.focal_point)
+    view_up = np.array(plotter.camera.up)
+
+    # Compute new view direction
+    view_dir = focal_point - position
+    view_dir /= np.linalg.norm(view_dir)
+
+    # Compute new view up
+    view_up_proj = view_up - np.dot(view_up, normal) * normal
+    view_up_proj /= np.linalg.norm(view_up_proj)
+
+    # Compute new camera position
+    new_position = focal_point - np.dot(view_dir, normal) * view_dir
+
+    # Compute new focal point
+    new_focal_point = new_position + view_dir
+
+    # Update camera
+    plotter.camera.position = new_position
+    plotter.camera.focal_point = new_focal_point
+    plotter.camera.up = view_up_proj
+    return new_position
+
+
+def compute_central_hemisphere_area(plotter, hemisphere_direction: ndarray, hemisphere_center: ndarray,
+                                    radius_mesh: float):
+    print('Computing central hemisphere area')
+
+    mesh = pv.Sphere(radius=radius_mesh, center=hemisphere_center, direction=hemisphere_direction, phi_resolution=10,
+                     end_phi=90)
+    plotter.add_mesh(mesh, show_edges=True)
+
+    camera_position = hemisphere_center + 0.5 * hemisphere_direction
+    focal_point = (camera_position - hemisphere_direction)
+    # Set camera position and orientation (optional)
+    plotter.camera.clipping_range = (1e-4, 1)
+    plotter.camera_position = [camera_position, focal_point, (0, 0, 0)]
+    # camera_position = orient_camera_to_normal(plotter, hemisphere_center)
+    # plotter.show()
+
+    # Get the camera's view frustum
+    frustum = plotter.camera.view_frustum()
+    plotter.add_mesh(frustum, style="wireframe")
+
+    # Generate a plane
+    direction = np.array(plotter.camera.focal_point) - np.array(plotter.camera.position)
+    direction /= np.linalg.norm(direction)
+
+    v = hemisphere_center - np.array(camera_position)
+    v /= np.linalg.norm(v)
+
+    plane_frustum = get_plane_frustum(frustum)
+    plane_eq = []
+
+    # Plot the four sides of the frustum
+    for plane in plane_frustum[:4]:
+        a, b, c = plane[0]
+        d = -(plane[0] @ plane[1])
+        plane_eq.append([a, b, c, d])
+        plot_plane(plotter, *plane)
+
+    plot_plane(plotter, *plane_frustum[2])
+    # Calculate the intersection between the planes of the frustum
+    parametric_equation = [get_line_of_intersection_two_planes(plane_eq[0], plane_eq[2]),
+                           get_line_of_intersection_two_planes(plane_eq[0], plane_eq[3]),
+                           get_line_of_intersection_two_planes(plane_eq[1], plane_eq[2]),
+                           get_line_of_intersection_two_planes(plane_eq[1], plane_eq[3])]
+    # above_plane with left_plane
+    # above_plane with right_plane
+    # bellow_plane with left_plane
+    # bellow_plane with right_plane
+
+    # Select the points that pass through the sphere closest to the camera
+    intersection_points = []
+    for p_eq in parametric_equation:
+        intersection_points_sphere = get_intersection_points_line_sphere(p_eq,
+                                                                         (*hemisphere_center, radius_mesh))
+        if len(intersection_points_sphere) == 0:
+            print('There is no intersection between sphere and camera frustum')
+            spherical_area = 2 * np.pi * radius_mesh ** 2
+            return spherical_area
+        d1 = np.linalg.norm(intersection_points_sphere[0] - camera_position)
+        d2 = np.linalg.norm(intersection_points_sphere[1] - camera_position)
+
+        p = intersection_points_sphere[0] if d1 < d2 else intersection_points_sphere[1]
+        # plotter.add_points(p, color="green", point_size=10)
+        intersection_points.append(p)
+
+    # Separate the points into two sets of points furthest away
+    A_set_point = [intersection_points[0]]
+    B_set_point = []
+    longest_index = 0
+    for i, p in enumerate(intersection_points[1:]):
+        longest_distance = 0
+
+        if np.linalg.norm(A_set_point[0] - p) > longest_distance:
+            longest_index = i + 1
+            longest_distance = np.linalg.norm(A_set_point[0] - p)
+    else:
+        A_set_point.append(intersection_points[longest_index])
+        for p in intersection_points:
+            if not any(np.array_equal(p, point) for point in A_set_point):
+                B_set_point.append(p)
+
+    spherical_points = np.row_stack((A_set_point, B_set_point))
+    spherical_polygon = SphericalPolygon(spherical_points)
+    spherical_area = spherical_polygon.area()
+    print(f"{spherical_area=}")
+    return spherical_area
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == "__main__":
+    pos_mesh = np.array([-2, 0, 0])
+    r_mesh = 2
+
+    # cam_pos = np.array((2.9, -0.1, 0.0))
+
+    cy_direction = np.array([0, 0, 1])
+    cy_height = 4
+    n_resolution = 36
+
+    # Create a plotter
+    plotter = pv.Plotter()
+    meshes = draw_cylinder_with_hemisphere(plotter, cy_direction, cy_height, n_resolution, 2.0,
+                                           np.array([0.0, 0.0, 0.0]))
+    first_hemisphere = meshes['hemispheres'][20]
+    cam_pos = np.array(first_hemisphere['direction'])
+    pos_mesh = np.array(first_hemisphere['center'])
+    r_mesh = first_hemisphere['radius']
+    compute_central_hemisphere_area(plotter, cam_pos, pos_mesh, r_mesh)
+    plotter.show()
     # ax = plot_circle(1.0, 500)
     # vector = np.array((0, 1, 1))
     # point = np.array((0, 0, 0))
@@ -672,7 +858,7 @@ if __name__ == "__main__":
     # point1 = np.array((2, 2, 3))
     # point2 = np.array((4, 5, 6))
     # point3 = np.array((7, 7, 9))
-    get_viewed_area()
+    # get_viewed_area()
     # normal, ax = plot_plane_through_points(point1, point2, point3)
     # ax = plot_circle_in_plane(normal, point1, radius, ax)
     # ax = plot_line(normal, point1, ax)
@@ -686,22 +872,22 @@ if __name__ == "__main__":
     # get_viewed_area()  # Only function used with pyvista
 
     # See PyCharm help at https://www.jetbrains.com/help/pycharm/
-    pi1gl = np.array([2.0, 4.0, -1.0, 1.0])
-    pi2gl = np.array([-1.0, 2.0, 1.0, 2.0])
-    parametric_equation = get_line_of_intersection_two_planes(pi1gl, pi2gl)
-    print(parametric_equation)
-    xl = parametric_equation[0].subs(t, 0.0)
-    yl = parametric_equation[1].subs(t, 0.0)
-    zl = 0.0
-    sphere_eq = (xl, yl, zl, 2)
+    # pi1gl = np.array([2.0, 4.0, -1.0, 1.0])
+    # pi2gl = np.array([-1.0, 2.0, 1.0, 2.0])
+    # parametric_equation = get_line_of_intersection_two_planes(pi1gl, pi2gl)
+    # print(parametric_equation)
+    # xl = parametric_equation[0].subs(t, 0.0)
+    # yl = parametric_equation[1].subs(t, 0.0)
+    # zl = 0.0
+    # sphere_eq = (xl, yl, zl, 2)
     # Find intersection point(s)
-    intersection_points = get_intersection_points_line_sphere(parametric_equation, sphere_eq)
+    # intersection_points = get_intersection_points_line_sphere(parametric_equation, sphere_eq)
 
     # Display intersection point(s)
-    print("Intersection point(s) with the sphere:")
-    for point in intersection_points:
-        print(point)
+    # print("Intersection point(s) with the sphere:")
+    # for point in intersection_points:
+    #     print(point)
 
-    distance = np.linalg.norm(intersection_points[0] - intersection_points[1])
+    # distance = np.linalg.norm(intersection_points[0] - intersection_points[1])
 
-    print(distance)
+    # print(distance)
