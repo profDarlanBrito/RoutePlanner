@@ -4,6 +4,7 @@ from CoppeliaInterface import CoppeliaInterface
 import pyvista as pv
 from config import parse_settings_file
 from random import sample
+from GeometryOperations import draw_cylinder_with_hemisphere, compute_central_hemisphere_area
 
 number_points_view = 1500
 CA_max = 50  # Bigger number the route has more points
@@ -167,35 +168,6 @@ def initializations(copp) -> tuple:
     :return:
     """
     positions = {}
-    # copp.init_control([copp.settings['quadcopter name'],
-    #                    copp.settings['vision sensor names'],
-    #                    './Disc[0]',
-    #                    './Disc[1]',
-    #                    './Disc[2]',
-    #                    './Disc[3]',
-    #                    './Disc[4]',
-    #                    './Disc[5]',
-    #                    './Disc[6]',
-    #                    './Disc[7]',
-    #                    './Disc[8]'])
-    # parse through all Leg objects in the current model hierarchy:
-    # j = 0
-    # while True:
-    #     copp.handles[f'./O[{j}]'] = copp.sim.getObject(":/O", {'index': j, 'noError': True})
-    #     if copp.handles[f'./O[{j}]'] < 0:
-    #         break
-    #     for i in range(9):
-    #         if j == 0:
-    #             positions = np.row_stack((positions,
-    #                                       copp.sim.getObjectPosition(copp.handles[f'./Disc[{i}]'],
-    #                                                                  copp.sim.handle_world)))
-    #         else:
-    #             positions = np.row_stack((positions,
-    #                                       copp.sim.getObjectPosition(copp.handles[f'./O[{j}]/Disc[{i}]'],
-    #                                                                  copp.sim.handle_world)))
-    #
-    #     print(f'{j=}')
-    #     j = j + 1
     j = 0
     targets_hull_i = {}
     centroid_points_i = {}
@@ -219,7 +191,6 @@ def initializations(copp) -> tuple:
         centroid_points_i[f'O[{j}]'], radius_i[f'O[{j}]'] = _centroid_poly(positions[f'O[{j}]'])
         j = j + 1
 
-    print(f'{positions=}')
     return positions, targets_hull_i, centroid_points_i, radius_i
 
 
@@ -284,35 +255,34 @@ def euler_angles_from_normal(normal_vector):
     return roll, pitch, yaw
 
 
-def plot_figures(centroid_points_pf: dict, radius_pf: dict, target_points_pf: dict) -> dict:
+def draw_cylinders_hemispheres(centroid_points_pf: dict, radius_pf: dict, target_points_pf: dict) -> dict:
     print('Starting showing data')
     # Create a plotter
     plotter = pv.Plotter()
     vector_points_pf = {}
     for target in centroid_points_pf.keys():
         cy_direction = np.array([0, 0, 1])
-        n_resolution = 36
+        n_resolution = 24
         cy_hight = height_proportion * np.max(target_points_pf[target][:, 2])
         r_mesh = radius_pf[target]
         h = np.cos(np.pi / n_resolution) * r_mesh
         l = np.sqrt(np.abs(4 * h ** 2 - 4 * r_mesh ** 2))
 
         # Find the radius of the spheres
-        z_resolution = int(np.ceil(cy_hight / l))
+        meshes = draw_cylinder_with_hemisphere(plotter,
+                                               cy_direction,
+                                               cy_hight,
+                                               n_resolution,
+                                               r_mesh,
+                                               centroid_points_pf[target])
+        cylinder = meshes['cylinder']['mesh']
 
-        cylinder = pv.CylinderStructured(
-            center=centroid_points_pf[target],
-            direction=cy_direction,
-            radius=r_mesh,
-            height=1.0,
-            theta_resolution=n_resolution,
-            z_resolution=z_resolution,
-        )
         vector_points_pf[target] = np.empty([0, 6])
         for cell in get_geometric_objects_cell(cylinder):
             pos_cell = cell.center
             points_cell = cell.points[:3]
             norm_vec = find_normal_vector(*points_cell)
+            compute_central_hemisphere_area(plotter, norm_vec, pos_cell, meshes['hemispheres'][0]['radius'])
             roll, pitch, yaw = euler_angles_from_normal(-norm_vec)
             for k in range(max_route_radius):
                 vector_points_pf[target] = np.row_stack((vector_points_pf[target],
@@ -323,7 +293,7 @@ def plot_figures(centroid_points_pf: dict, radius_pf: dict, target_points_pf: di
         point_cloud0 = pv.PolyData(points0)
         plotter.add_mesh(point_cloud0)
 
-        # cylinder.plot(show_edges=True)
+        cylinder.plot(show_edges=True)
         plotter.add_mesh(cylinder, show_edges=True)
 
         points = target_points_pf[target]
@@ -472,6 +442,18 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
                 print('Time short')
 
 
+def compute_edge_weight_matrix(S_cewm: dict) -> np.ndarray:
+    print('Starting computing distance matrix')
+    i = 0
+    j = 0
+    edge_weight_matrix = np.empty(0)
+    for target_cewm, points_cewm in S_cewm.items():
+        if i == 0 and j == 0:
+            edge_weight_matrix = np.empty([points_cewm.shape[0]*3, points_cewm.shape[0]*3])
+        for target_cewm_i, points_cewm_i in S_cewm.items():
+            edge_weight_matrix[i, j] = np.linalg.norm(points_cewm[-1], target_cewm_i[-1])
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     # targets_border, targets_center, targets_points_of_view = create_sample_data()
@@ -481,7 +463,7 @@ if __name__ == '__main__':
     # save_points(main_route, targets_points_of_view)
     copp = CoppeliaInterface()
     positions, target_hull, centroid_points, radius = initializations(copp)
-    targets_points_of_view = plot_figures(centroid_points, radius, positions)
+    targets_points_of_view = draw_cylinders_hemispheres(centroid_points, radius, positions)
     points_of_view_contribution = camera_view_evaluation(targets_points_of_view)
     S = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
     main_route = find_route(S)
