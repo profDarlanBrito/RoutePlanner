@@ -721,21 +721,19 @@ def cartesian_to_lat_lon(x, y, z):
     return np.degrees(lat), np.degrees(lon)
 
 
-def compute_central_hemisphere_area(
-        plotter, hemisphere_direction: ndarray, hemisphere_center: ndarray, radius_mesh: float):
+def compute_central_hemisphere_area(hemisphere_direction: ndarray,
+                                    hemisphere_center: ndarray,
+                                    radius_mesh: float,
+                                    camera_radius: float,
+                                    plotter = None) -> float|bool:
     print("Computing central hemisphere area")
 
-    # mesh = pv.Sphere(
-    #     radius=radius_mesh, center=hemisphere_center, direction=hemisphere_direction, phi_resolution=10, end_phi=90
-    # )
-    # plotter.add_mesh(mesh, show_edges=True)
-
-    camera_position = hemisphere_center + 0.15 * hemisphere_direction
+    camera_position = hemisphere_center + camera_radius * hemisphere_direction
     focal_point = camera_position - hemisphere_direction
     plotter1 = pv.Plotter()
-    # meshes = plotter.meshes
-    # for mesh in meshes:
-    #     plotter1.add_mesh(mesh)
+    meshes = plotter.meshes
+    for mesh in meshes:
+        plotter1.add_mesh(mesh)
     # Set camera position and orientation (optional)
     plotter1.camera.clipping_range = (1e-4, 1)
     plotter1.camera_position = [camera_position, focal_point, (0, 0, 0)]
@@ -746,10 +744,10 @@ def compute_central_hemisphere_area(
     frustum = plotter1.camera.view_frustum()
     # if np.isinf(np.array(frustum.bounds)).any():
     #     return 0
-    # plotter1.add_mesh(frustum, style="wireframe")
+    plotter1.add_mesh(frustum, style="wireframe")
 
     # Generate a plane
-    direction = np.array(plotter1.camera.focal_point) - np.array(plotter1.camera.position)
+    direction = np.array(focal_point) - np.array(camera_position)
     direction /= np.linalg.norm(direction)
 
     v = hemisphere_center - np.array(camera_position)
@@ -782,9 +780,9 @@ def compute_central_hemisphere_area(
     for p_eq in parametric_equation:
         intersection_points_sphere = get_intersection_points_line_sphere(p_eq, (*hemisphere_center, radius_mesh))
 
-        # if len(intersection_points_sphere) == 0:
+        if len(intersection_points_sphere) == 0:
             # Test the other equations
-            # continue
+            continue
 
         d1 = np.linalg.norm(intersection_points_sphere[0] - camera_position)
         d2 = np.linalg.norm(intersection_points_sphere[1] - camera_position)
@@ -804,15 +802,16 @@ def compute_central_hemisphere_area(
     if len(intersection_points) < 3:
         print("There is no intersection between sphere and camera frustum")
         spherical_area = 2 * np.pi * radius_mesh ** 2
-        return spherical_area
+        return spherical_area, True
 
     for h in range(4):
         intersection_points[h] -= hemisphere_center
 
+    # plotter1.show()
     spherical_polygon = SphericalPolygon(intersection_points)
     spherical_area = spherical_polygon.area()
     print(f"{spherical_area=}")
-    return spherical_area
+    return spherical_area, False
 
 
 # Press the green button in the gutter to run the script.
@@ -835,7 +834,7 @@ if __name__ == "__main__":
     cam_pos = np.array(first_hemisphere["direction"])
     pos_mesh = np.array(first_hemisphere["center"])
     r_mesh = first_hemisphere["radius"]
-    compute_central_hemisphere_area(plotter, cam_pos, pos_mesh, r_mesh)
+    compute_central_hemisphere_area(cam_pos, pos_mesh, r_mesh, plotter)
     plotter.show()
     # ax = plot_circle(1.0, 500)
     # vector = np.array((0, 1, 1))
