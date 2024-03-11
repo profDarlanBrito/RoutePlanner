@@ -63,3 +63,5 @@ max iter: 100
 T_max: 150000
 # Number of subdivision of the horizontal discretization
 n resolution: 24
+#Object names like on CoppeliaSim
+object names: [T_type, Bobcat, Bens_G63]

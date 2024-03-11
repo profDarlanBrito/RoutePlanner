@@ -883,7 +883,7 @@ def compute_central_hemisphere_area(hemisphere_direction: ndarray,
     # plotter1.show()
     spherical_polygon = SphericalPolygon(intersection_points)
     spherical_area = spherical_polygon.area()
-    print(f"{spherical_area=}")
+    # print(f"{spherical_area=}")
     return spherical_area, False, plane_eq, camera_position
 
 

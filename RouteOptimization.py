@@ -296,23 +296,25 @@ def initializations(copp) -> tuple:
     targets_hull_i = {}
     centroid_points_i = {}
     radius_i = {}
-    while True:
-        copp.handles[f'./O[{j}]'] = copp.sim.getObject(":/O", {'index': j, 'noError': True})
-        if copp.handles[f'./O[{j}]'] < 0:
+    for object_name_i in settings['object names']:
+        # copp.handles[f'./O[{j}]'] = copp.sim.getObject(":/O", {'index': j, 'noError': True})
+        copp.handles[object_name_i] = copp.sim.getObject(f"./{object_name_i}")
+        if copp.handles[object_name_i] < 0:
             break
-        positions[f'O[{j}]'] = np.empty([0, 3])
+        positions[object_name_i] = np.empty([0, 3])
         i = 0
         while True:
-            handle = copp.sim.getObject(f":/O[{j}]/Disc", {'index': i, 'noError': True})
+            points_names = f"./{object_name_i}/Disc"
+            handle = copp.sim.getObject(points_names, {'index': i, 'noError': True})
             if handle < 0:
                 break
-            positions[f'O[{j}]'] = np.row_stack((positions[f'O[{j}]'],
+            positions[object_name_i] = np.row_stack((positions[object_name_i],
                                                  copp.sim.getObjectPosition(handle,
                                                                             copp.sim.handle_world)))
             i += 1
 
-        targets_hull_i[f'O[{j}]'] = Delaunay(positions[f'O[{j}]'])
-        centroid_points_i[f'O[{j}]'], radius_i[f'O[{j}]'] = _centroid_poly(positions[f'O[{j}]'])
+        targets_hull_i[object_name_i] = Delaunay(positions[object_name_i])
+        centroid_points_i[object_name_i], radius_i[object_name_i] = _centroid_poly(positions[object_name_i])
         j = j + 1
 
     return positions, targets_hull_i, centroid_points_i, radius_i
@@ -1049,7 +1051,8 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
     # count_target = 0
     for target_cewm, S_cewm_start in S_cewm.items():
         if i == 0 and j == 0:
-            edge_weight_matrix_cewm = np.zeros([len(S_cewm_start) * 3, len(S_cewm_start) * 3])
+            edge_weight_matrix_cewm = np.zeros([((len(S_cewm_start)-1) * len(settings['object names']))-1,
+                                                ((len(S_cewm_start)-1) * len(settings['object names']))-1])
         for Si_cewm_start in S_cewm_start:
             j = 0
             # count_target_i = 0
