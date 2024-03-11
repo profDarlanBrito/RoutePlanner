@@ -13,7 +13,7 @@ extension: png
 simulation time: 11.0
 # The name of the vision sensor at CoppeliaSim
 #vision sensor names: [./Vision_sensor_center, ./Vision_sensor_left, ./Vision_sensor_right]
-vision sensor names: ./Quadcopter/Vision_sensor
+vision sensor names: ./Vision_sensor_free
 # The name of the robot that is with the camera
 quadcopter name: ./target
 # The quadcopter handle to get quadcotper position
@@ -27,7 +27,7 @@ time to stabilize: 10.0
 # The displacement that the robot will do before the simulation stops
 max displacement: 0.5
 # The total maximum time of the simulation
-total simulation time: 50
+total simulation time: 0.5
 # The unit displacement of the robot in three-dimensional coordinates. You can not put the brackets [] symbol
 displacement: [0.0,0.1,-0.05]
 # The height of the checkerboard black squares corners. The height variable is the number of inner square corners of the calibration target
