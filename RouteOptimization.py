@@ -34,6 +34,24 @@ points_per_unit = -1
 global settings
 
 
+def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> None:
+    try:
+        # Execute the script using subprocess
+        process = subprocess.call(f'./scripts/reconstruction.bat {colmap_folder} {workspace_folder} {image_folder}')
+
+        # Wait for the process to finish
+        stdout, stderr = process.communicate()
+
+        # Check if there were any errors
+        if process.returncode != 0:
+            print("Error executing script:")
+            print(stderr.decode('utf-8'))
+        else:
+            print("Script executed successfully.")
+    except Exception as e:
+        print("An error occurred:", e)
+
+
 def camera_view_evaluation(targets_points_of_view_cve: dict):
     print('Starting creating evaluation matrix')
     points_of_view_contribution = {}
@@ -1340,6 +1358,11 @@ if __name__ == '__main__':
                                      copp.handles[settings['quadcopter base']],
                                      copp.handles[settings['vision sensor names']],
                                      main_route)
+    
+    colmap_folder = ''
+    workspace_folder = ''
+    images_folder = ''
+    run_colmap(colmap_folder, workspace_folder, images_folder)
     # copp.sim.stopSimulation()
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
