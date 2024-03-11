@@ -1,3 +1,4 @@
+import os
 from typing import Tuple, Dict, Any, List
 
 import numpy as np
@@ -17,6 +18,7 @@ import subprocess
 import csv
 import ast
 import cv2 as cv
+import datetime
 
 number_points_view = 1500
 CA_max = 10  # Bigger number the route has more points
@@ -27,6 +29,7 @@ max_visits = 20  # Define the maximum number of times that the point can be visi
 max_iter = 100  # Maximum number of iteration to try catch a subgroup
 T_max = 150000  # Maximum travel budget
 n_resolution = 24  # Number of subdivision of the horizontal discretization
+global settings
 
 
 def create_sample_data(target_positions: dict) -> tuple:
@@ -106,7 +109,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
             prior_idx = i
             max_idx = -1
             idx_list = [i]
-            print(f'Point {show_number_of_points} of {len(indexes_of_ini_points)}')
+            # print(f'Point {show_number_of_points} of {len(indexes_of_ini_points)}')
             show_number_of_points += 1
             iteration = 0
             while CA < CA_max and iteration < max_iter:
@@ -444,7 +447,7 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
         count_hemisphere = 0
         weights = (max_route_radius - 1) * [0.0]
         for cell in get_geometric_objects_cell(cylinder):
-            print(f'{count_hemisphere} of {cylinder.n_cells}')
+            # print(f'{count_hemisphere} of {cylinder.n_cells}')
             hemisphere_radius = meshes['hemispheres'][count_hemisphere]['radius']  #
             pos_cell = cell.center
             points_cell = cell.points[:3]
@@ -924,7 +927,6 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
             # sim.setObjectOrientation(quad_target_handle, sim.handle_world, orientation_angles)
             total_time = sim.getSimulationTime() + settings['total simulation time']
             stabilized = False
-            print('Change point')
             while sim.getSimulationTime() < total_time:
                 diff_pos = np.subtract(pos, sim.getObjectPosition(quad_base_handle, sim.handle_world))
                 norm_diff_pos = np.linalg.norm(diff_pos)
@@ -981,8 +983,9 @@ def quadcopter_control_direct_points(sim, client, quad_target_handle, quad_base_
     position that the quadcopter must be after control.
     :return: A boolean indicating if the quadcopter reach the target position.
     """
+    count_image = 0
 
-
+    # filename_qcdp = (settings['path'] + 'scene1/' + settings['filename'] + '_' + day + '_' + month + '_' + year + '_')
     for point_qcdp in route_qc:
         pos = list(point_qcdp[:3])
         next_point_handle = sim.getObject('./new_target')
@@ -1006,7 +1009,6 @@ def quadcopter_control_direct_points(sim, client, quad_target_handle, quad_base_
 
         total_time = sim.getSimulationTime() + settings['total simulation time']
         # stabilized = False
-        print('Change point')
         while sim.getSimulationTime() < total_time:
             # diff_pos = np.subtract(pos, sim.getObjectPosition(quad_base_handle, sim.handle_world))
             # norm_diff_pos = np.linalg.norm(diff_pos)
@@ -1047,6 +1049,9 @@ def quadcopter_control_direct_points(sim, client, quad_target_handle, quad_base_
             #     stabilized = True
             #     break
             client.step()
+
+        get_image(sim, count_image, settings['filename'], vision_handle)
+        count_image += 1
         # if not stabilized:
         #     print('Time short')
 
@@ -1065,8 +1070,8 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
             # count_target_i = 0
             for target_cewm_i, S_cewm_end in S_cewm.items():
                 for Si_cewm_end in S_cewm_end:
-                    idx1 = Si_cewm_start[-1][1]   # - count_target*targets_points_of_view_cewm[target_cewm].shape[0]
-                    idx2 = Si_cewm_end[0][1]   # - count_target_i*targets_points_of_view_cewm[target_cewm_i].shape[0]
+                    idx1 = Si_cewm_start[-1][1]  # - count_target*targets_points_of_view_cewm[target_cewm].shape[0]
+                    idx2 = Si_cewm_end[0][1]  # - count_target_i*targets_points_of_view_cewm[target_cewm_i].shape[0]
                     pt1 = targets_points_of_view_cewm[target_cewm][idx1]
                     pt2 = targets_points_of_view_cewm[target_cewm_i][idx2]
                     if i != j:
@@ -1229,18 +1234,16 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
     bigger_idx = 0
     table_rrcf = []
     for target_rrcf, points_rrcf in targets_points_of_vew_rrcf.items():
-        table_rrcf.append([target_rrcf, bigger_idx, bigger_idx+points_rrcf.shape[0]])
+        table_rrcf.append([target_rrcf, bigger_idx, bigger_idx + points_rrcf.shape[0]])
         bigger_idx += points_rrcf.shape[0] + 1
 
     for S_idx_rrcf in chose_subgroups:
         for information_rrcf in table_rrcf:
             if information_rrcf[1] <= S_idx_rrcf <= information_rrcf[2]:
-                print('Target found')
                 is_first_element = True
                 for group_rrcf in S_rrcf[information_rrcf[0]]:
                     for element in group_rrcf:
                         if element[0] == S_idx_rrcf:
-                            print('Group found')
                             pt_idx_prior = element[1]
                             pt_idx_post = element[2]
                             pt_prior_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_prior]
@@ -1254,7 +1257,7 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
     return route_rrcf
 
 
-def get_image(sim, sequence: list, file_name: str, vision_handle: int):
+def get_image(sim, sequence: int, file_name: str, vision_handle: int):
     """
     Method used to get the image from vision sensor on coppeliaSim and save the image in a file.
     The vision handle must be previously loaded.
@@ -1265,11 +1268,40 @@ def get_image(sim, sequence: list, file_name: str, vision_handle: int):
     """
     img, resolution = sim.getVisionSensorImg(vision_handle)
     img = np.frombuffer(img, dtype=np.uint8).reshape(resolution[1], resolution[0], 3)
-    img = cv.rotate(img, cv.ROTATE_180)
-    for c in sequence:
-        filename = file_name + str(c) + '.' + settings['extension']
-        cv.imwrite(settings['path'] + filename, img)
 
+    # Define the directory name
+    directory_name = settings['directory name']
+
+    # Specify the path where you want to create the directory
+    path = settings['path']  # You can specify any desired path here
+
+    # Construct the full path
+    full_path = os.path.join(path, directory_name)
+
+    # Check if the directory already exists
+    if not os.path.exists(full_path):
+        # Create the directory
+        os.makedirs(full_path)
+
+    # Get the current date and time
+    current_datetime = datetime.datetime.now()
+
+    # Extract individual components
+    year = str(current_datetime.year)
+    month = str(current_datetime.month)
+    day = str(current_datetime.day)
+    hour = str(current_datetime.hour)
+    minute = str(current_datetime.minute)
+
+    filename = (full_path + '/' + file_name + '_' + day + '_' + month + '_' + hour + '_' + minute + '_' +
+                str(sequence) + '.' + settings['extension'])
+
+    # In CoppeliaSim images are left to right (x-axis), and bottom to top (y-axis)
+    # (consistent with the axes of vision sensors, pointing Z outwards, Y up)
+    # and color format is RGB triplets, whereas OpenCV uses BGR:
+    img = cv.flip(cv.cvtColor(img, cv.COLOR_BGR2RGB), 0)
+
+    cv.imwrite(filename, img)
 
 
 # Press the green button in the gutter to run the script.
@@ -1294,7 +1326,7 @@ if __name__ == '__main__':
                        S)
     execute_script('script_path')
     main_route = read_route_csv_file('C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/results/' +
-                                '3dreconstructionPathPlanner.csv', S, targets_points_of_view)
+                                     '3dreconstructionPathPlanner.csv', S, targets_points_of_view)
 
     # main_route = get_points_to_route(route, conversion_table)
     # main_route = find_route(S)

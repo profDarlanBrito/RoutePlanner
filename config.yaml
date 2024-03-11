@@ -2,7 +2,8 @@
 # subdirectory of the executable or <drive letter>:/<directory>/<subdirectory>/.../<subdirectory>/ to absolute path
 path: C:/Users/dnune/OneDrive/Documentos/VerLab/3D Reconstruction/Images/
 # The name of the image sequence without number sequence or extension
-filename: reconstruct_calib
+filename: reconstruct
+directory name: scene1
 #filename: reconstruct
 # Numerical sequence to image names. As an example if you want to save the images as calibimg1, calibimg2, ...
 #sequence: [40,186,523,602,727,772,874,950,1030,1280,1319,1422,1440,1585,1657,1795,1924,2187,2271,2295,2379,2398,2444,2537,2587,2622,2628,2751,2828,2859]
