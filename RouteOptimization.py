@@ -20,34 +20,18 @@ import ast
 import cv2 as cv
 import datetime
 
-number_points_view = 1500
-CA_max = 10  # Bigger number the route has more points
-max_route_radius = 6  # Bigger number the route increase the maximum radius of the points of view.
-points_per_sphere = 3  # Density of points in the radius. If the number increase density decrease
-height_proportion = 1.5  # The proportion of the tallest z height to make the cylinder
-max_visits = 20  # Define the maximum number of times that the point can be visited
-max_iter = 100  # Maximum number of iteration to try catch a subgroup
-T_max = 150000  # Maximum travel budget
-n_resolution = 24  # Number of subdivision of the horizontal discretization
+# Variables loaded from config.yaml
+CA_max = -1  # Bigger number the route has more points
+max_route_radius = -1  # Bigger number the route increase the maximum radius of the points of view.
+points_per_sphere = -1  # Density of points in the radius. If the number increase density decrease
+height_proportion = -1  # The proportion of the tallest z height to make the cylinder
+max_visits = -1  # Define the maximum number of times that the point can be visited
+max_iter = -1  # Maximum number of iteration to try catch a subgroup
+T_max = -1  # Maximum travel budget
+n_resolution = -1  # Number of subdivision of the horizontal discretization
+points_per_unit = -1
+
 global settings
-
-
-def create_sample_data(target_positions: dict) -> tuple:
-    """
-    Function to create sample data without any link to reality.
-    :return targets_hull: The Delaunay data that gives the convex hull around each object
-    :return targets_center: The geometric center of each object
-    :return targets_points_of_view: The points of view generated out of the object
-    """
-    # targets_hull = {}
-    targets_center = {}
-    targets_points_of_view = {}
-    for i in range(3):
-        obj_name = f'O_{i}'
-        position = 20 * np.random.rand(4, 3) - 10
-        targets_center[obj_name] = np.mean(position, 0)
-        targets_points_of_view[obj_name] = 20 * np.random.rand(number_points_view, 6) - 10
-    return targets_center, targets_points_of_view
 
 
 def camera_view_evaluation(targets_points_of_view_cve: dict):
@@ -290,7 +274,7 @@ def get_points_to_route(route_points_gpfr: list[tuple], points_table_gpfr: list[
 def save_points(route_sp: dict, targets_points_of_view_sr: dict):
     print('Starting saving ...')
     route_points = np.empty([0, 6])
-    for target, data_s in route.items():
+    for target, data_s in route_sp.items():
         for data in data_s:
             point_start = targets_points_of_view_sr[target][data[0]]
             point_end = targets_points_of_view_sr[target][data[1]]
@@ -445,7 +429,8 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
             vector_points_pf[target] = np.empty([0, 6])
             vector_points_weight_pf[target] = []
         count_hemisphere = 0
-        weights = (max_route_radius - 1) * [0.0]
+        route_radius_dch = int(np.fix(max_route_radius // points_per_unit))
+        weights = (route_radius_dch - 1) * [0.0]
         for cell in get_geometric_objects_cell(cylinder):
             # print(f'{count_hemisphere} of {cylinder.n_cells}')
             hemisphere_radius = meshes['hemispheres'][count_hemisphere]['radius']  #
@@ -453,7 +438,7 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
             points_cell = cell.points[:3]
             norm_vec = find_normal_vector(*points_cell)
             roll, pitch, yaw = euler_angles_from_normal(-norm_vec)
-            for k in range(1, max_route_radius):
+            for k in range(1, route_radius_dch):
                 camera_distance = ((points_per_sphere * k) + 1) * hemisphere_radius
                 point_position = pos_cell + camera_distance * norm_vec
                 # spherical_area_dc = 2 * np.pi * hemisphere_radius ** 2
@@ -1136,7 +1121,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
     print('Starting writing problem file')
     subgroup_count = -1
     complete_file_name = dir_wpf + filename_wpf + '.cops'
-    print(f'{complete_file_name=}')
+    # print(f'{complete_file_name=}')
     with open(complete_file_name, 'w') as copsfile:
         for field_wpf in fieldnames:
             if field_wpf == 'NAME: ':
@@ -1229,7 +1214,6 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
                 route_str = row[8]
     except Exception as e:
         print(f"An error occurred: {e}")
-    print(ast.literal_eval(route_str.replace('  ', ',')))
     chose_subgroups = ast.literal_eval(route_str.replace('  ', ','))
     bigger_idx = 0
     table_rrcf = []
@@ -1312,6 +1296,17 @@ if __name__ == '__main__':
     # main_route = find_route(S)
     # save_points(main_route, targets_points_of_view)
     # points_of_view_contribution = camera_view_evaluation(targets_points_of_view)
+    settings = parse_settings_file('config.yaml')
+    CA_max = float(settings['CA_max'])
+    max_route_radius = float(settings['max route radius'])
+    points_per_sphere = int(settings['points per sphere'])
+    height_proportion = float(settings['height proportion'])
+    max_visits = int(settings['max visits'])
+    max_iter = int(settings['max iter'])
+    T_max = float(settings['T_max'])
+    n_resolution = int(settings['n resolution'])
+    points_per_unit = int(settings['points per unit'])
+
     copp = CoppeliaInterface()
     positions, target_hull, centroid_points, radius = initializations(copp)
     targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(centroid_points,
@@ -1333,7 +1328,6 @@ if __name__ == '__main__':
     # route_points = get_points_route(targets_points_of_view, main_route)
     # plot_route(centroid_points, radius, positions, route_points)
     #
-    settings = parse_settings_file('config.yaml')
     copp.handles[settings['quadcopter name']] = copp.sim.getObject(settings['quadcopter name'])
     copp.handles[settings['quadcopter base']] = copp.sim.getObject(settings['quadcopter base'])
     copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
