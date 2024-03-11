@@ -167,6 +167,8 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                                       prior_idx_s,
                                       max_idx_s))
                 prior_idx = max_idx
+            if iteration >= max_iter-1:
+                print('Decrease CA_max')
             if len(S[target][-1]) == 0:
                 S[target].pop()
             else:
@@ -623,8 +625,8 @@ def get_side_hemisphere_area(count_plane_gsha: int,
                                                              meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
                 is_in = True
                 break
-        alpha = 1 / (
-                1 + np.linalg.norm(ct_pt - np.array(meshes_gsha['hemispheres'][central_hemisphere_gsha]['center'])))
+        alpha = 1 #/ (
+                #1 + np.linalg.norm(ct_pt - np.array(meshes_gsha['hemispheres'][central_hemisphere_gsha]['center'])))
         if not is_in:
             if not point_between_planes(ct_pt, np.array(frustum_planes)):
                 area += 2 * alpha * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
@@ -975,8 +977,8 @@ def quadcopter_control_direct_points(sim, client, quad_target_handle, quad_base_
     # filename_qcdp = (settings['path'] + 'scene1/' + settings['filename'] + '_' + day + '_' + month + '_' + year + '_')
     for point_qcdp in route_qc:
         pos = list(point_qcdp[:3])
-        next_point_handle = sim.getObject('./new_target')
-        sim.setObjectPosition(next_point_handle, pos)
+        # next_point_handle = sim.getObject('./new_target')
+        # sim.setObjectPosition(next_point_handle, pos)
         # camera_orientation = sim.yawPitchRollToAlphaBetaGamma(point_qcdp[3], point_qcdp[4], point_qcdp[5])
         orientation = list(np.deg2rad(point_qcdp[3:]))
         orientation_angles = [0.0, 0.0, orientation[0]]
@@ -1051,8 +1053,8 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
     # count_target = 0
     for target_cewm, S_cewm_start in S_cewm.items():
         if i == 0 and j == 0:
-            edge_weight_matrix_cewm = np.zeros([((len(S_cewm_start)-1) * len(settings['object names']))-1,
-                                                ((len(S_cewm_start)-1) * len(settings['object names']))-1])
+            edge_weight_matrix_cewm = np.zeros([2*((len(S_cewm_start)-1) * len(settings['object names']))-1,
+                                                2*((len(S_cewm_start)-1) * len(settings['object names']))-1])
         for Si_cewm_start in S_cewm_start:
             j = 0
             # count_target_i = 0
@@ -1068,6 +1070,9 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
                 # count_target_i += 1
             i += 1
         # count_target += 1
+    i -= 1
+    j -= 1
+    edge_weight_matrix_cewm = edge_weight_matrix_cewm[:i, :j]
     return edge_weight_matrix_cewm
 
 
@@ -1128,7 +1133,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
     with open(complete_file_name, 'w') as copsfile:
         for field_wpf in fieldnames:
             if field_wpf == 'NAME: ':
-                copsfile.write(field_wpf + filename_wpf + '\n')
+                copsfile.write(field_wpf + filename_wpf + settings['directory name'] + '\n')
             if field_wpf == 'TYPE: ':
                 copsfile.write(field_wpf + 'TSP\n')
             if field_wpf == 'COMMENT: ':
@@ -1210,6 +1215,7 @@ def execute_script(script_path):
 
 def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dict):
     route_rrcf = np.empty([0, 6])
+    travelled_distance = 0
     try:
         with open(file_path, newline='', encoding='utf-8') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=';')
@@ -1235,11 +1241,13 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
                             pt_idx_post = element[2]
                             pt_prior_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_prior]
                             pt_post_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_post]
+                            travelled_distance += np.linalg.norm(pt_post_coordinates-pt_prior_coordinates)
                             if is_first_element:
                                 route_rrcf = np.row_stack((route_rrcf, pt_prior_coordinates, pt_post_coordinates))
                                 is_first_element = False
                             else:
                                 route_rrcf = np.row_stack((route_rrcf, pt_post_coordinates))
+    print(f'{travelled_distance=}')
     route_rrcf = np.row_stack((route_rrcf, route_rrcf[0]))
     return route_rrcf
 

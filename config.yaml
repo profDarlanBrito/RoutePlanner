@@ -3,7 +3,7 @@
 path: C:/Users/dnune/OneDrive/Documentos/VerLab/3D Reconstruction/Images/
 # The name of the image sequence without number sequence or extension
 filename: reconstruct
-directory name: scene1
+directory name: scene_cars
 #filename: reconstruct
 # Numerical sequence to image names. As an example if you want to save the images as calibimg1, calibimg2, ...
 #sequence: [40,186,523,602,727,772,874,950,1030,1280,1319,1422,1440,1585,1657,1795,1924,2187,2271,2295,2379,2398,2444,2537,2587,2622,2628,2751,2828,2859]
@@ -28,7 +28,7 @@ time to stabilize: 10.0
 # The displacement that the robot will do before the simulation stops
 max displacement: 0.5
 # The total maximum time of the simulation
-total simulation time: 0.5
+total simulation time: 0.2
 # The unit displacement of the robot in three-dimensional coordinates. You can not put the brackets [] symbol
 displacement: [0.0,0.1,-0.05]
 # The height of the checkerboard black squares corners. The height variable is the number of inner square corners of the calibration target
@@ -46,19 +46,19 @@ cam indexes: [[1, 2],[3, 4]]
 # Positions file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 20
+CA_max: 50
 # Bigger number the route increase the maximum radius of the points of view. # Proportion of hemisphere radius
-max route radius: 8
+max route radius: 15
 # Define the number of points by measure unit for points of view radius
 points per unit: 1
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 1
+points per sphere: 0.1
 # The proportion of the tallest z height to make the cylinder
-height proportion: 1.5
+height proportion: 1.6
 # Define the maximum number of times that the point can be visited
 max visits: 20
 # Maximum number of iteration to try catch a subgroup
-max iter: 100
+max iter: 10000
 # Maximum travel budget
 T_max: 150000
 # Number of subdivision of the horizontal discretization
