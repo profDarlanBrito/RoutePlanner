@@ -1343,14 +1343,14 @@ if __name__ == '__main__':
                                                                                                        positions)
     S = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
     edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
-    write_problem_file('C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/',
-                       '3dreconstructionPathPlanner',
+    write_problem_file(settings['COPS dataset'],
+                       settings['COPS problem'],
                        edge_weight_matrix,
                        3,
                        S)
     execute_script('script_path')
-    main_route = read_route_csv_file('C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/results/' +
-                                     '3dreconstructionPathPlanner.csv', S, targets_points_of_view)
+    main_route = read_route_csv_file(settings['COPS result'] +
+                                     settings['COPS problem'] + '.csv', S, targets_points_of_view)
 
     # main_route = get_points_to_route(route, conversion_table)
     # main_route = find_route(S)
