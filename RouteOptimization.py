@@ -37,7 +37,12 @@ global settings
 def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> None:
     try:
         # Execute the script using subprocess
-        process = subprocess.call(f'./scripts/reconstruction.bat {colmap_folder} {workspace_folder} {image_folder}')
+        process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                                    'automatic_reconstructor',
+                                    '--image_path',
+                                    image_folder,
+                                    '--workspace_path',
+                                    workspace_folder])
 
         # Wait for the process to finish
         stdout, stderr = process.communicate()
@@ -185,7 +190,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                                       prior_idx_s,
                                       max_idx_s))
                 prior_idx = max_idx
-            if iteration >= max_iter-1:
+            if iteration >= max_iter - 1:
                 print('Decrease CA_max')
             if len(S[target][-1]) == 0:
                 S[target].pop()
@@ -329,8 +334,8 @@ def initializations(copp) -> tuple:
             if handle < 0:
                 break
             positions[object_name_i] = np.row_stack((positions[object_name_i],
-                                                 copp.sim.getObjectPosition(handle,
-                                                                            copp.sim.handle_world)))
+                                                     copp.sim.getObjectPosition(handle,
+                                                                                copp.sim.handle_world)))
             i += 1
 
         targets_hull_i[object_name_i] = Delaunay(positions[object_name_i])
@@ -474,10 +479,10 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
                                                         hemisphere_radius,
                                                         camera_distance,
                                                         plotter))
-                    area = 0.001 * get_side_hemisphere_area(cylinder.n_cells,
-                                                            meshes,
-                                                            frustum_planes,
-                                                            count_hemisphere)
+                    area = get_side_hemisphere_area(cylinder.n_cells,
+                                                    meshes,
+                                                    frustum_planes,
+                                                    count_hemisphere)
                     weight = spherical_area_dc + area
                     weights[k - 1] = weight
                 else:
@@ -643,8 +648,8 @@ def get_side_hemisphere_area(count_plane_gsha: int,
                                                              meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
                 is_in = True
                 break
-        alpha = 1 #/ (
-                #1 + np.linalg.norm(ct_pt - np.array(meshes_gsha['hemispheres'][central_hemisphere_gsha]['center'])))
+        alpha = 1  # / (
+        # 1 + np.linalg.norm(ct_pt - np.array(meshes_gsha['hemispheres'][central_hemisphere_gsha]['center'])))
         if not is_in:
             if not point_between_planes(ct_pt, np.array(frustum_planes)):
                 area += 2 * alpha * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
@@ -979,7 +984,7 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
 
 
 def quadcopter_control_direct_points(sim, client, quad_target_handle, quad_base_handle, vision_handle: int,
-                                     route_qc: ndarray):
+                                     route_qc: ndarray, filename_qcdp: str, directory_name_qcdp: str):
     """
     This method is used to move the quadcopter in the CoppeliaSim scene to the position pos.
     :param route_qc:
@@ -1057,7 +1062,7 @@ def quadcopter_control_direct_points(sim, client, quad_target_handle, quad_base_
             #     break
             client.step()
 
-        get_image(sim, count_image, settings['filename'], vision_handle)
+        get_image(sim, count_image, filename_qcdp, vision_handle, directory_name_qcdp)
         count_image += 1
         # if not stabilized:
         #     print('Time short')
@@ -1071,8 +1076,8 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
     # count_target = 0
     for target_cewm, S_cewm_start in S_cewm.items():
         if i == 0 and j == 0:
-            edge_weight_matrix_cewm = np.zeros([2*((len(S_cewm_start)-1) * len(settings['object names']))-1,
-                                                2*((len(S_cewm_start)-1) * len(settings['object names']))-1])
+            edge_weight_matrix_cewm = np.zeros([2 * ((len(S_cewm_start) - 1) * len(settings['object names'])) - 1,
+                                                2 * ((len(S_cewm_start) - 1) * len(settings['object names'])) - 1])
         for Si_cewm_start in S_cewm_start:
             j = 0
             # count_target_i = 0
@@ -1095,7 +1100,7 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
 
 
 def ConvertArray2String(fileCA2S, array: ndarray):
-    np.set_printoptions(threshold=10000000)
+    np.set_printoptions(threshold=10000000000)
     array_str = np.array2string(array, precision=5)
     array_str = array_str.replace('\n', '')
     array_str = array_str.replace('[', '')
@@ -1231,8 +1236,10 @@ def execute_script(script_path):
         print("An error occurred:", e)
 
 
-def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dict):
+def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dict) -> tuple[
+    ndarray, float, list[ndarray]]:
     route_rrcf = np.empty([0, 6])
+    route_by_group = [np.empty([0, 6])] * len(settings['object names'])
     travelled_distance = 0
     try:
         with open(file_path, newline='', encoding='utf-8') as csvfile:
@@ -1247,7 +1254,9 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
     for target_rrcf, points_rrcf in targets_points_of_vew_rrcf.items():
         table_rrcf.append([target_rrcf, bigger_idx, bigger_idx + points_rrcf.shape[0]])
         bigger_idx += points_rrcf.shape[0] + 1
-
+    count_group = 0
+    is_group_zero = True
+    is_group_zero_zero = True
     for S_idx_rrcf in chose_subgroups:
         for information_rrcf in table_rrcf:
             if information_rrcf[1] <= S_idx_rrcf <= information_rrcf[2]:
@@ -1259,18 +1268,30 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
                             pt_idx_post = element[2]
                             pt_prior_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_prior]
                             pt_post_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_post]
-                            travelled_distance += np.linalg.norm(pt_post_coordinates-pt_prior_coordinates)
+                            travelled_distance += np.linalg.norm(pt_post_coordinates[:3] - pt_prior_coordinates[:3])
                             if is_first_element:
                                 route_rrcf = np.row_stack((route_rrcf, pt_prior_coordinates, pt_post_coordinates))
                                 is_first_element = False
+                                if is_group_zero_zero:
+                                    is_group_zero_zero = False
+                                else:
+                                    route_by_group[count_group] = np.row_stack((route_by_group[count_group],
+                                                                                pt_prior_coordinates,
+                                                                                pt_post_coordinates))
                             else:
                                 route_rrcf = np.row_stack((route_rrcf, pt_post_coordinates))
+                                route_by_group[count_group] = np.row_stack(
+                                    (route_by_group[count_group], pt_post_coordinates))
+        if is_group_zero:
+            is_group_zero = False
+        else:
+            count_group += 1
     print(f'{travelled_distance=}')
     route_rrcf = np.row_stack((route_rrcf, route_rrcf[0]))
-    return route_rrcf
+    return route_rrcf, travelled_distance, route_by_group
 
 
-def get_image(sim, sequence: int, file_name: str, vision_handle: int):
+def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_name_gi: str):
     """
     Method used to get the image from vision sensor on coppeliaSim and save the image in a file.
     The vision handle must be previously loaded.
@@ -1283,7 +1304,7 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int):
     img = np.frombuffer(img, dtype=np.uint8).reshape(resolution[1], resolution[0], 3)
 
     # Define the directory name
-    directory_name = settings['directory name']
+    directory_name = directory_name_gi
 
     # Specify the path where you want to create the directory
     path = settings['path']  # You can specify any desired path here
@@ -1337,40 +1358,91 @@ if __name__ == '__main__':
     points_per_unit = int(settings['points per unit'])
 
     copp = CoppeliaInterface()
-    positions, target_hull, centroid_points, radius = initializations(copp)
-    targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(centroid_points,
-                                                                                                       radius,
-                                                                                                       positions)
-    S = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
-    edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
-    write_problem_file('C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/',
-                       '3dreconstructionPathPlanner',
-                       edge_weight_matrix,
-                       3,
-                       S)
-    execute_script('script_path')
-    main_route = read_route_csv_file('C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/results/' +
-                                     '3dreconstructionPathPlanner.csv', S, targets_points_of_view)
+    for experiment in range(10):
+        positions, target_hull, centroid_points, radius = initializations(copp)
+        targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(
+            centroid_points,
+            radius,
+            positions)
+        S = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
+        edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
+        write_problem_file('C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/',
+                           '3dreconstructionPathPlanner',
+                           edge_weight_matrix,
+                           3,
+                           S)
+        execute_script('script_path')
+        main_route, travelled_distance_main, route_by_group = read_route_csv_file(
+            'C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/results/' +
+            '3dreconstructionPathPlanner.csv', S, targets_points_of_view)
 
-    # main_route = get_points_to_route(route, conversion_table)
-    # main_route = find_route(S)
-    # route_points = get_points_route(targets_points_of_view, main_route)
-    # plot_route(centroid_points, radius, positions, route_points)
-    #
-    copp.handles[settings['quadcopter name']] = copp.sim.getObject(settings['quadcopter name'])
-    copp.handles[settings['quadcopter base']] = copp.sim.getObject(settings['quadcopter base'])
-    copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
-    quadcopter_control_direct_points(copp.sim,
-                                     copp.client,
-                                     copp.handles[settings['quadcopter name']],
-                                     copp.handles[settings['quadcopter base']],
-                                     copp.handles[settings['vision sensor names']],
-                                     main_route)
-    
-    colmap_folder = ''
-    workspace_folder = ''
-    images_folder = ''
-    run_colmap(colmap_folder, workspace_folder, images_folder)
-    # copp.sim.stopSimulation()
+        # main_route = get_points_to_route(route, conversion_table)
+        # main_route = find_route(S)
+        # route_points = get_points_route(targets_points_of_view, main_route)
+        # plot_route(centroid_points, radius, positions, route_points)
+        #
+        copp.handles[settings['quadcopter name']] = copp.sim.getObject(settings['quadcopter name'])
+        copp.handles[settings['quadcopter base']] = copp.sim.getObject(settings['quadcopter base'])
+        copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
+        filename = settings['filename']
+        directory_name = settings['directory name'] + f'_exp_{experiment}'
+        quadcopter_control_direct_points(copp.sim,
+                                         copp.client,
+                                         copp.handles[settings['quadcopter name']],
+                                         copp.handles[settings['quadcopter base']],
+                                         copp.handles[settings['vision sensor names']],
+                                         main_route,
+                                         filename,
+                                         directory_name)
+        # Get the current date and time
+        current_datetime = datetime.datetime.now()
+        colmap_folder = settings['colmap folder']
+        month = str(current_datetime.month)
+        day = str(current_datetime.day)
+        hour = str(current_datetime.hour)
+        minute = str(current_datetime.minute)
+        workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
+
+        # Check if the directory already exists
+        if not os.path.exists(workspace_folder):
+            # Create the directory
+            os.makedirs(workspace_folder)
+        with open(workspace_folder + '/distance.txt', 'w') as distance_file:
+            distance_file.write(str(travelled_distance_main))
+        distance_file.close()
+        images_folder = os.path.join(settings['path'], directory_name)
+        run_colmap(colmap_folder, workspace_folder, str(images_folder))
+
+        for route, count_group in zip(route_by_group, range(len(route_by_group))):
+            filename = settings['filename']
+            directory_name = settings['directory name'] + f'_exp_{experiment}_group_{count_group}'
+            quadcopter_control_direct_points(copp.sim,
+                                             copp.client,
+                                             copp.handles[settings['quadcopter name']],
+                                             copp.handles[settings['quadcopter base']],
+                                             copp.handles[settings['vision sensor names']],
+                                             main_route,
+                                             filename,
+                                             directory_name)
+
+            workspace_folder = os.path.join(settings['workspace folder'],
+                                            f'exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{count_group}')
+
+            # Check if the directory already exists
+            if not os.path.exists(workspace_folder):
+                # Create the directory
+                os.makedirs(workspace_folder)
+            travelled_distance_main = 0
+            for i in range(route.shape[0]):
+                for j in range(i+1, route.shape[0]):
+                    travelled_distance_main += np.linalg.norm(route[i, :3] - route[j, :3])
+
+            with open(workspace_folder + '/distance.txt', 'w') as distance_file:
+                distance_file.write(str(travelled_distance_main))
+            distance_file.close()
+            images_folder = os.path.join(settings['path'], directory_name)
+            run_colmap(colmap_folder, workspace_folder, str(images_folder))
+
+    copp.sim.stopSimulation()
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
