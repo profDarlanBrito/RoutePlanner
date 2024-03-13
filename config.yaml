@@ -51,19 +51,19 @@ cam indexes: [[1, 2],[3, 4]]
 # Positions file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 10
+CA_max: 500
 # Bigger number the route increase the maximum radius of the points of view. # Proportion of hemisphere radius
-max route radius: 3
+max route radius: 30
 # Define the number of points by measure unit for points of view radius
-points per unit: 1
+points per unit: 10
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 1
+points per sphere: 0.1
 # The proportion of the tallest z height to make the cylinder
-height proportion: 1.6
+height proportion: 2
 # Define the maximum number of times that the point can be visited
-max visits: 20
+max visits: 50
 # Maximum number of iteration to try catch a subgroup
-max iter: 1000000
+max iter: 1000
 # Maximum travel budget
 T_max: 150000
 # Number of subdivision of the horizontal discretization

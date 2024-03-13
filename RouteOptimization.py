@@ -98,6 +98,7 @@ def statistics_colmap(colmap_folder, workspace_folder):
                                             '--path',
                                             statistic_folder], shell=True, stderr=subprocess.STDOUT, universal_newlines=True) as process:
                     output, _ = process.communicate()  # Capture stdout and ignore stderr
+                    print(output)
 
                     # Save the output to a file
                     # with open('stat.txt', 'w') as file:
@@ -183,36 +184,37 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                 indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=20)
                 max_contribution = 0
                 for index in indexes_of_points:
-                    if index in idx_list:
-                        continue
-                    is_point_inside_sf = False
-                    is_line_through_convex_hull_sf = False
-                    for target_compare, hull_sf in targets_border_sf.items():
-
-                        is_point_inside_sf = is_point_inside(points[index, :3], hull_sf)
-                        if is_point_inside_sf:
-                            break
-                        line_points = points_along_line(target_points_of_view_sf[target][prior_idx, :3],
-                                                        target_points_of_view_sf[target][index, :3], 20)
-                        # point_cloud = pv.PolyData(positions_sf[target_compare])
-                        # plotter_sf.add_mesh(point_cloud)
-                        # points_line = pv.PolyData(line_points)
-                        # plotter_sf.add_mesh(points_line, color='red')
-                        # pl_sf = pv.Plotter()
-                        # meshes = plotter_sf.meshes
-                        # for mesh in meshes:
-                        #     pl_sf.add_mesh(mesh)
-                        # pl_sf.show()
-                        is_line_through_convex_hull_sf = is_line_through_convex_hull(hull_sf, line_points)
-                        if is_line_through_convex_hull_sf:
-                            break
-                    if is_point_inside_sf:
-                        continue
-                    if is_line_through_convex_hull_sf:
-                        continue
+                    # if index in idx_list:
+                    #     continue
+                    # is_point_inside_sf = False
+                    # is_line_through_convex_hull_sf = False
+                    # for target_compare, hull_sf in targets_border_sf.items():
+                    #
+                    #     is_point_inside_sf = is_point_inside(points[index, :3], hull_sf)
+                    #     if is_point_inside_sf:
+                    #         break
+                    #     line_points = points_along_line(target_points_of_view_sf[target][prior_idx, :3],
+                    #                                     target_points_of_view_sf[target][index, :3], 20)
+                    #     # point_cloud = pv.PolyData(positions_sf[target_compare])
+                    #     # plotter_sf.add_mesh(point_cloud)
+                    #     # points_line = pv.PolyData(line_points)
+                    #     # plotter_sf.add_mesh(points_line, color='red')
+                    #     # pl_sf = pv.Plotter()
+                    #     # meshes = plotter_sf.meshes
+                    #     # for mesh in meshes:
+                    #     #     pl_sf.add_mesh(mesh)
+                    #     # pl_sf.show()
+                    #     is_line_through_convex_hull_sf = is_line_through_convex_hull(hull_sf, line_points)
+                    #     if is_line_through_convex_hull_sf:
+                    #         break
+                    # if is_point_inside_sf:
+                    #     continue
+                    # if is_line_through_convex_hull_sf:
+                    #     continue
                     distance_p2p = np.linalg.norm(
                         target_points_of_view_sf[target][prior_idx, :3] - target_points_of_view_sf[target][index, :3])
                     contribution = abs(abs(points_of_view_contribution_sf[target][index]) - distance_p2p)
+                    # contribution = abs(abs(points_of_view_contribution_sf[target][index]))
                     if contribution > max_contribution:
                         max_idx = index
                         max_contribution = abs(points_of_view_contribution_sf[target][index])
@@ -255,6 +257,8 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                 S[target].pop()
             else:
                 subgroup_idx += 1
+            print(f'{CA=}')
+            print(f'{len(S[target][-1])=}')
         length += points.shape[0]
         is_first_target = False
         cont_target += 1
@@ -1235,7 +1239,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
             if field_wpf == 'DUBINS_RADIUS: ':
                 copsfile.write(field_wpf + '50' + '\n')
             if field_wpf == 'EDGE_WEIGHT_TYPE: ':
-                copsfile.write(field_wpf + 'EXPLICIT' + '\n')
+                copsfile.write(field_wpf + 'IMPLICIT' + '\n')
             if field_wpf == 'EDGE_WEIGHT_FORMAT: ':
                 copsfile.write(field_wpf + 'FULL_MATRIX' + '\n')
             if field_wpf == 'EDGE_WEIGHT_SECTION':
@@ -1425,14 +1429,14 @@ if __name__ == '__main__':
             positions)
         S = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
         edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
-        write_problem_file('C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/',
+        write_problem_file('./datasets/',
                            '3dreconstructionPathPlanner',
                            edge_weight_matrix,
                            3,
                            S)
         execute_script('script_path')
         main_route, travelled_distance_main, route_by_group = read_route_csv_file(
-            'C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/results/' +
+            './datasets/results/' +
             '3dreconstructionPathPlanner.csv', S, targets_points_of_view)
 
         # main_route = get_points_to_route(route, conversion_table)
@@ -1444,21 +1448,21 @@ if __name__ == '__main__':
         # copp.handles[settings['quadcopter base']] = copp.sim.getObject(settings['quadcopter base'])
         copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
         filename = settings['filename']
-        directory_name = settings['directory name'] + f'_exp_{experiment}'
+        # Get the current date and time
+        current_datetime = datetime.datetime.now()
+        month = str(current_datetime.month)
+        day = str(current_datetime.day)
+        hour = str(current_datetime.hour)
+        minute = str(current_datetime.minute)
+        workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
+        directory_name = settings['directory name'] + f'exp_{experiment}_{day}_{month}_{hour}_{minute}'
         quadcopter_control_direct_points(copp.sim,
                                          copp.client,
                                          copp.handles[settings['vision sensor names']],
                                          main_route,
                                          filename,
                                          directory_name)
-        # Get the current date and time
-        current_datetime = datetime.datetime.now()
         colmap_folder = settings['colmap folder']
-        month = str(current_datetime.month)
-        day = str(current_datetime.day)
-        hour = str(current_datetime.hour)
-        minute = str(current_datetime.minute)
-        workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
 
         # Check if the directory already exists
         if not os.path.exists(workspace_folder):
@@ -1499,7 +1503,6 @@ if __name__ == '__main__':
             images_folder = os.path.join(settings['path'], directory_name)
             if os.name != 'posix':
                 run_colmap(colmap_folder, workspace_folder, str(images_folder))
-                statistics_colmap(colmap_folder, workspace_folder)
             else:
                 run_colmap_linux(images_folder, workspace_folder)
 
