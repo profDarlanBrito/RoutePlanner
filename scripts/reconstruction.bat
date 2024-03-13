@@ -32,8 +32,7 @@ if not exist %IMAGES_PATH% (
 @echo Save statistics about reconstructions
 for /d %%A in (%WORKSPACE_PATH%\sparse\*) do (
     %COLMAP% model_analyzer ^
-        --path %%A ^
-        > %%A\stats.txt 2>&1
+        --path %%A > %%A\stats.txt 2>&1
 
     %COLMAP% model_converter ^
         --input_path %%A ^
