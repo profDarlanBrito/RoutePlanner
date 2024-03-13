@@ -93,25 +93,25 @@ def statistics_colmap(colmap_folder, workspace_folder):
                 #                             './stat.txt',
                 #                             '2>&1'])
                 # Open the .bat file and capture its output
-                with subprocess.check_output([colmap_folder + 'COLMAP.bat',
+                with subprocess.run([colmap_folder + 'COLMAP.bat',
                                             'model_analyzer',
                                             '--path',
                                             statistic_folder], shell=True, stderr=subprocess.STDOUT, universal_newlines=True) as process:
-                    output, stderr = process.communicate()  # Capture stdout and ignore stderr
+                    output, _ = process.communicate()  # Capture stdout and ignore stderr
 
                     # Save the output to a file
-                    with open('stat.txt', 'w') as file:
-                        file.write(output)
+                    # with open('stat.txt', 'w') as file:
+                    #     file.write(output)
 
                 # Wait for the process to finish
                 # stdout, stderr = process.communicate()
 
                 # Check if there were any errors
-                if process.returncode != 0:
-                    print("Error executing script:")
-                    print(stderr.decode('utf-8'))
-                else:
-                    print("Script executed successfully.")
+                # if process.returncode != 0:
+                #     print("Error executing script:")
+                #     print(stderr.decode('utf-8'))
+                # else:
+                #     print("Script executed successfully.")
     except Exception as e:
         print("An error occurred:", e)
 
