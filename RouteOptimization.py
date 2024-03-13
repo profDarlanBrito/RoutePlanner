@@ -34,6 +34,26 @@ points_per_unit = -1
 global settings
 
 
+def run_colmap_linux(image_folder, workspace_folder):
+    try:
+        if os.path.exists(workspace_folder):
+            # Execute the script using subprocess
+            process = subprocess.Popen(['./scripts/reconstruction.sh',
+                                        workspace_folder,
+                                        image_folder])
+
+            # Wait for the process to finish
+            stdout, stderr = process.communicate()
+
+            # Check if there were any errors
+            if process.returncode != 0:
+                print("Error executing script:")
+                print(stderr.decode('utf-8'))
+            else:
+                print("Script executed successfully.")
+    except Exception as e:
+        print("An error ocurred")
+
 def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> None:
     try:
         # Execute the script using subprocess
@@ -53,6 +73,45 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> 
             print(stderr.decode('utf-8'))
         else:
             print("Script executed successfully.")
+    except Exception as e:
+        print("An error occurred:", e)
+
+
+def statistics_colmap(colmap_folder, workspace_folder):
+    print('Creating colmap statistics.')
+    i = 0
+    try:
+        while True:
+            statistic_folder = os.path.join(workspace_folder, f'sparse/{i}/')
+            if os.path.exists(statistic_folder):
+                # Execute the script using subprocess
+                # process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                #                             'model_analyzer',
+                #                             '--path',
+                #                             statistic_folder,
+                #                             '>',
+                #                             './stat.txt',
+                #                             '2>&1'])
+                # Open the .bat file and capture its output
+                with subprocess.check_output([colmap_folder + 'COLMAP.bat',
+                                            'model_analyzer',
+                                            '--path',
+                                            statistic_folder], shell=True, stderr=subprocess.STDOUT, universal_newlines=True) as process:
+                    output, stderr = process.communicate()  # Capture stdout and ignore stderr
+
+                    # Save the output to a file
+                    with open('stat.txt', 'w') as file:
+                        file.write(output)
+
+                # Wait for the process to finish
+                # stdout, stderr = process.communicate()
+
+                # Check if there were any errors
+                if process.returncode != 0:
+                    print("Error executing script:")
+                    print(stderr.decode('utf-8'))
+                else:
+                    print("Script executed successfully.")
     except Exception as e:
         print("An error occurred:", e)
 
@@ -1431,14 +1490,18 @@ if __name__ == '__main__':
                 os.makedirs(workspace_folder)
             travelled_distance_main = 0
             for i in range(route.shape[0]):
-                for j in range(i+1, route.shape[0]):
+                for j in range(i + 1, route.shape[0]):
                     travelled_distance_main += np.linalg.norm(route[i] - route[j])
 
             with open(workspace_folder + '/distance.txt', 'w') as distance_file:
                 distance_file.write(str(travelled_distance_main))
             distance_file.close()
             images_folder = os.path.join(settings['path'], directory_name)
-            run_colmap(colmap_folder, workspace_folder, str(images_folder))
+            if os.name != 'posix':
+                run_colmap(colmap_folder, workspace_folder, str(images_folder))
+                statistics_colmap(colmap_folder, workspace_folder)
+            else:
+                run_colmap_linux(images_folder, workspace_folder)
 
     copp.sim.stopSimulation()
 
