@@ -121,7 +121,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
             iteration = 0
             while CA < CA_max and iteration < max_iter:
                 iteration += 1
-                indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=10)
+                indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=20)
                 max_contribution = 0
                 for index in indexes_of_points:
                     if index in idx_list:
@@ -983,7 +983,7 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
                 print('Time short')
 
 
-def quadcopter_control_direct_points(sim, client, quad_target_handle, quad_base_handle, vision_handle: int,
+def quadcopter_control_direct_points(sim, client, vision_handle: int,
                                      route_qc: ndarray, filename_qcdp: str, directory_name_qcdp: str):
     """
     This method is used to move the quadcopter in the CoppeliaSim scene to the position pos.
@@ -1381,15 +1381,13 @@ if __name__ == '__main__':
         # route_points = get_points_route(targets_points_of_view, main_route)
         # plot_route(centroid_points, radius, positions, route_points)
         #
-        copp.handles[settings['quadcopter name']] = copp.sim.getObject(settings['quadcopter name'])
-        copp.handles[settings['quadcopter base']] = copp.sim.getObject(settings['quadcopter base'])
+        # copp.handles[settings['quadcopter name']] = copp.sim.getObject(settings['quadcopter name'])
+        # copp.handles[settings['quadcopter base']] = copp.sim.getObject(settings['quadcopter base'])
         copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
         filename = settings['filename']
         directory_name = settings['directory name'] + f'_exp_{experiment}'
         quadcopter_control_direct_points(copp.sim,
                                          copp.client,
-                                         copp.handles[settings['quadcopter name']],
-                                         copp.handles[settings['quadcopter base']],
                                          copp.handles[settings['vision sensor names']],
                                          main_route,
                                          filename,
@@ -1419,8 +1417,6 @@ if __name__ == '__main__':
                               f'_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}')
             quadcopter_control_direct_points(copp.sim,
                                              copp.client,
-                                             copp.handles[settings['quadcopter name']],
-                                             copp.handles[settings['quadcopter base']],
                                              copp.handles[settings['vision sensor names']],
                                              route,
                                              filename,

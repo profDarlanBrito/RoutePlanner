@@ -3,7 +3,7 @@
 path: C:/Users/dnune/OneDrive/Documentos/VerLab/3D_Reconstruction/Images/
 # The name of the image sequence without number sequence or extension
 filename: reconstruct
-directory name: scene_cars
+directory name: scene_builds
 # Path to save the COPS configuration file
 COPS dataset: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/
 # Path to write COPS result
@@ -51,13 +51,13 @@ cam indexes: [[1, 2],[3, 4]]
 # Positions file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 25
+CA_max: 250
 # Bigger number the route increase the maximum radius of the points of view. # Proportion of hemisphere radius
-max route radius: 15
+max route radius: 40
 # Define the number of points by measure unit for points of view radius
-points per unit: 5
+points per unit: 7
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 0.5
+points per sphere: 0.3
 # The proportion of the tallest z height to make the cylinder
 height proportion: 1.6
 # Define the maximum number of times that the point can be visited
@@ -69,7 +69,7 @@ T_max: 150000
 # Number of subdivision of the horizontal discretization
 n resolution: 24
 #Object names like on CoppeliaSim
-object names: [T_type, Bobcat, Bens_G63]
+object names: [Casa_Velha, Chinese_Old_Build, Old_Build, West_Build]
 # Path to colmap
 colmap folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP-3.9.1-windows-cuda/COLMAP-3.9.1-windows-cuda/
 # Workspace folder to colmap
