@@ -62,7 +62,9 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> 
                                     '--image_path',
                                     image_folder,
                                     '--workspace_path',
-                                    workspace_folder])
+                                    workspace_folder,
+                                    '--dense',
+                                    str(0)])
 
         # Wait for the process to finish
         stdout, stderr = process.communicate()
@@ -264,6 +266,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
         length += points.shape[0]
         is_first_target = False
         cont_target += 1
+        print(f'{target=} has {len(S[target])=} groups')
     return S
 
 # def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict,
