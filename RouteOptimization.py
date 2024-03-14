@@ -1283,8 +1283,8 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
 def execute_script(script_path):
     try:
         # Execute the script using subprocess
-        process = subprocess.Popen(['python', 'C:/Users/dnune/OneDrive/Documentos/VerLab/COPS/tabu_search.py',
-                                    '--path=./datasets/3dreconstructionPathPlanner.cops'], stdout=subprocess.PIPE,
+        process = subprocess.Popen(['python', settings['COPS path'] + 'tabu_search.py',
+                                    '--path=./datasets/' + settings['COPS problem']], stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
         # Wait for the process to finish
