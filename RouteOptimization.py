@@ -266,7 +266,6 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
         cont_target += 1
     return S
 
-
 # def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict,
 #                        target_points_of_view_sf: dict, positions_sf: dict) -> dict:
 #     print('Starting subgroup formation')
