@@ -253,12 +253,14 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                 prior_idx = max_idx
             if iteration >= max_iter - 1:
                 print('Decrease CA_max')
+                print(f'{CA=}')
+                print(f'{len(S[target][-1])=}')
             if len(S[target][-1]) == 0:
                 S[target].pop()
             else:
                 subgroup_idx += 1
-            print(f'{CA=}')
-            print(f'{len(S[target][-1])=}')
+            # print(f'{CA=}')
+            # print(f'{len(S[target][-1])=}')
         length += points.shape[0]
         is_first_target = False
         cont_target += 1
