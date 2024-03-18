@@ -19,6 +19,7 @@ import csv
 import ast
 import cv2 as cv
 import datetime
+import platform
 
 # Variables loaded from config.yaml
 CA_max = -1  # Bigger number the route has more points
@@ -54,6 +55,7 @@ def run_colmap_linux(image_folder, workspace_folder):
     except Exception as e:
         print("An error ocurred")
 
+
 def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> None:
     try:
         # Execute the script using subprocess
@@ -79,12 +81,12 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> 
         print("An error occurred:", e)
 
 
-def statistics_colmap(colmap_folder, workspace_folder):
+def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty(0)) -> ndarray | None:
     print('Creating colmap statistics.')
     i = 0
     try:
         while True:
-            statistic_folder = os.path.join(workspace_folder, f'sparse/{i}/')
+            statistic_folder = os.path.join(workspace_folder_sc, f'sparse/{i}/')
             if os.path.exists(statistic_folder):
                 # Execute the script using subprocess
                 # process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
@@ -95,12 +97,10 @@ def statistics_colmap(colmap_folder, workspace_folder):
                 #                             './stat.txt',
                 #                             '2>&1'])
                 # Open the .bat file and capture its output
-                with subprocess.run([colmap_folder + 'COLMAP.bat',
-                                            'model_analyzer',
-                                            '--path',
-                                            statistic_folder], shell=True, stderr=subprocess.STDOUT, universal_newlines=True) as process:
-                    output, _ = process.communicate()  # Capture stdout and ignore stderr
-                    print(output)
+                with subprocess.Popen([colmap_folder_sc + 'COLMAP.bat', 'model_analyzer', '--path',
+                                       statistic_folder], shell=True, text=True, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE) as process:
+                    output, stderr = process.communicate(timeout=10)  # Capture stdout and ignore stderr
 
                     # Save the output to a file
                     # with open('stat.txt', 'w') as file:
@@ -110,11 +110,38 @@ def statistics_colmap(colmap_folder, workspace_folder):
                 # stdout, stderr = process.communicate()
 
                 # Check if there were any errors
-                # if process.returncode != 0:
-                #     print("Error executing script:")
-                #     print(stderr.decode('utf-8'))
-                # else:
-                #     print("Script executed successfully.")
+                if process.returncode != 0:
+                    print("Error executing script:")
+                    print(stderr.decode('utf-8'))
+                else:
+                    if output is not None:
+                        print(output)
+                    if stderr is None:
+                        print('model_analyzer do not show any data')
+                        return
+                    else:
+                        print(stderr)
+                        points_value_idx = stderr.find(':', stderr.find('Points')) + 1
+                        number_of_points = int(stderr[points_value_idx: stderr.find('\n', points_value_idx)])
+                        error_value_idx = stderr.find(':', stderr.find('Mean reprojection error')) + 1
+                        error_value = float(stderr[error_value_idx: stderr.find('p', error_value_idx)])
+                        MNRE = error_value / number_of_points
+                        with open(statistic_folder + 'MNRE.txt', 'w') as statistic_file:
+                            statistic_file.write(f'MNRE: {MNRE}\n')
+                            statistic_file.write(f'Mean reprojection error: {error_value}\n')
+                            statistic_file.write(f'Points: {number_of_points}')
+
+                        with open(statistic_folder + 'stat.txt', 'w') as stat_file:
+                            stat_file.write(stderr)
+
+                        MNRE_array = np.concatenate((MNRE_array, [MNRE]))
+                    print("COLMAP data model analyzer executed successfully.")
+            else:
+                break
+            # statistic_file.close()
+            # stat_file.close()
+            i += 1
+        return MNRE_array
     except Exception as e:
         print("An error occurred:", e)
 
@@ -268,6 +295,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
         cont_target += 1
         print(f'{target=} has {len(S[target])=} groups')
     return S
+
 
 # def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict,
 #                        target_points_of_view_sf: dict, positions_sf: dict) -> dict:
@@ -523,7 +551,7 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
             vector_points_pf[target] = np.empty([0, 6])
             vector_points_weight_pf[target] = []
         count_hemisphere = 0
-        route_radius_dch = int(np.fix(max_route_radius // points_per_unit))
+        route_radius_dch = int(np.fix(max_route_radius / points_per_unit))
         weights = (route_radius_dch - 1) * [0.0]
         for cell in get_geometric_objects_cell(cylinder):
             # print(f'{count_hemisphere} of {cylinder.n_cells}')
@@ -1217,67 +1245,73 @@ def copy_file(source_path, destination_path):
 def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: ndarray, number_of_targets: int,
                        S_wpf: dict):
     print('Starting writing problem file')
-    subgroup_count = -1
+    subgroup_count = 0
     complete_file_name = dir_wpf + filename_wpf + '.cops'
     # print(f'{complete_file_name=}')
     with open(complete_file_name, 'w') as copsfile:
         for field_wpf in fieldnames:
             if field_wpf == 'NAME: ':
                 copsfile.write(field_wpf + filename_wpf + settings['directory name'] + '\n')
-            if field_wpf == 'TYPE: ':
+            elif field_wpf == 'TYPE: ':
                 copsfile.write(field_wpf + 'TSP\n')
-            if field_wpf == 'COMMENT: ':
+            elif field_wpf == 'COMMENT: ':
                 copsfile.write(field_wpf + 'Optimization for reconstruction\n')
-            if field_wpf == 'DIMENSION: ':
+            elif field_wpf == 'DIMENSION: ':
                 copsfile.write(field_wpf + str(subgroup_count) + '\n')
-            if field_wpf == 'TMAX: ':
+            elif field_wpf == 'TMAX: ':
                 copsfile.write(field_wpf + str(T_max) + '\n')
-            if field_wpf == 'START_CLUSTER: ':
+            elif field_wpf == 'START_CLUSTER: ':
                 copsfile.write(field_wpf + '0\n')
-            if field_wpf == 'END_CLUSTER: ':
+            elif field_wpf == 'END_CLUSTER: ':
                 copsfile.write(field_wpf + '0\n')
-            if field_wpf == 'CLUSTERS: ':
+            elif field_wpf == 'CLUSTERS: ':
                 copsfile.write(field_wpf + str(number_of_targets) + '\n')
-            if field_wpf == 'SUBGROUPS: ':
+            elif field_wpf == 'SUBGROUPS: ':
                 copsfile.write(field_wpf + str(subgroup_count) + '\n')
-            if field_wpf == 'DUBINS_RADIUS: ':
+            elif field_wpf == 'DUBINS_RADIUS: ':
                 copsfile.write(field_wpf + '50' + '\n')
-            if field_wpf == 'EDGE_WEIGHT_TYPE: ':
+            elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
                 copsfile.write(field_wpf + 'IMPLICIT' + '\n')
-            if field_wpf == 'EDGE_WEIGHT_FORMAT: ':
+            elif field_wpf == 'EDGE_WEIGHT_FORMAT: ':
                 copsfile.write(field_wpf + 'FULL_MATRIX' + '\n')
-            if field_wpf == 'EDGE_WEIGHT_SECTION':
+            elif field_wpf == 'EDGE_WEIGHT_SECTION':
                 copsfile.write(field_wpf + '\n')
                 ConvertArray2String(copsfile, edge_weight_matrix_wpf)
-            if subgroup_count == -1:
-                for target_wpf, S_spf in S_wpf.items():
-                    for lS_spf in S_spf:
-                        subgroup_count += 1
-
-            if field_wpf == 'GTSP_SUBGROUP_SECTION: ':
-                copsfile.write(field_wpf + 'cluster_id cluster_profit id-vertex-list' + '\n')
-                # count_target = 0
-                for target_wpf, S_spf in S_wpf.items():
-                    for lS_spf in S_spf:
-                        copsfile.write(f'{lS_spf[0][0]} {lS_spf[-1][-1]} {lS_spf[0][6]} ')
-                        for vertex in lS_spf:
-                            copsfile.write(f'{vertex[7]} ')
-                        copsfile.write('\n')
-
-            if field_wpf == 'GTSP_CLUSTER_SECTION: ':
-                copsfile.write(field_wpf + 'set_id id-cluster-list\n')
+            elif field_wpf == 'GTSP_SUBGROUP_SECTION: ':
+                copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
                 count_cluster = 0
+                GTSP_CLUSTER_SECTION_str = ''
                 for target_wpf, S_spf in S_wpf.items():
-                    copsfile.write(str(count_cluster) + ' ')
-                    count_cluster += 1
+                    GTSP_CLUSTER_SECTION_str += f'{count_cluster} '
                     for lS_spf in S_spf:
-                        copsfile.write(str(lS_spf[0][0]) + ' ')
-                        subgroup_count -= 1
-                        if subgroup_count <= 0:
-                            break
-                    copsfile.write('\n')
-                if subgroup_count == 0:
-                    break
+                        copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][-1]} {lS_spf[0][6]} " +
+                                       ' '.join(str(vertex[7]) for vertex in lS_spf) + '\n')
+                        GTSP_CLUSTER_SECTION_str += f'{lS_spf[0][0]} '
+                    GTSP_CLUSTER_SECTION_str += '\n'
+                    count_cluster += 1
+                print('finish')
+            elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
+                # copsfile.write(field_wpf + 'set_id id-cluster-list\n')
+                copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
+                # count_cluster = 0
+                # for target_wpf, S_spf in S_wpf.items():
+                #     copsfile.write(str(count_cluster) + ' ')
+                #     count_cluster += 1
+                #     for lS_spf in S_spf:
+                #         copsfile.write(str(lS_spf[0][0]) + ' ')
+                #         subgroup_count -= 1
+                #         if subgroup_count <= 0:
+                #             break
+                #     copsfile.write('\n')
+                # copsfile.write('################SECOND VERSION ##############################\n')
+                copsfile.write(GTSP_CLUSTER_SECTION_str)
+                # if subgroup_count == 0:
+                #     break
+
+            if subgroup_count == 0:
+                for target_wpf, S_spf in S_wpf.items():
+                    subgroup_count += len(S_spf)
+
 
     copsfile.close()
     # copy_file('./' + filename_wpf + '.cops', 'C:/Users/dnune/OneDrive/Documentos/VerLab/COPS/datasets/' + filename_wpf + '.cops')
@@ -1416,16 +1450,16 @@ if __name__ == '__main__':
     settings = parse_settings_file('config.yaml')
     CA_max = float(settings['CA_max'])
     max_route_radius = float(settings['max route radius'])
-    points_per_sphere = int(settings['points per sphere'])
+    points_per_sphere = float(settings['points per sphere'])
     height_proportion = float(settings['height proportion'])
     max_visits = int(settings['max visits'])
     max_iter = int(settings['max iter'])
     T_max = float(settings['T_max'])
     n_resolution = int(settings['n resolution'])
-    points_per_unit = int(settings['points per unit'])
+    points_per_unit = float(settings['points per unit'])
 
     copp = CoppeliaInterface()
-    for experiment in range(10):
+    for experiment in range(settings['number of trials']):
         positions, target_hull, centroid_points, radius = initializations(copp)
         targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(
             centroid_points,
@@ -1476,8 +1510,12 @@ if __name__ == '__main__':
             distance_file.write(str(travelled_distance_main))
         distance_file.close()
         images_folder = os.path.join(settings['path'], directory_name)
-        run_colmap(colmap_folder, workspace_folder, str(images_folder))
-
+        # if platform.system() == 'Windows':
+        #     run_colmap(colmap_folder, workspace_folder, str(images_folder))
+        #
+        # if platform.system() == 'Linux':
+        #     run_colmap_linux(images_folder, workspace_folder)
+        MNRE_array = np.empty(0)
         for route, count_group in zip(route_by_group, range(len(route_by_group))):
             filename = settings['filename']
             directory_name = (settings['directory name'] +
@@ -1505,10 +1543,12 @@ if __name__ == '__main__':
                 distance_file.write(str(travelled_distance_main))
             distance_file.close()
             images_folder = os.path.join(settings['path'], directory_name)
-            if os.name != 'posix':
+            if platform.system() == 'Windows':
                 run_colmap(colmap_folder, workspace_folder, str(images_folder))
-            else:
+
+            if platform.system() == 'Linux':
                 run_colmap_linux(images_folder, workspace_folder)
+            MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
 
     copp.sim.stopSimulation()
 

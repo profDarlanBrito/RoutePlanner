@@ -621,6 +621,74 @@ def get_intersection_points_line_sphere(line_parametric_eq, sphere_eq):
     return intersection_points
 
 
+def get_line_of_intersection_two_planes_no_sym(pi1, pi2):
+    # Extract coefficients of the planes
+    a1, b1, c1, d1 = pi1
+    a2, b2, c2, d2 = pi2
+
+    # Define the direction vector of the line of intersection
+    direction_vector = np.array([b1 * c2 - b2 * c1, a2 * c1 - a1 * c2, a1 * b2 - a2 * b1])
+
+    # Find a point on the line of intersection (by setting one variable to zero)
+    # Here we set z = 0, you can choose any other variable as well
+    point = np.array([0.0, 0.0, 0.0])
+    if direction_vector[0] != 0:
+        point[0] = 0
+        point[1] = (a1 * c2 * d2 - a2 * c1 * d1) / (a1 * c2 - a2 * c1)
+        point[2] = (b1 * c2 * d2 - b2 * c1 * d1) / (b1 * c2 - b2 * c1)
+    elif direction_vector[1] != 0:
+        point[0] = (b1 * d2 - b2 * d1) / (b1 * c2 - b2 * c1)
+        point[1] = 0
+        point[2] = (a2 * d1 - a1 * d2) / (a1 * c2 - a2 * c1)
+    else:
+        point[0] = (b1 * d2 - b2 * d1) / (b1 * a2 - b2 * a1)
+        point[1] = (a2 * d1 - a1 * d2) / (a1 * b2 - a2 * b1)
+        point[2] = 0
+
+    # Formulate the parametric equation of the line
+    def line_equation(t):
+        return point + direction_vector * t
+
+    return line_equation
+
+
+def get_intersection_points_line_sphere_no_sym(line_points, sphere_eq):
+    # Extract components of the line's points
+    x1, y1, z1 = line_points[0]
+    x2, y2, z2 = line_points[1]
+
+    # Extract components of the sphere equation
+    x_sphere, y_sphere, z_sphere, r = sphere_eq
+
+    # Calculate the direction vector of the line
+    direction_vector = np.array([x2 - x1, y2 - y1, z2 - z1])
+
+    # Calculate the vector from one of the line's points to the center of the sphere
+    vector_to_center = np.array([x_sphere - x1, y_sphere - y1, z_sphere - z1])
+
+    # Calculate the dot product of the direction vector and the vector to the center
+    dot_product = np.dot(direction_vector, vector_to_center)
+
+    # Calculate the discriminant
+    discriminant = dot_product ** 2 - np.dot(direction_vector, direction_vector) * \
+                    (np.dot(vector_to_center, vector_to_center) - r ** 2)
+
+    # Check if the discriminant is negative, indicating no intersection
+    if discriminant < 0:
+        return np.array([])
+
+    # Calculate the parameter values for the intersection points
+    t1 = (-dot_product + np.sqrt(discriminant)) / np.dot(direction_vector, direction_vector)
+    t2 = (-dot_product - np.sqrt(discriminant)) / np.dot(direction_vector, direction_vector)
+
+    # Calculate the intersection points
+    intersection_point1 = np.array([x1 + t1 * (x2 - x1), y1 + t1 * (y2 - y1), z1 + t1 * (z2 - z1)])
+    intersection_point2 = np.array([x1 + t2 * (x2 - x1), y1 + t2 * (y2 - y1), z1 + t2 * (z2 - z1)])
+
+    return np.array([intersection_point1, intersection_point2])
+
+
+
 def spherical_distance(p1, p2):
     """
     Calculate the spherical distance between two points on a unit sphere.
@@ -850,6 +918,10 @@ def compute_central_hemisphere_area(hemisphere_direction: ndarray,
     # Select the points that pass through the sphere closest to the camera
     intersection_points = []
     for p_eq in parametric_equation:
+        line_eq = get_line_of_intersection_two_planes_no_sym(plane_eq[0], plane_eq[2])
+        points_no_sym = np.array(line_eq(0))
+        points_no_sym = np.row_stack((points_no_sym, line_eq(1)))
+        intersection_test = get_intersection_points_line_sphere_no_sym(points_no_sym, (*hemisphere_center, radius_mesh))
         intersection_points_sphere = get_intersection_points_line_sphere(p_eq, (*hemisphere_center, radius_mesh))
 
         if len(intersection_points_sphere) == 0:

@@ -10,6 +10,8 @@ COPS dataset: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/
 COPS result: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/results/
 # COPS problem filename
 COPS problem: 3dreconstructionPathPlanner
+# Path to COPS script
+COPS path: C:/Users/dnune/OneDrive/Documentos/VerLab/COPS/
 # Numerical sequence to image names. As an example if you want to save the images as calibimg1, calibimg2, ...
 #sequence: [40,186,523,602,727,772,874,950,1030,1280,1319,1422,1440,1585,1657,1795,1924,2187,2271,2295,2379,2398,2444,2537,2587,2622,2628,2751,2828,2859]
 sequence: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
@@ -51,28 +53,30 @@ cam indexes: [[1, 2],[3, 4]]
 # Positions file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 500
+CA_max: 10
 # Bigger number the route increase the maximum radius of the points of view. # Proportion of hemisphere radius
-max route radius: 30
-# Define the number of points by measure unit for points of view radius
-points per unit: 10
+max route radius: 3
+# Define the number of points by measure unit for points of view radius. Must be an integer number
+points per unit: 1
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 0.1
+points per sphere: 1
 # The proportion of the tallest z height to make the cylinder
-height proportion: 2
+height proportion: 2.0
 # Define the maximum number of times that the point can be visited
-max visits: 50
+max visits: 30
 # Maximum number of iteration to try catch a subgroup
-max iter: 1000
+max iter: 5000
 # Maximum travel budget
 T_max: 150000
 # Number of subdivision of the horizontal discretization
 n resolution: 24
 #Object names like on CoppeliaSim
-object names: [Casa_Velha, Chinese_Old_Build, Old_Build, West_Build]
+object names: [Tv_Desk, Desk_3_Monitor, Desk]
 # Path to colmap
 colmap folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP-3.9.1-windows-cuda/COLMAP-3.9.1-windows-cuda/
 # Workspace folder to colmap
 workspace folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP_results
 # Image folder to colmap
-images folder:
+images folder: /Images
+# Number of trials for each experiment
+number of trials: 1

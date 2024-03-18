@@ -54,6 +54,10 @@ class CoppeliaInterface:
         self.zy_joint_handle = None
         self.client = RemoteAPIClient()
         self.sim = self.client.getObject('sim')
+        if self.sim.getSimulationState() != self.sim.simulation_stopped:
+            self.sim.stopSimulation()
+        while self.sim.getSimulationState() != self.sim.simulation_stopped:
+            continue
         self.client.setStepping(True)
         self.sim.startSimulation()
         self.image_list = []
