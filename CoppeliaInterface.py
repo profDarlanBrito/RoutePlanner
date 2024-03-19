@@ -42,11 +42,14 @@ class CoppeliaInterface:
             __del__(): Class destructor
     """
 
-    def __init__(self):
+    def __init__(self, settings_in: dict = None):
         """
             Initialize the class variables.
         """
-        self.settings = parse_settings_file('config.yaml')
+        if settings_in is None:
+            self.settings = parse_settings_file('config.yaml')
+        else:
+            self.settings = settings_in
         self.quadcopter_handle = None
         self.quadcopter_pos = None
         self.vision_handle = None

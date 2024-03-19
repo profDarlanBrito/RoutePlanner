@@ -9,7 +9,7 @@ COPS dataset: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/
 # Path to write COPS result
 COPS result: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/results/
 # COPS problem filename
-COPS problem: 3dreconstructionPathPlanner
+COPS problem: 3dreconstructionPathPlannerBuilds
 # Path to COPS script
 COPS path: C:/Users/dnune/OneDrive/Documentos/VerLab/COPS/
 # Numerical sequence to image names. As an example if you want to save the images as calibimg1, calibimg2, ...
@@ -53,7 +53,7 @@ cam indexes: [[1, 2],[3, 4]]
 # Positions file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 10
+CA_max: 50
 # Bigger number the route increase the maximum radius of the points of view. # Proportion of hemisphere radius
 max route radius: 3
 # Define the number of points by measure unit for points of view radius. Must be an integer number
@@ -71,12 +71,18 @@ T_max: 150000
 # Number of subdivision of the horizontal discretization
 n resolution: 24
 #Object names like on CoppeliaSim
-object names: [Tv_Desk, Desk_3_Monitor, Desk]
+object names: [Casa_Velha, Chinese_Old_Build, Old_Build, West_Build]
 # Path to colmap
 colmap folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP-3.9.1-windows-cuda/COLMAP-3.9.1-windows-cuda/
 # Workspace folder to colmap
 workspace folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP_results
-# Image folder to colmap
+# Image folder to col map
 images folder: /Images
 # Number of trials for each experiment
 number of trials: 1
+# Near clip for vision sensor
+near clip: 1e-4
+# Far clip for vision sensor
+far clip: 10
+# Perspective angle
+perspective angle: 100.0

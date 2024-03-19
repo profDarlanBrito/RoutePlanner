@@ -177,7 +177,7 @@ def points_along_line(start_point, end_point, num_points):
 
 
 def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict,
-                       target_points_of_view_sf: dict, positions_sf: dict) -> dict:
+                       target_points_of_view_sf: dict, positions_sf: dict) -> tuple[dict, int]:
     print('Starting subgroup formation')
     S = {}
     contribution = 0
@@ -290,11 +290,11 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                 subgroup_idx += 1
             # print(f'{CA=}')
             # print(f'{len(S[target][-1])=}')
-        length += points.shape[0]
+        length += len(S[target])
         is_first_target = False
         cont_target += 1
         print(f'{target=} has {len(S[target])=} groups')
-    return S
+    return S, length
 
 
 # def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict,
@@ -569,11 +569,10 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
                 if (count_hemisphere == 0 or count_hemisphere == n_resolution or
                         count_hemisphere == cylinder.n_cells - n_resolution):
                     spherical_area_dc, reach_maximum, frustum_planes, cam_pos = (
-                        compute_central_hemisphere_area(norm_vec,
-                                                        pos_cell,
-                                                        hemisphere_radius,
-                                                        camera_distance,
-                                                        plotter))
+                        compute_central_hemisphere_area(norm_vec, pos_cell, hemisphere_radius, camera_distance, plotter,
+                                                        float(settings['perspective angle']),
+                                                        near_clip_ccha=float(settings['near clip']),
+                                                        far_clip_ccha=float(settings['far clip'])))
                     area = get_side_hemisphere_area(cylinder.n_cells,
                                                     meshes,
                                                     frustum_planes,
@@ -1196,12 +1195,13 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
 
 def ConvertArray2String(fileCA2S, array: ndarray):
     np.set_printoptions(threshold=10000000000)
-    array_str = np.array2string(array, precision=5)
-    array_str = array_str.replace('\n', '')
-    array_str = array_str.replace('[', '')
-    array_str = array_str.replace(']', '\n')
-    array_str = array_str[:-1]
-    fileCA2S.write(array_str)
+    # array_str = np.array2string(array, precision=5)
+    # array_str = array_str.replace('\n', '')
+    # array_str = array_str.replace('[', '')
+    # array_str = array_str.replace(']', '\n')
+    # array_str = array_str[:-1]
+    # fileCA2S.write(array_str)
+    np.savetxt(fileCA2S, array, fmt='%.5f', delimiter=' ')
     return fileCA2S
 
 
@@ -1243,11 +1243,12 @@ def copy_file(source_path, destination_path):
 
 
 def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: ndarray, number_of_targets: int,
-                       S_wpf: dict):
+                       S_wpf: dict, subgroup_size_wpf: int):
     print('Starting writing problem file')
     subgroup_count = 0
     complete_file_name = dir_wpf + filename_wpf + '.cops'
     # print(f'{complete_file_name=}')
+    GTSP_CLUSTER_SECTION_str = []
     with open(complete_file_name, 'w') as copsfile:
         for field_wpf in fieldnames:
             if field_wpf == 'NAME: ':
@@ -1257,7 +1258,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
             elif field_wpf == 'COMMENT: ':
                 copsfile.write(field_wpf + 'Optimization for reconstruction\n')
             elif field_wpf == 'DIMENSION: ':
-                copsfile.write(field_wpf + str(subgroup_count) + '\n')
+                copsfile.write(field_wpf + str(subgroup_size_wpf) + '\n')
             elif field_wpf == 'TMAX: ':
                 copsfile.write(field_wpf + str(T_max) + '\n')
             elif field_wpf == 'START_CLUSTER: ':
@@ -1267,7 +1268,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
             elif field_wpf == 'CLUSTERS: ':
                 copsfile.write(field_wpf + str(number_of_targets) + '\n')
             elif field_wpf == 'SUBGROUPS: ':
-                copsfile.write(field_wpf + str(subgroup_count) + '\n')
+                copsfile.write(field_wpf + str(subgroup_size_wpf) + '\n')
             elif field_wpf == 'DUBINS_RADIUS: ':
                 copsfile.write(field_wpf + '50' + '\n')
             elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
@@ -1275,46 +1276,35 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
             elif field_wpf == 'EDGE_WEIGHT_FORMAT: ':
                 copsfile.write(field_wpf + 'FULL_MATRIX' + '\n')
             elif field_wpf == 'EDGE_WEIGHT_SECTION':
-                copsfile.write(field_wpf + '\n')
-                ConvertArray2String(copsfile, edge_weight_matrix_wpf)
+                copsfile.close()
+                with open(complete_file_name, 'a') as copsfile:
+                    copsfile.write(field_wpf + '\n')
+                    ConvertArray2String(copsfile, edge_weight_matrix_wpf)
             elif field_wpf == 'GTSP_SUBGROUP_SECTION: ':
-                copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
-                count_cluster = 0
-                GTSP_CLUSTER_SECTION_str = ''
-                for target_wpf, S_spf in S_wpf.items():
-                    GTSP_CLUSTER_SECTION_str += f'{count_cluster} '
-                    for lS_spf in S_spf:
-                        copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][-1]} {lS_spf[0][6]} " +
-                                       ' '.join(str(vertex[7]) for vertex in lS_spf) + '\n')
-                        GTSP_CLUSTER_SECTION_str += f'{lS_spf[0][0]} '
-                    GTSP_CLUSTER_SECTION_str += '\n'
-                    count_cluster += 1
-                print('finish')
+                with open(complete_file_name, 'a') as copsfile:
+                    copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
+                    count_cluster = 0
+                    GTSP_CLUSTER_SECTION_str = [[]] * len(settings['object names'])
+                    for target_wpf, S_spf in S_wpf.items():
+                        GTSP_CLUSTER_SECTION_str[count_cluster] = [[]] * (len(S_spf) + 1)
+                        # GTSP_CLUSTER_SECTION_str += f'{count_cluster} '
+                        GTSP_CLUSTER_SECTION_str[count_cluster][0] = f'{count_cluster} '
+                        count_idx = 1
+                        for lS_spf in S_spf:
+                            copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][-1]} {lS_spf[0][6]} " +
+                                           ' '.join(str(vertex[7]) for vertex in lS_spf) + '\n')
+                            GTSP_CLUSTER_SECTION_str[count_cluster][count_idx] = f'{lS_spf[0][0]} '
+                            count_idx += 1
+                        # GTSP_CLUSTER_SECTION_str += '\n'
+                        count_cluster += 1
             elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
-                # copsfile.write(field_wpf + 'set_id id-cluster-list\n')
-                copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
-                # count_cluster = 0
-                # for target_wpf, S_spf in S_wpf.items():
-                #     copsfile.write(str(count_cluster) + ' ')
-                #     count_cluster += 1
-                #     for lS_spf in S_spf:
-                #         copsfile.write(str(lS_spf[0][0]) + ' ')
-                #         subgroup_count -= 1
-                #         if subgroup_count <= 0:
-                #             break
-                #     copsfile.write('\n')
-                # copsfile.write('################SECOND VERSION ##############################\n')
-                copsfile.write(GTSP_CLUSTER_SECTION_str)
-                # if subgroup_count == 0:
-                #     break
-
-            if subgroup_count == 0:
-                for target_wpf, S_spf in S_wpf.items():
-                    subgroup_count += len(S_spf)
-
+                with open(complete_file_name, 'a') as copsfile:
+                    copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
+                    for cluster_idxs in GTSP_CLUSTER_SECTION_str:
+                        copsfile.writelines(cluster_idxs)
+                        copsfile.write('\n')
 
     copsfile.close()
-    # copy_file('./' + filename_wpf + '.cops', 'C:/Users/dnune/OneDrive/Documentos/VerLab/COPS/datasets/' + filename_wpf + '.cops')
 
 
 def execute_script(script_path):
@@ -1458,24 +1448,26 @@ if __name__ == '__main__':
     n_resolution = int(settings['n resolution'])
     points_per_unit = float(settings['points per unit'])
 
-    copp = CoppeliaInterface()
+    copp = CoppeliaInterface(settings)
     for experiment in range(settings['number of trials']):
         positions, target_hull, centroid_points, radius = initializations(copp)
         targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(
             centroid_points,
             radius,
             positions)
-        S = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
+        S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view,
+                                              positions)
         edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
         write_problem_file('./datasets/',
-                           '3dreconstructionPathPlanner',
+                           settings['COPS problem'],
                            edge_weight_matrix,
-                           3,
-                           S)
+                           len(settings['object names']),
+                           S,
+                           subgroup_size)
         execute_script('script_path')
         main_route, travelled_distance_main, route_by_group = read_route_csv_file(
             './datasets/results/' +
-            '3dreconstructionPathPlanner.csv', S, targets_points_of_view)
+            settings['COPS problem'] + '.csv', S, targets_points_of_view)
 
         # main_route = get_points_to_route(route, conversion_table)
         # main_route = find_route(S)

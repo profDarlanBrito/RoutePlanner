@@ -861,11 +861,11 @@ def cartesian_to_lat_lon(x, y, z):
     return np.degrees(lat), np.degrees(lon)
 
 
-def compute_central_hemisphere_area(hemisphere_direction: ndarray,
-                                    hemisphere_center: ndarray,
-                                    radius_mesh: float,
+def compute_central_hemisphere_area(hemisphere_direction: ndarray, hemisphere_center: ndarray, radius_mesh: float,
                                     camera_radius: float,
-                                    plotter=None) -> tuple[float, bool, list, ndarray]:
+                                    plotter=None, camera_view_angle_ccha: float = 60.0,
+                                    near_clip_ccha: float = 1e-4,
+                                    far_clip_ccha: float = 10.0) -> tuple[float, bool, list, ndarray]:
     # print("Computing central hemisphere area")
 
     camera_position = hemisphere_center + camera_radius * hemisphere_direction
@@ -875,8 +875,9 @@ def compute_central_hemisphere_area(hemisphere_direction: ndarray,
     for mesh in meshes:
         plotter1.add_mesh(mesh)
     # Set camera position and orientation (optional)
-    plotter1.camera.clipping_range = (1e-4, 1)
+    plotter1.camera.clipping_range = (near_clip_ccha, far_clip_ccha)
     plotter1.camera_position = [camera_position, focal_point, (0, 0, 0)]
+    plotter1.camera.view_angle = camera_view_angle_ccha
     # camera_position = orient_camera_to_normal(plotter, hemisphere_center)
     # plotter.show()
 
@@ -1085,7 +1086,7 @@ if __name__ == "__main__":
     cam_pos = np.array(first_hemisphere["direction"])
     pos_mesh = np.array(first_hemisphere["center"])
     r_mesh = first_hemisphere["radius"]
-    compute_central_hemisphere_area(cam_pos, pos_mesh, r_mesh, plotter)
+    compute_central_hemisphere_area(cam_pos, pos_mesh, r_mesh, plotter, 60.0, 1e-4, 10)
     plotter.show()
     # ax = plot_circle(1.0, 500)
     # vector = np.array((0, 1, 1))
