@@ -535,12 +535,8 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
         # l = np.sqrt(np.abs(4 * h ** 2 - 4 * r_mesh ** 2))
 
         # Find the radius of the spheres
-        meshes = draw_cylinder_with_hemisphere(plotter,
-                                               cy_direction,
-                                               cy_hight,
-                                               n_resolution,
-                                               r_mesh,
-                                               centroid_points_pf[target])
+        meshes = draw_cylinder_with_hemisphere(plotter, cy_direction, cy_hight, n_resolution, r_mesh,
+                                               centroid_points_pf[target], 0.0)
         cylinder = meshes['cylinder']['mesh']
         if not is_included_first_group:
             vector_points_pf[target] = np.array([-2.0, 0.0, 1.0, 0.0, 0.0, 0.0])
@@ -1529,7 +1525,7 @@ if __name__ == '__main__':
             travelled_distance_main = 0
             for i in range(route.shape[0]):
                 for j in range(i + 1, route.shape[0]):
-                    travelled_distance_main += np.linalg.norm(route[i] - route[j])
+                    travelled_distance_main += np.linalg.norm(route[i, :3] - route[j, :3])
 
             with open(workspace_folder + '/distance.txt', 'w') as distance_file:
                 distance_file.write(str(travelled_distance_main))

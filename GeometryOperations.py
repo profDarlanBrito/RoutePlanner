@@ -770,9 +770,8 @@ def get_viewed_area_from():
     print("Starting viewed area computing")
 
 
-def draw_cylinder_with_hemisphere(
-        plotter, cy_direction: ndarray, cy_height: float, n_resolution: int, cy_radius: float, cy_center: ndarray
-):
+def draw_cylinder_with_hemisphere(plotter, cy_direction: ndarray, cy_height: float, n_resolution: int, cy_radius: float,
+                                  cy_center: ndarray, low_cylinder_limit=0.0):
     print("Drawing cylinder with hemispheres")
     meshes = {}
     # Calculate the length of the lateral surface of an inscribed cylinder
@@ -783,6 +782,9 @@ def draw_cylinder_with_hemisphere(
     z_resolution = int(np.ceil(cy_height / l))
     h = cy_height / z_resolution
     spheres_radius = np.max([l, h]) / 2
+
+    if (cy_center[2] - (cy_height/2)) < low_cylinder_limit:
+        cy_center[2] = low_cylinder_limit + (cy_height/2)
 
     cylinder = pv.CylinderStructured(
         center=cy_center,
@@ -803,6 +805,7 @@ def draw_cylinder_with_hemisphere(
     }
     meshes["cylinder"] = cylinder_dict
     plotter.add_mesh(cylinder)
+
     # Create the hemispheres and add them to the faces of the cylinder
     meshes["hemispheres"] = []
     cell_count = 0
@@ -1079,9 +1082,8 @@ if __name__ == "__main__":
 
     # Create a plotter
     plotter = pv.Plotter()
-    meshes = draw_cylinder_with_hemisphere(
-        plotter, cy_direction, cy_height, n_resolution, 2.0, np.array([0.0, 0.0, 0.0])
-    )
+    meshes = draw_cylinder_with_hemisphere(plotter, cy_direction, cy_height, n_resolution, 2.0,
+                                           np.array([0.0, 0.0, 0.0]), 0.0)
     first_hemisphere = meshes["hemispheres"][20]
     cam_pos = np.array(first_hemisphere["direction"])
     pos_mesh = np.array(first_hemisphere["center"])
