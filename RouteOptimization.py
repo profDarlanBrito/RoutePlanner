@@ -1,8 +1,9 @@
+import math
 import os
 from typing import Tuple, Dict, Any, List
 
 import numpy as np
-from numpy import ndarray, dtype, floating, float_
+from numpy import ndarray, dtype, floating, float_, bool_
 from numpy._typing import _64Bit
 from scipy.spatial import ConvexHull, Delaunay
 from CoppeliaInterface import CoppeliaInterface
@@ -31,6 +32,7 @@ max_iter = -1  # Maximum number of iteration to try catch a subgroup
 T_max = -1  # Maximum travel budget
 n_resolution = -1  # Number of subdivision of the horizontal discretization
 points_per_unit = -1
+scale_to_height_spiral = 1.5  # Scale multiplied by the object target centroid Z to compute the spiral trajectory Z
 
 global settings
 
@@ -256,7 +258,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                 is_line_through_convex_hull_sf = False
                 for target_compare, hull_sf in targets_border_sf.items():
                     line_points = points_along_line(target_points_of_view_sf[target][prior_idx, :3],
-                                                    target_points_of_view_sf[target][max_idx, :3], 50)
+                                                    target_points_of_view_sf[target][max_idx, :3], 10)
                     is_line_through_convex_hull_sf = is_line_through_convex_hull(hull_sf, line_points)
                     if is_line_through_convex_hull_sf:
                         break
@@ -295,76 +297,6 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
         cont_target += 1
         print(f'{target=} has {len(S[target])=} groups')
     return S, length
-
-
-# def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict,
-#                        target_points_of_view_sf: dict, positions_sf: dict) -> dict:
-#     print('Starting subgroup formation')
-#     S = {}
-#     contribution = 0
-#     CA_max = 100  # Assuming CA_max and max_iter are defined somewhere
-#     max_iter = 100
-#     max_visits = 50
-#     for target, points in target_points_of_view_sf.items():
-#         plotter_sf = pv.Plotter()
-#         point_cloud = pv.PolyData(positions_sf[target])
-#         plotter_sf.add_mesh(point_cloud, point_size=10)
-#         S[target] = []
-#         visits_to_position = np.zeros(points.shape[0])
-#         indexes_of_ini_points = list(range(points.shape[0]))
-#         random_points = sample(indexes_of_ini_points, len(indexes_of_ini_points))
-#         show_number_of_points = 0
-#         for i in random_points:
-#             print(f'Point {show_number_of_points} of {len(indexes_of_ini_points)}')
-#             show_number_of_points += 1
-#             CA = 0
-#             total_distance = 0
-#             S[target].append([])
-#             prior_idx = i
-#             idx_list = [i]
-#             iteration = 0
-#             while CA < CA_max and iteration < max_iter:
-#                 iteration += 1
-#                 indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=10)
-#                 max_contribution = 0
-#                 for index in indexes_of_points:
-#                     if index in idx_list:
-#                         continue
-#                     is_point_inside_sf = any(is_point_inside(points[index, :3],
-#                                                              hull_sf) for hull_sf in targets_border_sf.values())
-#                     all_points_line = points_along_line(target_points_of_view_sf[target][prior_idx, :3],
-#                                                         target_points_of_view_sf[target][index, :3],
-#                                                         50)
-#                     test_bla = is_line_through_convex_hull(hull_sf, all_points_line)
-#                     is_line_through_convex_hull_sf = (
-#                         any(is_line_through_convex_hull(hull_sf, all_points_line)
-#                             for hull_sf in targets_border_sf.values() if hull_sf != targets_border_sf[target]))
-#                     points_line = pv.PolyData(all_points_line)
-#                     plotter_sf.add_mesh(points_line, color='red')
-#                     plotter_sf.show()
-#                     if is_point_inside_sf or is_line_through_convex_hull_sf:
-#                         continue
-#                     distance_p2p = np.linalg.norm(target_points_of_view_sf[target][prior_idx, :3] -
-#                                                   target_points_of_view_sf[target][index, :3])
-#                     contribution = abs(points_of_view_contribution_sf[target][index] - distance_p2p)
-#                     if contribution > max_contribution:
-#                         max_idx = index
-#                         max_contribution = contribution
-#                 if max_contribution == 0:
-#                     continue
-#                 if visits_to_position[max_idx] > max_visits:
-#                     continue
-#                 idx_list.append(max_idx)
-#                 distance_p2p = np.linalg.norm(
-#                     target_points_of_view_sf[target][prior_idx, :3] - target_points_of_view_sf[target][max_idx, :3])
-#                 total_distance += distance_p2p
-#                 CA += max_contribution
-#                 S[target][-1].append((prior_idx, max_idx, distance_p2p, total_distance, CA))
-#                 visits_to_position[max_idx] += 1
-#                 prior_idx = max_idx
-#             if len(S[target][-1]) == 0:
-#                 S[target].pop()
-#     return S
 
 
 def find_route(S_fr: dict, points_of_view_contribution_sf: dict = None, target_points_of_view_sf: dict = None):
@@ -498,7 +430,7 @@ def euler_angles_from_normal(normal_vector):
     # Calculate roll angle
     roll = np.arctan2(normal_vector[2], np.sqrt(normal_vector[0] ** 2 + normal_vector[1] ** 2)) * 180 / np.pi
 
-    return roll, pitch, yaw
+    return yaw, pitch, roll
 
 
 def compute_radial_area():
@@ -507,9 +439,7 @@ def compute_radial_area():
 
 def draw_cylinders_hemispheres(centroid_points_pf: dict,
                                radius_pf: dict,
-                               target_points_pf: dict) -> tuple[
-    dict[Any, ndarray[Any, dtype[Any]] | ndarray[Any, dtype[floating[_64Bit] | float_]]], dict[
-        Any, list[float] | list[Any]], list[ndarray[Any, dtype[Any]]]]:
+                               target_points_pf: dict) -> tuple[dict[Any, ndarray[Any, dtype[Any]] | ndarray[Any, dtype[floating[_64Bit] | float_]]], dict[Any, list[float] | list[Any]], list[ndarray[Any, dtype[Any]]]]:
     """
     Draw the hemispheres and the cylinders around the object
     :param centroid_points_pf: Dictionary of arrays of points with the central points of the objects
@@ -555,13 +485,10 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
             pos_cell = cell.center
             points_cell = cell.points[:3]
             norm_vec = find_normal_vector(*points_cell)
-            roll, pitch, yaw = euler_angles_from_normal(-norm_vec)
+            yaw, pitch, roll = euler_angles_from_normal(-norm_vec)
             for k in range(1, route_radius_dch):
                 camera_distance = ((points_per_sphere * k) + 1) * hemisphere_radius
                 point_position = pos_cell + camera_distance * norm_vec
-                # spherical_area_dc = 2 * np.pi * hemisphere_radius ** 2
-                # if not central_area_computed:
-                #     if not reach_maximum:
                 if (count_hemisphere == 0 or count_hemisphere == n_resolution or
                         count_hemisphere == cylinder.n_cells - n_resolution):
                     spherical_area_dc, reach_maximum, frustum_planes, cam_pos = (
@@ -620,48 +547,6 @@ def get_side_hemisphere_area(count_plane_gsha: int,
                              meshes_gsha: dict,
                              frustum_planes: list,
                              central_hemisphere_gsha: int) -> float:
-    # print('Starting getting side hemisphere area')
-
-    # tmpidxs = [(central_hemisphere_gsha + count_idx) % n_resolution + (central_hemisphere_gsha // n_resolution) * n_resolution for count_idx in
-    #            range(1, 4)] * 2
-    # if central_hemisphere_gsha > n_resolution:
-    #     tmpidxs.extend([idx - n_resolution for idx in tmpidxs])
-    # if central_hemisphere_gsha < count_plane_gsha - n_resolution:
-    #     tmpidxs.extend([idx + n_resolution for idx in tmpidxs])
-    #
-    # area = 0
-    # for hemisphere_idx in tmpidxs:
-    #     ct_pt = np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center'])
-    #     is_in = False
-    #     for plane_gsha in frustum_planes:
-    #         distance = (abs(np.dot(plane_gsha[:3], ct_pt) + plane_gsha[3]) /
-    #                     np.sqrt(plane_gsha[0] ** 2 + plane_gsha[1] ** 2 + plane_gsha[2] ** 2))
-    #         if distance < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
-    #             is_in = True
-    #             x = (-plane_gsha[3] - ct_pt[1] * plane_gsha[1] - ct_pt[2] * plane_gsha[2]) / plane_gsha[0]
-    #             point_pi = np.array([x, ct_pt[1], ct_pt[2]])
-    #             intersection_points = intersect_plane_sphere(np.array(plane_gsha[:3]), point_pi,
-    #                                                          np.array(
-    #                                                              meshes_gsha['hemispheres'][hemisphere_idx]['center']),
-    #                                                          meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    #             break
-    #
-    #     alpha = 1 / (
-    #                 1 + np.linalg.norm(ct_pt - np.array(meshes_gsha['hemispheres'][central_hemisphere_gsha]['center'])))
-    #
-    #     if not is_in:
-    #         area += 2 * alpha * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
-    #     else:
-    #         if point_between_planes(ct_pt, np.array(frustum_planes)):
-    #             area += alpha * 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] * np.linalg.norm(
-    #                 intersection_points[0] - intersection_points[1])
-    #         else:
-    #             area += alpha * (2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] *
-    #                              np.linalg.norm(intersection_points[0] - intersection_points[1]) +
-    #                              2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    #
-    # return area
-
     tmpidxs = 49 * [[]]
     number_of_elements = 0
     tmpidxs[number_of_elements] = central_hemisphere_gsha
@@ -689,43 +574,11 @@ def get_side_hemisphere_area(count_plane_gsha: int,
     list_idx = list_idx[:number_of_elements]
     area = 0
     for hemisphere_idx in list_idx[1:]:
-        # hemisphere_idx = (central_hemisphere_gsha - count_neighbor) % 24 + (central_hemisphere_gsha // 24) * 24
-        # distance = (abs(np.dot(plane_eq_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_eq_gsha[3]) /
-        #             np.sqrt(plane_eq_gsha[0] ** 2 +
-        #                     plane_eq_gsha[1] ** 2 +
-        #                     plane_eq_gsha[2] ** 2))
-        # plane_eq_gsha = np.array(frustum_planes[2])
-        # hemisphere_idx = (central_hemisphere_gsha + count_neighbor) % 24 + (central_hemisphere_gsha // 24) * 24
-        # x = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_eq_gsha[1] -
-        #      meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[0]
-        # point_pi1 = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
-        #                       meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-        # plotter1 = pv.Plotter()
-        # plotter1.add_mesh(pv.Plane(center=point_pi, direction=plane_eq_gsha[:3], i_size=4, j_size=4))
-        # plotter1.add_mesh(pv.PolyData(point_pi), color='green', point_size=10)
-        # ct_pt = np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center'])
-        # plotter1.add_mesh(pv.PolyData(ct_pt), color='red', point_size=10)
-        # plotter1.add_mesh(pv.Sphere(radius=meshes_gsha['hemispheres'][hemisphere_idx]['radius'], center=ct_pt))
-        # plotter1.show()
-        # P1 = ct_pt - point_pi1
-        # Projection_P1inP21 = (P1 @ point_pi1)/(np.linalg.norm(point_pi1)**2)*point_pi1
-        # dir1 = P1 - Projection_P1inP21
-
-        # plane_eq_gsha2 = np.array(frustum_planes[3])
-        # x = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_eq_gsha[1] -
-        #      meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[0]
-        # point_pi2 = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
-        #                      meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-        # P2 = ct_pt - point_pi2
-        # Projection_P1inP22 = (P2 @ point_pi2)/(np.linalg.norm(point_pi2)**2)*point_pi2
-        # dir2 = P2 - Projection_P1inP22
-        # hemisphere_idx = 1
         ct_pt = np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center'])
         is_in = False
         intersection_points = []
         for plane_gsha in frustum_planes:
-            distance = (abs(np.dot(plane_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_gsha[
-                3]) / np.sqrt(plane_gsha[0] ** 2 + plane_gsha[1] ** 2 + plane_gsha[2] ** 2))
+            distance = (abs(np.dot(plane_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_gsha[3]) / np.sqrt(plane_gsha[0] ** 2 + plane_gsha[1] ** 2 + plane_gsha[2] ** 2))
             if distance < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
                 x = (-plane_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_gsha[1] -
                      meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_gsha[2]) / plane_gsha[0]
@@ -738,8 +591,7 @@ def get_side_hemisphere_area(count_plane_gsha: int,
                                                              meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
                 is_in = True
                 break
-        alpha = 1  # / (
-        # 1 + np.linalg.norm(ct_pt - np.array(meshes_gsha['hemispheres'][central_hemisphere_gsha]['center'])))
+        alpha = 1
         if not is_in:
             if not point_between_planes(ct_pt, np.array(frustum_planes)):
                 area += 2 * alpha * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
@@ -754,185 +606,6 @@ def get_side_hemisphere_area(count_plane_gsha: int,
                                  np.linalg.norm(intersection_points[0] - intersection_points[1]) +
                                  2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
     return area
-
-    # distance2 = (abs(np.dot(plane_eq_gsha2[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_eq_gsha2[
-    #     3]) /
-    #             np.sqrt(plane_eq_gsha2[0] ** 2 +
-    #                     plane_eq_gsha2[1] ** 2 +
-    #                     plane_eq_gsha2[2] ** 2))
-
-    # distance = np.dot(plane_eq_gsha[:3], ct_pt - point_pi1)
-
-    # if distance1 < meshes_gsha['hemispheres'][hemisphere_idx]['radius'] or distance2 < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
-    #     print(f'The plane {count_plane_gsha} has intersection with hemisphere 1')
-    #     if distance1 < distance2:
-    #         x = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_eq_gsha[1] -
-    #              meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[0]
-    #         point_pi = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
-    #                              meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #         intersection_points = intersect_plane_sphere(np.array(plane_eq_gsha[:3]),
-    #                                                      point_pi,
-    #                                                      np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center']),
-    #                                                      meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    #     else:
-    #         x = (-plane_eq_gsha2[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_eq_gsha2[1] -
-    #              meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha2[2]) / plane_eq_gsha2[0]
-    #         point_pi = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
-    #                              meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #         intersection_points = intersect_plane_sphere(np.array(plane_eq_gsha2[:3]),
-    #                                                      point_pi,
-    #                                                      np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center']),
-    #                                                      meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    #
-    #     if point_between_planes(ct_pt, plane_eq_gsha, plane_eq_gsha2):
-    #         area += 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] * np.linalg.norm(
-    #             intersection_points[0] - intersection_points[1])
-    #     else:
-    #         area += (2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] *
-    #                 np.linalg.norm(intersection_points[0] - intersection_points[1]) +
-    #                 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    # else:
-    #     # x = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_eq_gsha[1] -
-    #     #      meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[0]
-    #     # point_pi = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
-    #     #                      meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #     if not point_between_planes(ct_pt, plane_eq_gsha, plane_eq_gsha2):
-    #         area += 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
-    #     else:
-    #         area += 0
-    #
-    # hemisphere_idx = 23  # works for 24, 23, 22
-    # distance = (abs(np.dot(plane_eq_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_eq_gsha[3]) /
-    #             np.sqrt(plane_eq_gsha[0] ** 2 +
-    #                     plane_eq_gsha[1] ** 2 +
-    #                     plane_eq_gsha[2] ** 2))
-    # plane_eq_gsha = frustum_planes[2]
-    # hemisphere_idx = (central_hemisphere_gsha - count_neighbor) % 24 + (central_hemisphere_gsha // 24) * 24
-    # x = (-plane_eq_gsha[3] - plane_eq_gsha[1] - plane_eq_gsha[2]) / plane_eq_gsha[0]
-    # point_pi1 = np.array([x, 1.0, 1.0])
-    # plotter1 = pv.Plotter()
-    # plotter1.add_mesh(pv.Plane(center=point_pi, direction=plane_eq_gsha[:3], i_size=4, j_size=4))
-    # plotter1.add_mesh(pv.PolyData(point_pi), color='green', point_size=10)
-    # ct_pt = np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center'])
-    # plotter1.add_mesh(pv.PolyData(ct_pt), color='red', point_size=10)
-    # plotter1.add_mesh(pv.Sphere(radius=meshes_gsha['hemispheres'][hemisphere_idx]['radius'], center=ct_pt))
-    # plotter1.show()
-    # P1 = ct_pt - point_pi1
-    # Projection_P1inP21 = (P1 @ point_pi1)/(np.linalg.norm(point_pi1)**2)*point_pi1
-    # dir1 = P1 - Projection_P1inP21
-    # plane_eq_gsha = np.array(frustum_planes[3])
-    # x = (-plane_eq_gsha[3] - plane_eq_gsha[1] - plane_eq_gsha[2]) / plane_eq_gsha[0]
-    # point_pi2 = np.array([x, 1.0, 1.0])
-    # P2 = ct_pt - point_pi2
-    # Projection_P1inP22 = (P2 @ point_pi2)/(np.linalg.norm(point_pi2)**2)*point_pi2
-    # dir2 = P2 - Projection_P1inP22
-    #
-    # distance = (abs(np.dot(plane_eq_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_eq_gsha[
-    #     3]) /
-    #             np.sqrt(plane_eq_gsha[0] ** 2 +
-    #                     plane_eq_gsha[1] ** 2 +
-    #                     plane_eq_gsha[2] ** 2))
-    # if distance < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
-    #     print(f'The plane {count_plane_gsha} has intersection with hemisphere 1')
-    #     x = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_eq_gsha[1] -
-    #          meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[0]
-    #     point_pi = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
-    #                          meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #     intersection_points = intersect_plane_sphere(np.array(plane_eq_gsha[:3]),
-    #                                                  point_pi,
-    #                                                  np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center']),
-    #                                                  meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    #     if point_pi[0] < meshes_gsha['hemispheres'][hemisphere_idx]['center'][0]:
-    #         area += 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] * np.linalg.norm(
-    #             intersection_points[0] - intersection_points[1])
-    #     else:
-    #         area += (2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] *
-    #                 np.linalg.norm(intersection_points[0] - intersection_points[1]) +
-    #                 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    # else:
-    #     x = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_eq_gsha[1] -
-    #          meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[0]
-    #     point_pi = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
-    #                          meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #     if point_pi[0] > meshes_gsha['hemispheres'][hemisphere_idx]['center'][0]:
-    #         area += 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
-    #     else:
-    #         area += 0
-    #
-    # if count_neighbor * 24 - 24 > 0:  # and hemisphere_idx == central_hemisphere_gsha + 25:
-    #     # hemisphere_idx = 25  # Works for 25, 49
-    #     plane_eq_gsha = frustum_planes[1]
-    #     hemisphere_idx = central_hemisphere_gsha - count_neighbor * 24
-    #     distance = (abs(np.dot(plane_eq_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) +
-    #                     plane_eq_gsha[
-    #                         3]) /
-    #                 np.sqrt(plane_eq_gsha[0] ** 2 +
-    #                         plane_eq_gsha[1] ** 2 +
-    #                         plane_eq_gsha[2] ** 2))
-    #     if distance < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
-    #         print(f'The plane {count_plane_gsha} has intersection with hemisphere 1')
-    #         y = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][0] * plane_eq_gsha[0] -
-    #              meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[1]
-    #         point_pi = np.array([meshes_gsha['hemispheres'][hemisphere_idx]['center'][0], y,
-    #                              meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #         intersection_points = intersect_plane_sphere(np.array(plane_eq_gsha[:3]),
-    #                                                      point_pi,
-    #                                                      np.array(
-    #                                                          meshes_gsha['hemispheres'][hemisphere_idx]['center']),
-    #                                                      meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    #         if point_pi[1] > meshes_gsha['hemispheres'][hemisphere_idx]['center'][1]:
-    #             area += 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] * np.linalg.norm(
-    #                 intersection_points[0] - intersection_points[1])
-    #         else:
-    #             area += (2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] *
-    #                     np.linalg.norm(intersection_points[0] - intersection_points[1]) +
-    #                     2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    #     else:
-    #         y = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][0] * plane_eq_gsha[0] -
-    #              meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[1]
-    #         point_pi = np.array([meshes_gsha['hemispheres'][hemisphere_idx]['center'][0], y,
-    #                              meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #         if point_pi[1] < meshes_gsha['hemispheres'][hemisphere_idx]['center'][1]:
-    #             area += 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
-    #         else:
-    #             area += 0
-    #
-    # hemisphere_idx = 25  # Works for 25, 49
-    # plane_eq_gsha = frustum_planes[0]
-    # hemisphere_idx = central_hemisphere_gsha + count_neighbor * 24
-    # distance = (abs(np.dot(plane_eq_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_eq_gsha[
-    #     3]) /
-    #             np.sqrt(plane_eq_gsha[0] ** 2 +
-    #                     plane_eq_gsha[1] ** 2 +
-    #                     plane_eq_gsha[2] ** 2))
-    # if distance < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
-    #     print(f'The plane {count_plane_gsha} has intersection with hemisphere 1')
-    #     y = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][0] * plane_eq_gsha[0] -
-    #          meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[1]
-    #     point_pi = np.array([meshes_gsha['hemispheres'][hemisphere_idx]['center'][0], y,
-    #                          meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #     intersection_points = intersect_plane_sphere(np.array(plane_eq_gsha[:3]),
-    #                                                  point_pi,
-    #                                                  np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center']),
-    #                                                  meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    #     if point_pi[1] < meshes_gsha['hemispheres'][hemisphere_idx]['center'][1]:
-    #         area += 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] * np.linalg.norm(
-    #             intersection_points[0] - intersection_points[1])
-    #     else:
-    #         area += (2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] *
-    #                 np.linalg.norm(intersection_points[0] - intersection_points[1]) +
-    #                 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
-    # else:
-    #     y = (-plane_eq_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][0] * plane_eq_gsha[0] -
-    #          meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_eq_gsha[2]) / plane_eq_gsha[1]
-    #     point_pi = np.array([meshes_gsha['hemispheres'][hemisphere_idx]['center'][0], y,
-    #                          meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-    #     if point_pi[1] > meshes_gsha['hemispheres'][hemisphere_idx]['center'][1]:
-    #         area += 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
-    #     else:
-    #         area += 0
-
-    # return area
 
 
 def get_points_route(vector_points_gpr: dict, route_gpr: dict):
@@ -1087,75 +760,20 @@ def quadcopter_control_direct_points(sim, client, vision_handle: int,
     """
     count_image = 0
 
-    # filename_qcdp = (settings['path'] + 'scene1/' + settings['filename'] + '_' + day + '_' + month + '_' + year + '_')
     for point_qcdp in route_qc:
         pos = list(point_qcdp[:3])
-        # next_point_handle = sim.getObject('./new_target')
-        # sim.setObjectPosition(next_point_handle, pos)
-        # camera_orientation = sim.yawPitchRollToAlphaBetaGamma(point_qcdp[3], point_qcdp[4], point_qcdp[5])
         orientation = list(np.deg2rad(point_qcdp[3:]))
         orientation_angles = [0.0, 0.0, orientation[0]]
-        # sim.setObjectPosition(vision_handle, pos)
-        # sim.setObjectOrientation(vision_handle, camera_orientation)
         quadcopter_handle = sim.getObject('./base_vision')
         sim.setObjectPosition(quadcopter_handle, pos, sim.handle_world)
         sim.setObjectOrientation(quadcopter_handle, orientation_angles, sim.handle_world)
-        # sim.setObjectOrientation(quad_target_handle, [0.0, 0.0, orientation[0]], sim.handle_world)
-        # orientation_angles = sim.yawPitchRollToAlphaBetaGamma(orientation[0], orientation[2], orientation[1])
-        # pos = sim.getObjectPosition(quad_base_handle, sim.handle_world)
-        # camera_handle = sim.getObject('./O[0]/Cone[19]')
-        # sim.setObjectOrientation(camera_handle, orientation_angles)
-        # sim.setObjectPosition(camera_handle, pos)
-        # client.step()
-        # sim.setObjectOrientation(quad_target_handle, sim.handle_world, orientation_angles)
 
         total_time = sim.getSimulationTime() + settings['total simulation time']
-        # stabilized = False
         while sim.getSimulationTime() < total_time:
-            # diff_pos = np.subtract(pos, sim.getObjectPosition(quad_base_handle, sim.handle_world))
-            # norm_diff_pos = np.linalg.norm(diff_pos)
-            # if norm_diff_pos > 0.5:
-            #     delta_pos = 0.1 * diff_pos
-            #     new_pos = list(sim.getObjectPosition(quad_base_handle, sim.handle_world) + delta_pos)
-            # else:
-            #     new_pos = pos
-            #
-            # sim.setObjectPosition(quad_target_handle, new_pos)
-            # diff_ori = np.subtract(orientation_angles,
-            #                        sim.getObjectOrientation(quad_base_handle, sim.handle_world))
-            # norm_diff_ori = np.linalg.norm(diff_ori)
-            #
-            # if norm_diff_ori > 0.08:
-            #     delta_ori = 0.3 * diff_ori
-            #     new_ori = list(sim.getObjectOrientation(quad_base_handle, sim.handle_world) + delta_ori)
-            # else:
-            #     new_ori = orientation_angles
-            # sim.setObjectOrientation(quad_target_handle, new_ori)
-            # t_stab = sim.getSimulationTime() + settings['time to stabilize']
-            # while sim.getSimulationTime() < t_stab:
-            #     diff_pos = np.subtract(new_pos,
-            #                            sim.getObjectPosition(quad_base_handle, sim.handle_world))
-            #     diff_ori = np.subtract(new_ori,
-            #                            sim.getObjectOrientation(quad_base_handle, sim.handle_world))
-            #     norm_diff_pos = np.linalg.norm(diff_pos)
-            #     norm_diff_ori = np.linalg.norm(diff_ori)
-            #     if norm_diff_pos < 0.1 and norm_diff_ori < 0.05:
-            #         stabilized = True
-            #         break
-            #     client.step()
-            # diff_pos = np.subtract(pos, sim.getObjectPosition(quad_base_handle, sim.handle_world))
-            # diff_ori = np.subtract(orientation_angles, sim.getObjectOrientation(quad_base_handle, sim.handle_world))
-            # norm_diff_pos = np.linalg.norm(diff_pos)
-            # norm_diff_ori = np.linalg.norm(diff_ori)
-            # if norm_diff_pos < 0.1 and norm_diff_ori < 0.05:
-            #     stabilized = True
-            #     break
             client.step()
 
         get_image(sim, count_image, filename_qcdp, vision_handle, directory_name_qcdp)
         count_image += 1
-        # if not stabilized:
-        #     print('Time short')
 
 
 def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> ndarray:
@@ -1180,9 +798,7 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
                     if i != j:
                         edge_weight_matrix_cewm[i, j] = np.linalg.norm(pt1 - pt2)
                     j += 1
-                # count_target_i += 1
             i += 1
-        # count_target += 1
     i -= 1
     j -= 1
     edge_weight_matrix_cewm = edge_weight_matrix_cewm[:i, :j]
@@ -1191,12 +807,6 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> nda
 
 def ConvertArray2String(fileCA2S, array: ndarray):
     np.set_printoptions(threshold=10000000000)
-    # array_str = np.array2string(array, precision=5)
-    # array_str = array_str.replace('\n', '')
-    # array_str = array_str.replace('[', '')
-    # array_str = array_str.replace(']', '\n')
-    # array_str = array_str[:-1]
-    # fileCA2S.write(array_str)
     np.savetxt(fileCA2S, array, fmt='%.5f', delimiter=' ')
     return fileCA2S
 
@@ -1425,14 +1035,84 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     cv.imwrite(filename, img)
 
 
+def generate_spiral_points(box_side_gsp, step):
+    x, y = 0, 0
+    points = [[x, y]]
+
+    directions = [(step, 0), (0, step), (-step, 0), (0, -step)]  # Right, Up, Left, Down
+    direction_index = 0
+    steps = 1
+    step_count = 0
+
+    while True:
+        dx, dy = directions[direction_index % 4]
+        x += dx
+        y += dy
+        points.append([x, y])
+        step_count += 1
+
+        if step_count == steps:
+            direction_index += 1
+            step_count = 0
+            if direction_index % 2 == 0:
+                steps += 1
+
+        if not abs(x) < box_side_gsp / 2 or not abs(y) < box_side_gsp / 2:
+            points.pop()
+            break
+
+    return points
+
+
+def get_single_target_spiral_trajectory(centroid_points_gstst: ndarray, radius_gstst: float, parts_gstst: float):
+    print('Generating esprial trajectory over one target')
+    step = radius_gstst / parts_gstst
+    points_gstst = generate_spiral_points(radius_gstst, step)
+
+    points_gstst = np.array([np.hstack((np.array(p), 0)) for p in points_gstst])
+    directions_gstst = np.zeros([1, 3])
+    for p in points_gstst[1:]:
+        directions_gstst = np.row_stack((directions_gstst, euler_angles_from_normal(-p)))
+    points_gstst = points_gstst + centroid_points_gstst
+
+    return points_gstst, directions_gstst
+
+
+def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: int) -> tuple[
+    ndarray[Any, dtype[Any]], dict[Any, ndarray[Any, dtype[bool_]]], dict[Any, Any], int]:
+    print('Generating spiral trajectories')
+    # plotter_gst = pv.Plotter()
+    route_gst = np.zeros([1, 6])
+    route_by_target_gst = {}
+    spiral_target_distance_gst = {}
+    total_distance_gst = 0
+    for target_gst, centroid_gst in centroids_gst.items():
+        radius_box_gst = 2 * radius_gst[target_gst]
+        centroid_gst[2] = centroid_gst[2] + scale_to_height_spiral * centroid_gst[2]
+        spiral_point, spiral_direction = get_single_target_spiral_trajectory(centroid_gst, radius_box_gst, parts_gst)
+        spiral_target_distance_gst[target_gst] = 0
+        for count_point in range(spiral_point.shape[0] - 1):
+            spiral_target_distance_gst[target_gst] += np.linalg.norm(spiral_point[count_point, :3] - spiral_point[count_point + 1, :3])
+        route_by_target_gst[target_gst] = np.column_stack((spiral_point, spiral_direction))
+        route_gst = np.row_stack((route_gst, route_by_target_gst[target_gst]))
+        total_distance_gst += spiral_target_distance_gst[target_gst]
+    route_gst = np.row_stack((route_gst, np.zeros([1, 6])))
+    # Create lines connecting each pair of adjacent points
+    # lines = []
+    # for i in range(route_gst.shape[0] - 1):
+    #     lines.append([2, i, i + 1])  # Each line is represented as [num_points_in_line, point1_index, point2_index]
+    # lines = np.array(lines, dtype=np.int_)
+
+    # plotter_gst.add_mesh(pv.PolyData(route_gst[:, :3]))
+    # plotter_gst.add_mesh(pv.PolyData(route_gst[:, :3], lines=lines))
+    #
+    # plotter_gst.show_grid()
+    # plotter_gst.show()
+    return route_gst, route_by_target_gst, spiral_target_distance_gst, total_distance_gst
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    # targets_border, targets_center, targets_points_of_view = create_sample_data()
-    # points_of_view_contribution = camera_view_evaluation(targets_points_of_view)
-    # S = subgroup_formation(targets_border, points_of_view_contribution, targets_points_of_view)
-    # main_route = find_route(S)
-    # save_points(main_route, targets_points_of_view)
-    # points_of_view_contribution = camera_view_evaluation(targets_points_of_view)
     settings = parse_settings_file('config.yaml')
     CA_max = float(settings['CA_max'])
     max_route_radius = float(settings['max route radius'])
@@ -1464,6 +1144,9 @@ if __name__ == '__main__':
         main_route, travelled_distance_main, route_by_group = read_route_csv_file(
             './datasets/results/' +
             settings['COPS problem'] + '.csv', S, targets_points_of_view)
+        parts_to_spiral = np.fix(main_route.shape[0]/2)
+        spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
+            get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
 
         # main_route = get_points_to_route(route, conversion_table)
         # main_route = find_route(S)
@@ -1481,13 +1164,26 @@ if __name__ == '__main__':
         hour = str(current_datetime.hour)
         minute = str(current_datetime.minute)
         workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
+        spiral_workspace_folder = os.path.join(settings['workspace folder'],
+                                               f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}')
         directory_name = settings['directory name'] + f'exp_{experiment}_{day}_{month}_{hour}_{minute}'
+        spiral_directory_name = settings['directory name'] + f'spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
         quadcopter_control_direct_points(copp.sim,
                                          copp.client,
                                          copp.handles[settings['vision sensor names']],
                                          main_route,
                                          filename,
                                          directory_name)
+
+        copp.sim.setObjectOrientation(copp.handles[settings['vision sensor names']], [-np.pi, np.pi / 3, -np.pi / 2],
+                                      copp.sim.handle_parent)
+        quadcopter_control_direct_points(copp.sim,
+                                         copp.client,
+                                         copp.handles[settings['vision sensor names']],
+                                         spiral_routes,
+                                         'spiral_route',
+                                         spiral_directory_name)
+
         colmap_folder = settings['colmap folder']
 
         # Check if the directory already exists
@@ -1498,22 +1194,56 @@ if __name__ == '__main__':
             distance_file.write(str(travelled_distance_main))
         distance_file.close()
         images_folder = os.path.join(settings['path'], directory_name)
-        # if platform.system() == 'Windows':
-        #     run_colmap(colmap_folder, workspace_folder, str(images_folder))
-        #
-        # if platform.system() == 'Linux':
-        #     run_colmap_linux(images_folder, workspace_folder)
+        if platform.system() == 'Windows':
+            run_colmap(colmap_folder, workspace_folder, str(images_folder))
+
+        if platform.system() == 'Linux':
+            run_colmap_linux(images_folder, workspace_folder)
+        statistics_colmap(colmap_folder, workspace_folder)
+
+        # Check if the directory already exists
+        if not os.path.exists(spiral_workspace_folder):
+            # Create the directory
+            os.makedirs(spiral_workspace_folder)
+        with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
+            distance_file.write(str(travelled_spiral_distance))
+        distance_file.close()
+        spiral_images_folder = os.path.join(settings['path'], spiral_directory_name)
+        if platform.system() == 'Windows':
+            run_colmap(colmap_folder, spiral_workspace_folder, str(spiral_images_folder))
+
+        if platform.system() == 'Linux':
+            run_colmap_linux(spiral_images_folder, spiral_workspace_folder)
+        statistics_colmap(colmap_folder, spiral_workspace_folder)
+
         MNRE_array = np.empty(0)
-        for route, count_group in zip(route_by_group, range(len(route_by_group))):
+        spriral_route_key = spiral_route_by_target.keys()
+        for route, spiral_key, count_group in zip(route_by_group, spriral_route_key, range(len(route_by_group))):
             filename = settings['filename']
             directory_name = (settings['directory name'] +
                               f'_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}')
+            copp.sim.setObjectOrientation(copp.handles[settings['vision sensor names']], [0, np.pi / 2, np.pi / 2],
+                                          copp.sim.handle_parent)
             quadcopter_control_direct_points(copp.sim,
                                              copp.client,
                                              copp.handles[settings['vision sensor names']],
                                              route,
                                              filename,
                                              directory_name)
+            spiral_route = spiral_route_by_target[spiral_key]
+
+            copp.sim.setObjectOrientation(copp.handles[settings['vision sensor names']],
+                                          [-np.pi, np.pi / 3, -np.pi / 2],
+                                          copp.sim.handle_parent)
+
+            spiral_directory_name = settings[
+                                         'directory name'] + f'spriral_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
+            quadcopter_control_direct_points(copp.sim,
+                                             copp.client,
+                                             copp.handles[settings['vision sensor names']],
+                                             spiral_route,
+                                             'spiral_route',
+                                             spiral_directory_name)
 
             workspace_folder = os.path.join(settings['workspace folder'],
                                             f'exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{count_group}')
@@ -1536,8 +1266,23 @@ if __name__ == '__main__':
 
             if platform.system() == 'Linux':
                 run_colmap_linux(images_folder, workspace_folder)
+
             MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
 
-    copp.sim.stopSimulation()
+            spiral_workspace_folder = os.path.join(settings['workspace folder'],
+                                            f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{count_group}')
+            if not os.path.exists(spiral_workspace_folder):
+                # Create the directory
+                os.makedirs(spiral_workspace_folder)
+            with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
+                distance_file.write(str(spiral_target_distance[spiral_key]))
+            distance_file.close()
+            spiral_images_folder = os.path.join(settings['path'], spiral_directory_name)
+            if platform.system() == 'Windows':
+                run_colmap(colmap_folder, spiral_workspace_folder, str(spiral_images_folder))
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+            if platform.system() == 'Linux':
+                run_colmap_linux(spiral_images_folder, spiral_workspace_folder)
+            statistics_colmap(colmap_folder, spiral_workspace_folder)
+
+    copp.sim.stopSimulation()
