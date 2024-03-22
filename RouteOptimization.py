@@ -1,7 +1,5 @@
-import math
 import os
 from typing import Tuple, Dict, Any, List
-
 import numpy as np
 from numpy import ndarray, dtype, floating, float_, bool_
 from numpy._typing import _64Bit
@@ -10,10 +8,7 @@ from CoppeliaInterface import CoppeliaInterface
 import pyvista as pv
 from config import parse_settings_file
 from random import sample
-from GeometryOperations import (draw_cylinder_with_hemisphere,
-                                compute_central_hemisphere_area,
-                                get_point_intersection_plane_with_sphere, calculate_spherical_side_area,
-                                intersect_plane_sphere)
+from GeometryOperations import (draw_cylinder_with_hemisphere, compute_central_hemisphere_area, intersect_plane_sphere)
 import shutil
 import subprocess
 import csv
@@ -33,16 +28,25 @@ T_max = -1  # Maximum travel budget
 n_resolution = -1  # Number of subdivision of the horizontal discretization
 points_per_unit = -1
 scale_to_height_spiral = 1.5  # Scale multiplied by the object target centroid Z to compute the spiral trajectory Z
+search_size = 20  # Size of the random points that will be used to search the next position of the UAV.
+number_of_line_points = 10  # Number of the points that will be used to define a line that will be verified if is through the convex hull
+
 
 global settings
 
 
-def run_colmap_linux(image_folder, workspace_folder):
+def run_colmap_linux(image_folder, workspace_folder_rcl):
+    """
+    Execute the COLMAP script on Linux like OS
+    :param image_folder: Folder to images used for reconstruction. There is no name pattern to images
+    :param workspace_folder_rcl: Folder where the COLMAP results will be stored
+    :return: Nothing
+    """
     try:
-        if os.path.exists(workspace_folder):
+        if os.path.exists(workspace_folder_rcl):
             # Execute the script using subprocess
             process = subprocess.Popen(['./scripts/reconstruction.sh',
-                                        workspace_folder,
+                                        workspace_folder_rcl,
                                         image_folder])
 
             # Wait for the process to finish
@@ -58,7 +62,14 @@ def run_colmap_linux(image_folder, workspace_folder):
         print("An error ocurred")
 
 
-def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> None:
+def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
+    """
+    Execute the COLMAP script on Windows
+    :param colmap_folder: Folder where is stored the COLMAP.bat file
+    :param workspace_folder: Folder where the COLMAP results will be stored
+    :param image_folder: Folder to images used for reconstruction. There is no name pattern to images
+    :return: Nothing
+    """
     try:
         # Execute the script using subprocess
         process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
@@ -68,7 +79,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str) -> 
                                     '--workspace_path',
                                     workspace_folder,
                                     '--dense',
-                                    str(0)])
+                                    str(settings['dense model'])])
 
         # Wait for the process to finish
         stdout, stderr = process.communicate()
@@ -90,44 +101,29 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
         while True:
             statistic_folder = os.path.join(workspace_folder_sc, f'sparse/{i}/')
             if os.path.exists(statistic_folder):
-                # Execute the script using subprocess
-                # process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
-                #                             'model_analyzer',
-                #                             '--path',
-                #                             statistic_folder,
-                #                             '>',
-                #                             './stat.txt',
-                #                             '2>&1'])
-                # Open the .bat file and capture its output
-                with subprocess.Popen([colmap_folder_sc + 'COLMAP.bat', 'model_analyzer', '--path',
-                                       statistic_folder], shell=True, text=True, stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE) as process:
-                    output, stderr = process.communicate(timeout=10)  # Capture stdout and ignore stderr
-
-                    # Save the output to a file
-                    # with open('stat.txt', 'w') as file:
-                    #     file.write(output)
-
-                # Wait for the process to finish
-                # stdout, stderr = process.communicate()
+                with subprocess.Popen([colmap_folder_sc + 'COLMAP.bat', 'model_analyzer', '--path', statistic_folder], shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+                    output, stderr = process.communicate(timeout=10)  # Capture stdout and stderr. The result is shown on stderr
 
                 # Check if there were any errors
                 if process.returncode != 0:
                     print("Error executing script:")
-                    print(stderr.decode('utf-8'))
+                    print(stderr)
                 else:
                     if output is not None:
                         print(output)
                     if stderr is None:
-                        print('model_analyzer do not show any data')
+                        print('model_analyzer do not create any data')
                         return
                     else:
                         print(stderr)
+                        # Read data from COLMAP output
                         points_value_idx = stderr.find(':', stderr.find('Points')) + 1
-                        number_of_points = int(stderr[points_value_idx: stderr.find('\n', points_value_idx)])
+                        number_of_points = int(stderr[points_value_idx: stderr.find('\n', points_value_idx)])  # Number of points
                         error_value_idx = stderr.find(':', stderr.find('Mean reprojection error')) + 1
-                        error_value = float(stderr[error_value_idx: stderr.find('p', error_value_idx)])
-                        MNRE = error_value / number_of_points
+                        error_value = float(stderr[error_value_idx: stderr.find('p', error_value_idx)])  # Reconstruction error
+                        MNRE = error_value / number_of_points  # Compute de Mean Normalized Reconstruction Error
+
+                        # Save important data to file
                         with open(statistic_folder + 'MNRE.txt', 'w') as statistic_file:
                             statistic_file.write(f'MNRE: {MNRE}\n')
                             statistic_file.write(f'Mean reprojection error: {error_value}\n')
@@ -148,21 +144,25 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
         print("An error occurred:", e)
 
 
-def camera_view_evaluation(targets_points_of_view_cve: dict):
-    print('Starting creating evaluation matrix')
-    points_of_view_contribution = {}
-    for target, points in targets_points_of_view_cve.items():
-        points_of_view_contribution[target] = 20 * np.random.rand(points.shape[0])
-    return points_of_view_contribution
-
-
 def is_point_inside(point, hull):
+    """
+    Verify is a point is inside a Delaunay convex hull
+    :param point: Point to be evaluated
+    :param hull: The convex hull computed by Delaunay function of Scipy
+    :return point_in_hull: Boolean denoting if point is inside the hull True=Yes, False=No
+    """
     # Check if the given point is within the convex hull
     point_in_hull = hull.find_simplex(point) >= 0
     return point_in_hull
 
 
 def is_line_through_convex_hull(hull, line):
+    """
+    Verify if a line pass by a Delaunay convex hull
+    :param hull: he convex hull computed by Delaunay function of Scipy
+    :param line: Points on a line
+    :return: Boolean denoting if line goes through the hull True=Yes, False=No
+    """
     for point in line:
         if is_point_inside(point, hull):
             return True
@@ -170,6 +170,13 @@ def is_line_through_convex_hull(hull, line):
 
 
 def points_along_line(start_point, end_point, num_points):
+    """
+    Returns points in a line on 3D space
+    :param start_point: Start point of the line
+    :param end_point:  End point of the line
+    :param num_points: Number of points between start and end point
+    :return points: The points in the line
+    """
     # Generate num_points equally spaced between start_point and end_point
     x = np.linspace(start_point[0], end_point[0], num_points)
     y = np.linspace(start_point[1], end_point[1], num_points)
@@ -178,27 +185,35 @@ def points_along_line(start_point, end_point, num_points):
     return points
 
 
-def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict,
-                       target_points_of_view_sf: dict, positions_sf: dict) -> tuple[dict, int]:
+def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict, target_points_of_view_sf: dict) -> tuple[dict, int]:
+    """
+    Forms the subgroups of points of view around each object.
+    :param targets_border_sf: Dictionary with the convex hull computed by Delaunay function of Scipy for each target object
+    :param points_of_view_contribution_sf: Dictionary with a reward of each point of view. Each key of the dictionary is an object target
+    :param target_points_of_view_sf: Dictionary with the positions of each point of view around each target object
+    :return S: Dictionary with subgroup. Each key is a target object
+    :return length: Total number of subgroups
+    """
     print('Starting subgroup formation')
     S = {}
     contribution = 0
-    # plotter_sf = pv.Plotter()
     subgroup_idx = 0
     is_first_target = True
     cont_target = 0
     length = 0
+    # Get the points of view for each target object
     for target, points in target_points_of_view_sf.items():
         S[target] = []
+        # Create a subgroup 0 with position and orientation equals to zero. This subgroup is the start and end subgroup
         if subgroup_idx == 0:
             S[target].append([])
             S[target][-1].append((subgroup_idx, subgroup_idx, 0, 0, 0.0, 0.0, 0, 0))
             subgroup_idx += 1
-        visits_to_position = np.zeros(points.shape[0])
+        visits_to_position = np.zeros(points.shape[0])  # Number of visits to a point of view. Used to determine the maximum number of visits to a point of view
         if is_first_target:
             visits_to_position[0] += max_visits + 1
         indexes_of_ini_points = list(range(points.shape[0]))
-        random_points = sample(indexes_of_ini_points, len(indexes_of_ini_points))
+        random_points = sample(indexes_of_ini_points, len(indexes_of_ini_points))  # Selects randomly the index of points to form the groups
         show_number_of_points = 0
         for i in random_points:
             CA = 0
@@ -207,45 +222,15 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
             prior_idx = i
             max_idx = -1
             idx_list = [i]
-            # print(f'Point {show_number_of_points} of {len(indexes_of_ini_points)}')
             show_number_of_points += 1
             iteration = 0
             while CA < CA_max and iteration < max_iter:
                 iteration += 1
-                indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=20)
+                indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=search_size)  # Select randomly the index of points where the drone can go
                 max_contribution = 0
                 for index in indexes_of_points:
-                    # if index in idx_list:
-                    #     continue
-                    # is_point_inside_sf = False
-                    # is_line_through_convex_hull_sf = False
-                    # for target_compare, hull_sf in targets_border_sf.items():
-                    #
-                    #     is_point_inside_sf = is_point_inside(points[index, :3], hull_sf)
-                    #     if is_point_inside_sf:
-                    #         break
-                    #     line_points = points_along_line(target_points_of_view_sf[target][prior_idx, :3],
-                    #                                     target_points_of_view_sf[target][index, :3], 20)
-                    #     # point_cloud = pv.PolyData(positions_sf[target_compare])
-                    #     # plotter_sf.add_mesh(point_cloud)
-                    #     # points_line = pv.PolyData(line_points)
-                    #     # plotter_sf.add_mesh(points_line, color='red')
-                    #     # pl_sf = pv.Plotter()
-                    #     # meshes = plotter_sf.meshes
-                    #     # for mesh in meshes:
-                    #     #     pl_sf.add_mesh(mesh)
-                    #     # pl_sf.show()
-                    #     is_line_through_convex_hull_sf = is_line_through_convex_hull(hull_sf, line_points)
-                    #     if is_line_through_convex_hull_sf:
-                    #         break
-                    # if is_point_inside_sf:
-                    #     continue
-                    # if is_line_through_convex_hull_sf:
-                    #     continue
-                    distance_p2p = np.linalg.norm(
-                        target_points_of_view_sf[target][prior_idx, :3] - target_points_of_view_sf[target][index, :3])
-                    contribution = abs(abs(points_of_view_contribution_sf[target][index]) - distance_p2p)
-                    # contribution = abs(abs(points_of_view_contribution_sf[target][index]))
+                    distance_p2p = np.linalg.norm(target_points_of_view_sf[target][prior_idx, :3] - target_points_of_view_sf[target][index, :3])
+                    contribution = abs(abs(points_of_view_contribution_sf[target][index]) - distance_p2p)  #
                     if contribution > max_contribution:
                         max_idx = index
                         max_contribution = abs(points_of_view_contribution_sf[target][index])
@@ -257,8 +242,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                     continue
                 is_line_through_convex_hull_sf = False
                 for target_compare, hull_sf in targets_border_sf.items():
-                    line_points = points_along_line(target_points_of_view_sf[target][prior_idx, :3],
-                                                    target_points_of_view_sf[target][max_idx, :3], 10)
+                    line_points = points_along_line(target_points_of_view_sf[target][prior_idx, :3], target_points_of_view_sf[target][max_idx, :3], number_of_line_points)
                     is_line_through_convex_hull_sf = is_line_through_convex_hull(hull_sf, line_points)
                     if is_line_through_convex_hull_sf:
                         break
@@ -273,33 +257,41 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                 visits_to_position[max_idx] += 1
                 prior_idx_s = length + prior_idx
                 max_idx_s = length + max_idx
-                S[target][-1].append((subgroup_idx,
-                                      prior_idx,
-                                      max_idx,
-                                      distance_p2p,
-                                      total_distance,
-                                      CA,
-                                      prior_idx_s,
-                                      max_idx_s))
+                # Dictionary with subgroups by object target. Each target has n subgroups. And each subgroup has your elements which is composed by a tuple with:
+                S[target][-1].append((subgroup_idx,  # General index of the group considering all subgroups of all objects
+                                      prior_idx,  # Index of the previous visited point of view. This index is by target
+                                      max_idx,  # Index of the next visited point of view. This index is by target
+                                      distance_p2p,  # Euclidean distance between the start and end points.
+                                      total_distance,  # Total travelled distance until the point max_idx. The last element of the subgroup will have the total travelled distance in subgroup
+                                      CA,  #  Total reward of the subgroup until the max_idx point. The last element of the subgroup will have the total reward for the subgroup
+                                      prior_idx_s,  # Index of the previous visited point of view. This index considering all target
+                                      max_idx_s))  # Index of the next visited point of view. This index is considering all target
                 prior_idx = max_idx
+            # If the above step do not reach the CA minimum shows a message to user.
             if iteration >= max_iter - 1:
                 print('Decrease CA_max')
                 print(f'{CA=}')
                 print(f'{len(S[target][-1])=}')
+            # If the subgroup is empty remove it from the subgroup list
             if len(S[target][-1]) == 0:
                 S[target].pop()
             else:
                 subgroup_idx += 1
-            # print(f'{CA=}')
-            # print(f'{len(S[target][-1])=}')
-        length += len(S[target])
+
+        length += len(S[target])  # Compute the total length of the subgroups
         is_first_target = False
         cont_target += 1
         print(f'{target=} has {len(S[target])=} groups')
     return S, length
 
 
-def find_route(S_fr: dict, points_of_view_contribution_sf: dict = None, target_points_of_view_sf: dict = None):
+def find_route(S_fr: dict):
+    """
+    NOT USED!!!
+    Find a route based on better subgroup reward only
+    :param S_fr: Dictionary with subgroups
+    :return route: Subgroups that forms a route
+    """
     print('Starting finding a route ...')
     route = {}
     for target, s_fr in S_fr.items():
@@ -314,6 +306,12 @@ def find_route(S_fr: dict, points_of_view_contribution_sf: dict = None, target_p
 
 
 def get_points_to_route(route_points_gpfr: list[tuple], points_table_gpfr: list[ndarray]) -> ndarray:
+    """
+    Make an array with the point chose for the route. Separate it from the subgroups.
+    :param route_points_gpfr: Dictionary of subgroups that forms a route
+    :param points_table_gpfr: Dictionary of points of view
+    :return:  Array with points
+    """
     route_result_points_gpfr = np.empty(0)
     for point_pair in route_points_gpfr:
         if len(route_result_points_gpfr) == 0:
@@ -324,6 +322,13 @@ def get_points_to_route(route_points_gpfr: list[tuple], points_table_gpfr: list[
 
 
 def save_points(route_sp: dict, targets_points_of_view_sr: dict):
+    """
+    UNDER CONSTRUCTION!!!!!
+    Save the points of each route
+    :param route_sp: Dictionary with subgroups with route
+    :param targets_points_of_view_sr: Points of view to be converted in a route
+    :return: Nothing
+    """
     print('Starting saving ...')
     route_points = np.empty([0, 6])
     for target, data_s in route_sp.items():
@@ -334,14 +339,18 @@ def save_points(route_sp: dict, targets_points_of_view_sr: dict):
     np.savetxt('positions.csv', route_points, delimiter=',')
 
 
-def initializations(copp) -> tuple:
+def initializations(copp_i) -> tuple[
+    dict[Any, ndarray[Any, dtype[floating[_64Bit] | float_]] | ndarray[Any, dtype[Any]]], dict[Any, Delaunay], dict[Any, tuple[ndarray[Any, dtype[Any]], float]], dict[Any, tuple[ndarray[Any, dtype[Any]], float]]]:
     """
-    Function to get the points from CoppeliaSim. The points of each object can not be at the same plane, at least one
+    Function to get the points from CoppeliaSim. The points of each object cannot be at the same plane, at least one
     must be a different plane. On CoppeliaSim you must add discs around the object to form a convex hull these points
     must call Disc[0], Disc[1], ... , Disc[n]. These points must be son of a plane named O[0], O[1], ... , O[n]. These
     objects in CoppeliaSim scene must have the property Object is model on window Scene Object Properties checked. To
-    access these properties you can only double-click on object.
-    :return:
+    access these properties, you can only double-click on an object.
+    :return positions: Dictionary with all positions of the viewpoints in each target object
+    :return target_hull_i: Dictionary with the convex hull computed by Delaunay for each target object
+    :return centroid_points_i: Dictionary with the centroid of the convex hull for each target object
+    :return radius_i: Dictionary with the radius of the convex hull
     """
     positions = {}
     j = 0
@@ -349,34 +358,39 @@ def initializations(copp) -> tuple:
     centroid_points_i = {}
     radius_i = {}
     for object_name_i in settings['object names']:
-        # copp.handles[f'./O[{j}]'] = copp.sim.getObject(":/O", {'index': j, 'noError': True})
-        copp.handles[object_name_i] = copp.sim.getObject(f"./{object_name_i}")
-        if copp.handles[object_name_i] < 0:
+        copp_i.handles[object_name_i] = copp_i.sim.getObject(f"./{object_name_i}")
+        if copp_i.handles[object_name_i] < 0:
             break
         positions[object_name_i] = np.empty([0, 3])
         i = 0
+        # Read the points of objects.
+        # The object in CoppeliaSim must have primitive forms, discs with positions of external points.
+        # Disc names must be Disc[0], Disc[1], ..., Disc[n]
         while True:
             points_names = f"./{object_name_i}/Disc"
-            handle = copp.sim.getObject(points_names, {'index': i, 'noError': True})
+            handle = copp_i.sim.getObject(points_names, {'index': i, 'noError': True})
             if handle < 0:
                 break
-            positions[object_name_i] = np.row_stack((positions[object_name_i],
-                                                     copp.sim.getObjectPosition(handle,
-                                                                                copp.sim.handle_world)))
+            positions[object_name_i] = np.row_stack((positions[object_name_i], copp_i.sim.getObjectPosition(handle, copp_i.sim.handle_world)))
             i += 1
 
-        targets_hull_i[object_name_i] = Delaunay(positions[object_name_i])
-        centroid_points_i[object_name_i], radius_i[object_name_i] = _centroid_poly(positions[object_name_i])
+        targets_hull_i[object_name_i] = Delaunay(positions[object_name_i])  # Compute the convex hull of the target objects
+        centroid_points_i[object_name_i], radius_i[object_name_i] = _centroid_poly(positions[object_name_i])  # Compute the centroid of objects
         j = j + 1
 
     return positions, targets_hull_i, centroid_points_i, radius_i
 
 
-def _centroid_poly(poly: np.ndarray):
+def _centroid_poly(poly: np.ndarray) -> tuple[ndarray[Any, dtype[floating[Any]]], float]:
+    """
+    Compute the centroid point for a Delaunay convex hull
+    :param poly: Delaunay convex hull
+    :return tmp_center: Geometric center position of the target object
+    """
     T = Delaunay(poly).simplices
     n = T.shape[0]
     W = np.zeros(n)
-    C = 0
+    C = np.zeros(3)
 
     for m in range(n):
         sp = poly[T[m, :], :]
@@ -385,7 +399,7 @@ def _centroid_poly(poly: np.ndarray):
         C += W[m] * np.mean(sp, axis=0)
 
     tmp_center = C / np.sum(W)
-    max_distance = 0
+    max_distance = 0.0
     for m in range(n):
         sp = poly[T[m, :], :2]
         for spl in sp:
@@ -433,10 +447,6 @@ def euler_angles_from_normal(normal_vector):
     return yaw, pitch, roll
 
 
-def compute_radial_area():
-    print('Starting computing radial area')
-
-
 def draw_cylinders_hemispheres(centroid_points_pf: dict,
                                radius_pf: dict,
                                target_points_pf: dict) -> tuple[dict[Any, ndarray[Any, dtype[Any]] | ndarray[Any, dtype[floating[_64Bit] | float_]]], dict[Any, list[float] | list[Any]], list[ndarray[Any, dtype[Any]]]]:
@@ -444,9 +454,9 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
     Draw the hemispheres and the cylinders around the object
     :param centroid_points_pf: Dictionary of arrays of points with the central points of the objects
     :param radius_pf: Computed radius of the cylinders around each object
-    :param target_points_pf: Computed points of the convex hull of the objects
+    :param target_points_pf: Computed points for the convex hull of the objects
     :return: vector_of_points: Dictionary with points around each object
-    :return: Dictionary of weight of each point
+    :return: Dictionary for weight of each point
     """
     print('Starting showing data')
     # Create a plotter
@@ -480,7 +490,6 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
         route_radius_dch = int(np.fix(max_route_radius / points_per_unit))
         weights = (route_radius_dch - 1) * [0.0]
         for cell in get_geometric_objects_cell(cylinder):
-            # print(f'{count_hemisphere} of {cylinder.n_cells}')
             hemisphere_radius = meshes['hemispheres'][count_hemisphere]['radius']  #
             pos_cell = cell.center
             points_cell = cell.points[:3]
@@ -504,9 +513,7 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
                     weights[k - 1] = weight
                 else:
                     weight = weights[k - 1]
-                vector_points_pf[target] = np.row_stack((vector_points_pf[target],
-                                                         np.concatenate((point_position,
-                                                                         np.array([yaw, pitch, roll])))))
+                vector_points_pf[target] = np.row_stack((vector_points_pf[target], np.concatenate((point_position, np.array([yaw, pitch, roll])))))
                 conversion_table.append(np.concatenate((point_position, np.array([yaw, pitch, roll]))))
                 vector_points_weight_pf[target].append(weight)
             count_hemisphere += 1
@@ -1131,8 +1138,7 @@ if __name__ == '__main__':
             centroid_points,
             radius,
             positions)
-        S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view,
-                                              positions)
+        S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view)
         edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
         write_problem_file('./datasets/',
                            settings['COPS problem'],
