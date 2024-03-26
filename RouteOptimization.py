@@ -25,13 +25,13 @@ max_route_radius = -1  # Bigger number the route increase the maximum radius of 
 points_per_sphere = -1  # Density of points in the radius. If the number increase density decrease
 height_proportion = -1  # The proportion of the tallest z height to make the cylinder
 max_visits = -1  # Define the maximum number of times that the point can be visited
-max_iter = -1  # Maximum number of iteration to try catch a subgroup
+max_iter = -1  # Maximum number of iterations to try...catch a subgroup
 T_max = -1  # Maximum travel budget
-n_resolution = -1  # Number of subdivision of the horizontal discretization
+n_resolution = -1  # Number of subdivisions of the horizontal discretization
 points_per_unit = -1
 scale_to_height_spiral = 1.5  # Scale multiplied by the object target centroid Z to compute the spiral trajectory Z
 search_size = 20  # Size of the random points that will be used to search the next position of the UAV.
-number_of_line_points = 10  # Number of the points that will be used to define a line that will be verified if is through the convex hull
+number_of_line_points = 10  # The number of the points that will be used to define a line that will be verified if is through the convex hull
 
 
 def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder: str) -> None:
