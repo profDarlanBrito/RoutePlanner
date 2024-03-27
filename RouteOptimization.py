@@ -32,6 +32,7 @@ points_per_unit = -1
 scale_to_height_spiral = 1.5  # Scale multiplied by the object target centroid Z to compute the spiral trajectory Z
 search_size = 20  # Size of the random points that will be used to search the next position of the UAV.
 number_of_line_points = 10  # The number of the points that will be used to define a line that will be verified if is through the convex hull
+feature_extractor_file_name = 'feature_extractor_config.ini'
 
 
 def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder: str) -> None:
@@ -79,17 +80,74 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
     """
     try:
         # Execute the script using subprocess
+        # process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+        #                             'automatic_reconstructor',
+        #                             '--image_path',
+        #                             image_folder,
+        #                             '--workspace_path',
+        #                             workspace_folder,
+        #                             '--dense',
+        #                             str(settings['dense model'])])
+
+        if os.path.isfile(feature_extractor_file_name):
+            with open(feature_extractor_file_name, 'r') as feature_config_file_read:
+                feature_config_str = feature_config_file_read.readlines()
+                feature_config_str[3] = f'database_path={workspace_folder}/database.db\n'
+                feature_config_str[4] = f'image_path={image_folder}\n'
+        feature_config_path = os.path.join(workspace_folder,feature_extractor_file_name)
+
+        with open(feature_config_path, 'w') as feature_config_file_save:
+            feature_config_file_save.writelines(feature_config_str)
+
         process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
-                                    'automatic_reconstructor',
+                                    'feature_extractor',
+                                    '--project_path',
+                                    feature_config_path])
+        # Wait for the process to finish
+        _, _ = process.communicate()
+
+        process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                                    'exhaustive_matcher',
+                                    '--database_path',
+                                    workspace_folder + '/database.db'])
+
+        sparse_dir = os.path.join(workspace_folder, 'sparse')
+        os.mkdir(sparse_dir)
+
+        # Wait for the process to finish
+        _, _ = process.communicate()
+
+        process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                                    'mapper',
+                                    '--database_path',
+                                    workspace_folder + '/database.db',
                                     '--image_path',
                                     image_folder,
-                                    '--workspace_path',
-                                    workspace_folder,
-                                    '--dense',
-                                    str(settings['dense model'])])
+                                    '--output_path',
+                                    sparse_dir])
+        # Wait for the process to finish
+        _, _ = process.communicate()
+
+        dense_dir = os.path.join(workspace_folder, 'dense')
+        os.mkdir(dense_dir)
+        sparse_dir = os.path.join(sparse_dir, '0')
+
+        process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                                    'image_undistorter',
+                                    '--input_path',
+                                    sparse_dir,
+                                    '--image_path',
+                                    image_folder,
+                                    '--output_path',
+                                    dense_dir,
+                                    '--output_type',
+                                    'COLMAP',
+                                    '--max_image_size',
+                                    '2000'])
 
         # Wait for the process to finish
         stdout, stderr = process.communicate()
+
 
         # Check if there were any errors
         if process.returncode != 0:
