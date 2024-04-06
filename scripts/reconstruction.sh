@@ -1,7 +1,7 @@
 #!/bin/bash
 
 WORKSPACE_PATH="$1"
-IMAGES_PATH="$WORKSPACE_PATH/$2"
+IMAGES_PATH="$2"
 MAX_IMAGE_SIZE=1600
 IS_MULTPLE_MODELS=1
 
@@ -12,7 +12,8 @@ function automatic_reconstructor() {
         --workspace_path "$WORKSPACE_PATH" \
         --image_path "$IMAGES_PATH" \
         --quality medium \
-        --camera_model PINHOLE
+        --camera_model PINHOLE \
+        --single_camera 1
     save_statistics
 }
 

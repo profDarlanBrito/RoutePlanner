@@ -1,0 +1,92 @@
+BootStrap: library
+From: ubuntu:20.04
+
+%post
+    cd
+    apt -y update
+    DEBIAN_FRONTEND=noninteractive \
+    apt -y install \
+    git \
+    curl \
+    wget \
+    zip \
+    cmake \
+    ninja-build \
+    build-essential \
+    libboost-program-options-dev \
+    libboost-filesystem-dev \
+    libboost-graph-dev \
+    libboost-system-dev \
+    libeigen3-dev \
+    libflann-dev \
+    libfreeimage-dev \
+    libmetis-dev \
+    libgoogle-glog-dev \
+    libgtest-dev \
+    libsqlite3-dev \
+    libglew-dev \
+    qtbase5-dev \
+    libqt5opengl5-dev \
+    libcgal-dev \
+    libceres-dev
+
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
+    mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
+    wget https://developer.download.nvidia.com/compute/cuda/11.4.2/local_installers/cuda-repo-ubuntu2004-11-4-local_11.4.2-470.57.02-1_amd64.deb
+    dpkg -i cuda-repo-ubuntu2004-11-4-local_11.4.2-470.57.02-1_amd64.deb
+    apt apt-key /var/cuda-repo-ubuntu2004-11-4-local/7fa2af80.pub
+    apt update
+    DEBIAN_FRONTEND=noninteractive \
+    apt -y install cuda
+
+    git clone https://github.com/profDarlanBrito/COPS.git
+    git clone https://github.com/profDarlanBrito/RoutePlanner.git
+    wget https://github.com/colmap/colmap/archive/refs/tags/3.9.1.zip
+    wget https://downloads.coppeliarobotics.com/V4_6_0_rev18/CoppeliaSim_Edu_V4_6_0_rev18_Ubuntu20_04.tar.xz
+
+    chmod 755 RoutePlanner/scripts/reconstruction.sh
+
+    unzip 3.9.1.zip
+    cd colmap-3.9.1
+    mkdir build
+    cd build
+    cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=70
+    ninja
+    ninja install
+    cd
+
+    tar -xvf CoppeliaSim_Edu_V4_6_0_rev18_Ubuntu20_04.tar.xz 
+
+    apt install \
+    make \ 
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    llvm \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev
+
+    git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.0
+    . "$HOME/.asdf/asdf.sh"
+    asdf plugin-add python
+    asdf install python 3.11.0
+    asdf global python 3.11.0
+    pip install -r RoutePlanner/requirements.txt
+
+
+%environment
+    export PATH=$PATH:/usr/local/cuda/bin
+    . "$HOME/.asdf/asdf.sh"
+
+%apprun scene
+    python RoutePlanner/RouteOptimization.py
+
+%labels
+    Author Verlab

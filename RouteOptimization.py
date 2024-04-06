@@ -924,6 +924,10 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
                        S_wpf: dict, subgroup_size_wpf: int):
     print('Starting writing problem file')
     subgroup_count = 0
+
+    # Create the directory
+    os.makedirs(dir_wpf, exist_ok=True)
+
     complete_file_name = dir_wpf + filename_wpf + '.cops'
     # print(f'{complete_file_name=}')
     GTSP_CLUSTER_SECTION_str = []
