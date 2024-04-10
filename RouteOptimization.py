@@ -21,7 +21,7 @@ import platform
 
 # Variables loaded from config.yaml
 CA_max = -1  # Bigger number the route has more points
-max_route_radius = -1  # Bigger number the route increase the maximum radius of the points of view.
+max_route_radius = -1  # Bigger number the route increase the maximum points of view radius.
 points_per_sphere = -1  # Density of points in the radius. If the number increase density decrease
 height_proportion = -1  # The proportion of the tallest z height to make the cylinder
 max_visits = -1  # Define the maximum number of times that the point can be visited
