@@ -100,7 +100,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
                 feature_config_str = feature_config_file_read.readlines()
                 feature_config_str[3] = f'database_path={workspace_folder}/database.db\n'
                 feature_config_str[4] = f'image_path={image_folder}\n'
-        feature_config_path = os.path.join(workspace_folder, feature_extractor_file_name)
+        feature_config_path = os.path.join(workspace_folder, os.path.basename(feature_extractor_file_name))
 
         with open(feature_config_path, 'w') as feature_config_file_save:
             feature_config_file_save.writelines(feature_config_str)
@@ -116,7 +116,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
             with open(exhaustive_matcher_file_name, 'r') as exhaustive_matcher_file_read:
                 exhaustive_matcher_config_str = exhaustive_matcher_file_read.readlines()
                 exhaustive_matcher_config_str[3] = f'database_path={workspace_folder}/database.db\n'
-        exhaustive_matcher_config_path = os.path.join(workspace_folder, exhaustive_matcher_file_name)
+        exhaustive_matcher_config_path = os.path.join(workspace_folder, os.path.basename(exhaustive_matcher_file_name))
 
         with open(exhaustive_matcher_config_path, 'w') as exhaustive_matcher_file_save:
             exhaustive_matcher_file_save.writelines(exhaustive_matcher_config_str)
@@ -138,7 +138,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
                 mapper_config_str[3] = f'database_path={workspace_folder}/database.db\n'
                 mapper_config_str[4] = f'image_path={image_folder}\n'
                 mapper_config_str[5] = f'output_path={sparse_dir}\n'
-        mapper_config_path = os.path.join(workspace_folder, mapper_file_name)
+        mapper_config_path = os.path.join(workspace_folder, os.path.basename(mapper_file_name))
 
         with open(mapper_config_path, 'w') as mapper_file_save:
             mapper_file_save.writelines(mapper_config_str)
@@ -165,7 +165,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
                     image_undistorter_config_str[0] = f'image_path={image_folder}\n'
                     image_undistorter_config_str[1] = f'input_path={sub_sparse_dir}\n'
                     image_undistorter_config_str[2] = f'output_path={sub_dense_dir}\n'
-            image_undistorter_config_path = os.path.join(workspace_folder, image_undistorter_file_name)
+            image_undistorter_config_path = os.path.join(workspace_folder, os.path.basename(image_undistorter_file_name))
 
             with open(image_undistorter_config_path, 'w') as image_undistorter_file_save:
                 image_undistorter_file_save.writelines(image_undistorter_config_str)
@@ -182,7 +182,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
                 with open(patch_match_stereo_file_name, 'r') as patch_match_stereo_file_read:
                     patch_match_stereo_config_str = patch_match_stereo_file_read.readlines()
                     patch_match_stereo_config_str[3] = f'workspace_path={sub_dense_dir}\n'
-            patch_match_stereo_config_path = os.path.join(workspace_folder, patch_match_stereo_file_name)
+            patch_match_stereo_config_path = os.path.join(workspace_folder, os.path.basename(patch_match_stereo_file_name))
 
             with open(patch_match_stereo_config_path, 'w') as patch_match_stereo_file_save:
                 patch_match_stereo_file_save.writelines(patch_match_stereo_config_str)
@@ -200,7 +200,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
                     stereo_fusion_config_str = stereo_fusion_file_read.readlines()
                     stereo_fusion_config_str[3] = f'workspace_path={sub_dense_dir}\n'
                     stereo_fusion_config_str[4] = f'output_path={sub_dense_dir}/fused.ply\n'
-            stereo_fusion_config_path = os.path.join(workspace_folder, stereo_fusion_file_name)
+            stereo_fusion_config_path = os.path.join(workspace_folder, os.path.basename(stereo_fusion_file_name))
 
             with open(stereo_fusion_config_path, 'w') as stereo_fusion_file_save:
                 stereo_fusion_file_save.writelines(stereo_fusion_config_str)
@@ -218,7 +218,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
                     poisson_mesher_config_str = poisson_mesher_file_read.readlines()
                     poisson_mesher_config_str[3] = f'input_path={sub_dense_dir}/fused.ply\n'
                     poisson_mesher_config_str[4] = f'output_path={sub_dense_dir}/meshed-poisson.ply\n'
-            poisson_mesher_config_path = os.path.join(workspace_folder, poisson_mesher_file_name)
+            poisson_mesher_config_path = os.path.join(workspace_folder, os.path.basename(poisson_mesher_file_name))
 
             with open(poisson_mesher_config_path, 'w') as poisson_mesher_file_save:
                 poisson_mesher_file_save.writelines(poisson_mesher_config_str)
