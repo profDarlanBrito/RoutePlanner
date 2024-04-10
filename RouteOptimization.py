@@ -32,7 +32,13 @@ points_per_unit = -1
 scale_to_height_spiral = 1.5  # Scale multiplied by the object target centroid Z to compute the spiral trajectory Z
 search_size = 20  # Size of the random points that will be used to search the next position of the UAV.
 number_of_line_points = 10  # The number of the points that will be used to define a line that will be verified if is through the convex hull
-feature_extractor_file_name = 'feature_extractor_config.ini'
+feature_extractor_file_name = 'config/feature_extractor.ini'
+exhaustive_matcher_file_name = 'config/exhaustive_matcher.ini'
+mapper_file_name = 'config/mapper.ini'
+image_undistorter_file_name = 'config/image_undistorter.ini'
+patch_match_stereo_file_name = 'config/patch_match_stereo.ini'
+stereo_fusion_file_name = 'config/stereo_fusion.ini'
+poisson_mesher_file_name = 'config/poisson_mesher.ini'
 
 
 def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder: str) -> None:
@@ -94,7 +100,7 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
                 feature_config_str = feature_config_file_read.readlines()
                 feature_config_str[3] = f'database_path={workspace_folder}/database.db\n'
                 feature_config_str[4] = f'image_path={image_folder}\n'
-        feature_config_path = os.path.join(workspace_folder,feature_extractor_file_name)
+        feature_config_path = os.path.join(workspace_folder, feature_extractor_file_name)
 
         with open(feature_config_path, 'w') as feature_config_file_save:
             feature_config_file_save.writelines(feature_config_str)
@@ -106,10 +112,19 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
         # Wait for the process to finish
         _, _ = process.communicate()
 
+        if os.path.isfile(exhaustive_matcher_file_name):
+            with open(exhaustive_matcher_file_name, 'r') as exhaustive_matcher_file_read:
+                exhaustive_matcher_config_str = exhaustive_matcher_file_read.readlines()
+                exhaustive_matcher_config_str[3] = f'database_path={workspace_folder}/database.db\n'
+        exhaustive_matcher_config_path = os.path.join(workspace_folder, exhaustive_matcher_file_name)
+
+        with open(exhaustive_matcher_config_path, 'w') as exhaustive_matcher_file_save:
+            exhaustive_matcher_file_save.writelines(exhaustive_matcher_config_str)
+
         process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
                                     'exhaustive_matcher',
-                                    '--database_path',
-                                    workspace_folder + '/database.db'])
+                                    '--project_path',
+                                    exhaustive_matcher_config_path])
 
         sparse_dir = os.path.join(workspace_folder, 'sparse')
         os.mkdir(sparse_dir)
@@ -117,37 +132,104 @@ def run_colmap(colmap_folder: str, workspace_folder: str, image_folder: str):
         # Wait for the process to finish
         _, _ = process.communicate()
 
+        if os.path.isfile(mapper_file_name):
+            with open(mapper_file_name, 'r') as mapper_file_read:
+                mapper_config_str = mapper_file_read.readlines()
+                mapper_config_str[3] = f'database_path={workspace_folder}/database.db\n'
+                mapper_config_str[4] = f'image_path={image_folder}\n'
+                mapper_config_str[5] = f'output_path={sparse_dir}\n'
+        mapper_config_path = os.path.join(workspace_folder, mapper_file_name)
+
+        with open(mapper_config_path, 'w') as mapper_file_save:
+            mapper_file_save.writelines(mapper_config_str)
+
         process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
                                     'mapper',
-                                    '--database_path',
-                                    workspace_folder + '/database.db',
-                                    '--image_path',
-                                    image_folder,
-                                    '--output_path',
-                                    sparse_dir])
-        # Wait for the process to finish
-        _, _ = process.communicate()
+                                    '--project_path',
+                                    mapper_config_path])
+        
 
         dense_dir = os.path.join(workspace_folder, 'dense')
         os.mkdir(dense_dir)
-        sparse_dir = os.path.join(sparse_dir, '0')
+        for folder in os.listdir(sparse_dir): 
 
-        process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
-                                    'image_undistorter',
-                                    '--input_path',
-                                    sparse_dir,
-                                    '--image_path',
-                                    image_folder,
-                                    '--output_path',
-                                    dense_dir,
-                                    '--output_type',
-                                    'COLMAP',
-                                    '--max_image_size',
-                                    '2000'])
+            # Wait for the process to finish
+            _, _ = process.communicate()
+
+            sub_dense_dir = os.path.join(dense_dir, folder)
+            sub_sparse_dir = os.path.join(sparse_dir, folder)
+
+            if os.path.isfile(image_undistorter_file_name):
+                with open(image_undistorter_file_name, 'r') as image_undistorter_file_read:
+                    image_undistorter_config_str = image_undistorter_file_read.readlines()
+                    image_undistorter_config_str[0] = f'image_path={image_folder}\n'
+                    image_undistorter_config_str[1] = f'input_path={sub_sparse_dir}\n'
+                    image_undistorter_config_str[2] = f'output_path={sub_dense_dir}\n'
+            image_undistorter_config_path = os.path.join(workspace_folder, image_undistorter_file_name)
+
+            with open(image_undistorter_config_path, 'w') as image_undistorter_file_save:
+                image_undistorter_file_save.writelines(image_undistorter_config_str)
+
+            process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                                        'image_undistorter',
+                                        '--project_path',
+                                        image_undistorter_config_path])
+            
+            # Wait for the process to finish
+            _, _ = process.communicate()
+
+            if os.path.isfile(patch_match_stereo_file_name):
+                with open(patch_match_stereo_file_name, 'r') as patch_match_stereo_file_read:
+                    patch_match_stereo_config_str = patch_match_stereo_file_read.readlines()
+                    patch_match_stereo_config_str[3] = f'workspace_path={sub_dense_dir}\n'
+            patch_match_stereo_config_path = os.path.join(workspace_folder, patch_match_stereo_file_name)
+
+            with open(patch_match_stereo_config_path, 'w') as patch_match_stereo_file_save:
+                patch_match_stereo_file_save.writelines(patch_match_stereo_config_str)
+
+            process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                                        'patch_match_stereo',
+                                        '--project_path',
+                                        patch_match_stereo_config_path])
+        
+            # Wait for the process to finish
+            _, _ = process.communicate()
+
+            if os.path.isfile(stereo_fusion_file_name):
+                with open(stereo_fusion_file_name, 'r') as stereo_fusion_file_read:
+                    stereo_fusion_config_str = stereo_fusion_file_read.readlines()
+                    stereo_fusion_config_str[3] = f'workspace_path={sub_dense_dir}\n'
+                    stereo_fusion_config_str[4] = f'output_path={sub_dense_dir}/fused.ply\n'
+            stereo_fusion_config_path = os.path.join(workspace_folder, stereo_fusion_file_name)
+
+            with open(stereo_fusion_config_path, 'w') as stereo_fusion_file_save:
+                stereo_fusion_file_save.writelines(stereo_fusion_config_str)
+
+            process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                                        'stereo_fusion',
+                                        '--project_path',
+                                        stereo_fusion_config_path])
+        
+            # Wait for the process to finish
+            _, _ = process.communicate()
+
+            if os.path.isfile(poisson_mesher_file_name):
+                with open(poisson_mesher_file_name, 'r') as poisson_mesher_file_read:
+                    poisson_mesher_config_str = poisson_mesher_file_read.readlines()
+                    poisson_mesher_config_str[3] = f'input_path={sub_dense_dir}/fused.ply\n'
+                    poisson_mesher_config_str[4] = f'output_path={sub_dense_dir}/meshed-poisson.ply\n'
+            poisson_mesher_config_path = os.path.join(workspace_folder, poisson_mesher_file_name)
+
+            with open(poisson_mesher_config_path, 'w') as poisson_mesher_file_save:
+                poisson_mesher_file_save.writelines(poisson_mesher_config_str)
+
+            process = subprocess.Popen([colmap_folder + 'COLMAP.bat',
+                                        'poisson_mesher',
+                                        '--project_path',
+                                        poisson_mesher_config_path])
 
         # Wait for the process to finish
         stdout, stderr = process.communicate()
-
 
         # Check if there were any errors
         if process.returncode != 0:
@@ -207,6 +289,7 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
         return MNRE_array
     except Exception as e:
         print("An error occurred:", e)
+        return None
 
 
 def is_point_inside(point, hull):
