@@ -46,7 +46,7 @@ def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder:
         run_colmap(colmap_folder + 'COLMAP.bat', workspace_folder, str(images_folder))
 
     if platform.system() == 'Linux':
-        run_colmap('colmap', images_folder, workspace_folder)
+        run_colmap('colmap', workspace_folder, images_folder)
 
 
 def write_config_file(config_file_name, workspace_folder, config_lines):
@@ -173,8 +173,17 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
         while True:
             statistic_folder = os.path.join(workspace_folder_sc, f'sparse/{i}/')
             if os.path.exists(statistic_folder):
-                with subprocess.Popen([colmap_folder_sc + 'COLMAP.bat', 'model_analyzer', '--path', statistic_folder], shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+                # exec_name = ''
+                if platform.system() == 'Windows':
+                    colmap_exec = colmap_folder_sc + 'COLMAP.bat'
+                if platform.system() == 'Linux':
+                    colmap_exec = 'colmap'
+
+                with subprocess.Popen([colmap_exec, 'model_analyzer', '--path', statistic_folder], shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
                     output, stderr = process.communicate(timeout=10)  # Capture stdout and stderr. The result is shown on stderr
+
+                # process = subprocess.Popen([colmap_exec, 'model_analyzer', '--path', statistic_folder, '>', 'MNRE.txt'])
+                # output, stderr = process.communicate(timeout=10)  # Capture stdout and stderr. The result is shown on stderr
 
                 # Check if there were any errors
                 if process.returncode != 0:
@@ -1317,6 +1326,9 @@ def point_cloud(experiment: int) -> None:
     workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
     spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                            f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}')
+    
+    directory_name = settings['directory name'] + f'_exp_{experiment}_{day}_{month}_{hour}_{minute}'
+    spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
 
     colmap_folder = settings['colmap folder']
 
@@ -1428,14 +1440,15 @@ def execute_experiment() -> None:
                     continue
 
                 convex_hull(copp, experiment)
-                update_current_stage(experiment + 0.1)
+                update_current_stage(float(experiment + 0.1))
 
                 view_point(copp, experiment)
-                update_current_stage(experiment + 0.2)
+                update_current_stage(float(experiment + 0.2))
 
                 point_cloud(experiment)
-                update_current_stage(experiment + 1)
+                update_current_stage(float(experiment + 1))
 
+            os.remove('.progress')
             copp.sim.stopSimulation()
             return
 
@@ -1446,8 +1459,9 @@ def execute_experiment() -> None:
                     continue
 
                 convex_hull(copp, experiment)
-                update_current_stage(experiment + 1)
+                update_current_stage(float(experiment + 1))
 
+            os.remove('.progress')
             copp.sim.stopSimulation()
             return
 
@@ -1458,8 +1472,9 @@ def execute_experiment() -> None:
                     continue
 
                 view_point(copp, experiment)
-                update_current_stage(experiment + 1)
+                update_current_stage(float(experiment + 1))
 
+            os.remove('.progress')
             copp.sim.stopSimulation()
             return
 
@@ -1469,8 +1484,9 @@ def execute_experiment() -> None:
                     continue
 
                 point_cloud(experiment)
-                update_current_stage(experiment + 1)
+                update_current_stage(float(experiment + 1))
 
+            os.remove('.progress')
             return
     except RuntimeError as e:
         print("An error occurred:", e)
@@ -1492,7 +1508,6 @@ if __name__ == '__main__':
     # check if file not exits
     if not os.path.isfile('.progress'):
         with open(f'.progress', 'wb') as file:
-            pickle.dump(0, file)
+            pickle.dump(0.0, file)
 
     execute_experiment()
-    os.remove('.progress')
