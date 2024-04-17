@@ -163,6 +163,7 @@ def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str):
         print("Script executed successfully.")
     except Exception as e:
         print("An error occurred:", e)
+        raise RuntimeError('Colmap could not be executed correctly')
 
 
 def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty(0)) -> ndarray | None:
@@ -1393,7 +1394,7 @@ def point_cloud(experiment: int) -> None:
         statistics_colmap(colmap_folder, spiral_workspace_folder)
 
 
-def update_current_stage(value_stage: int) -> None:
+def update_current_stage(value_stage: float) -> None:
     with open(f'.progress', 'wb') as file:
         pickle.dump(value_stage, file)
 
@@ -1403,56 +1404,76 @@ def execute_experiment() -> None:
     os.makedirs('variables/', exist_ok=True)
 
     with open(f'.progress', 'rb') as f:
-        stage = pickle.load(f)
+        last_expe = pickle.load(f)
 
-    if len(sys.argv) < 2:
-        copp = CoppeliaInterface(settings)
-        for i, experiment in enumerate(range(settings['number of trials'])): 
-            if i < stage: 
-                continue
+    try:
+        if len(sys.argv) < 2:
+            copp = CoppeliaInterface(settings)
 
-            convex_hull(copp, experiment)
-            view_point(copp, experiment)
-            point_cloud(experiment)
+            if last_expe != 0:
+                next_experiment = int(last_expe)
+                if np.isclose(last_expe - next_experiment, 0.1):
+                    view_point(copp, next_experiment)
+                    update_current_stage(next_experiment + 0.2)
+                    last_expe += 0.1
 
-            update_current_stage(i + 1)
+                if np.isclose(last_expe - next_experiment, 0.2):
+                    point_cloud(next_experiment)
+                    update_current_stage(next_experiment + 1)
 
-        copp.sim.stopSimulation()
-        return
+                    last_expe = next_experiment + 1
 
-    if sys.argv[1] == 'convex_hull':
-        copp = CoppeliaInterface(settings)
-        for i, experiment in enumerate(range(settings['number of trials'])):
-            if i < stage: 
-                continue
+            for experiment in range(settings['number of trials']): 
+                if experiment < last_expe: 
+                    continue
 
-            convex_hull(copp, experiment)
-            update_current_stage(i + 1)
+                convex_hull(copp, experiment)
+                update_current_stage(experiment + 0.1)
 
-        copp.sim.stopSimulation()
-        return
+                view_point(copp, experiment)
+                update_current_stage(experiment + 0.2)
 
-    if sys.argv[1] == 'view_point':
-        copp = CoppeliaInterface(settings)
-        for i, experiment in enumerate(range(settings['number of trials'])):
-            if i < stage: 
-                continue
+                point_cloud(experiment)
+                update_current_stage(experiment + 1)
 
-            view_point(copp, experiment)
-            update_current_stage(i + 1)
+            copp.sim.stopSimulation()
+            return
 
-        copp.sim.stopSimulation()
-        return
+        if sys.argv[1] == 'convex_hull':
+            copp = CoppeliaInterface(settings)
+            for experiment in range(settings['number of trials']):
+                if experiment < last_expe: 
+                    continue
 
-    if sys.argv[1] == 'point_cloud':
-        for i, experiment in enumerate(range(settings['number of trials'])):
-            if i < stage: 
-                continue
+                convex_hull(copp, experiment)
+                update_current_stage(experiment + 1)
 
-            point_cloud(experiment)
-            update_current_stage(i + 1)
+            copp.sim.stopSimulation()
+            return
 
-        return
+        if sys.argv[1] == 'view_point':
+            copp = CoppeliaInterface(settings)
+            for experiment in range(settings['number of trials']):
+                if experiment < last_expe: 
+                    continue
+
+                view_point(copp, experiment)
+                update_current_stage(experiment + 1)
+
+            copp.sim.stopSimulation()
+            return
+
+        if sys.argv[1] == 'point_cloud':
+            for experiment in range(settings['number of trials']):
+                if experiment < last_expe: 
+                    continue
+
+                point_cloud(experiment)
+                update_current_stage(experiment + 1)
+
+            return
+    except RuntimeError as e:
+        print("An error occurred:", e)
 
 
 # Press the green button in the gutter to run the script.
