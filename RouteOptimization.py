@@ -179,11 +179,8 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
                 if platform.system() == 'Linux':
                     colmap_exec = 'colmap'
 
-                with subprocess.Popen([colmap_exec, 'model_analyzer', '--path', statistic_folder], shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+                with subprocess.Popen([colmap_exec, 'model_analyzer', '--path', statistic_folder], shell=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
                     output, stderr = process.communicate(timeout=10)  # Capture stdout and stderr. The result is shown on stderr
-
-                # process = subprocess.Popen([colmap_exec, 'model_analyzer', '--path', statistic_folder, '>', 'MNRE.txt'])
-                # output, stderr = process.communicate(timeout=10)  # Capture stdout and stderr. The result is shown on stderr
 
                 # Check if there were any errors
                 if process.returncode != 0:
@@ -1296,11 +1293,9 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     with open(f'variables/view_point_{experiment}.var', 'wb') as file:
         pickle.dump(travelled_distance_main, file)
         pickle.dump(travelled_spiral_distance, file)
-        pickle.dump(spiral_directory_name, file)
         pickle.dump(spiral_route_by_target, file)
         pickle.dump(route_by_group, file)
         pickle.dump(spiral_target_distance, file)
-        pickle.dump(directory_name, file)
         pickle.dump(day, file)  
         pickle.dump(month, file)  
         pickle.dump(hour, file)  
@@ -1311,11 +1306,9 @@ def point_cloud(experiment: int) -> None:
     with open(f'variables/view_point_{experiment}.var', 'rb') as f:
         travelled_distance_main = pickle.load(f)
         travelled_spiral_distance = pickle.load(f)
-        spiral_directory_name = pickle.load(f)
         spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
         spiral_target_distance = pickle.load(f)
-        directory_name = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
         hour = pickle.load(f)
@@ -1406,7 +1399,7 @@ def point_cloud(experiment: int) -> None:
         statistics_colmap(colmap_folder, spiral_workspace_folder)
 
 
-def update_current_stage(value_stage: float) -> None:
+def update_current_experiment(value_stage: float) -> None:
     with open(f'.progress', 'wb') as file:
         pickle.dump(value_stage, file)
 
@@ -1426,12 +1419,12 @@ def execute_experiment() -> None:
                 next_experiment = int(last_expe)
                 if np.isclose(last_expe - next_experiment, 0.1):
                     view_point(copp, next_experiment)
-                    update_current_stage(next_experiment + 0.2)
+                    update_current_experiment(next_experiment + 0.2)
                     last_expe += 0.1
 
                 if np.isclose(last_expe - next_experiment, 0.2):
                     point_cloud(next_experiment)
-                    update_current_stage(next_experiment + 1)
+                    update_current_experiment(next_experiment + 1)
 
                     last_expe = next_experiment + 1
 
@@ -1440,13 +1433,13 @@ def execute_experiment() -> None:
                     continue
 
                 convex_hull(copp, experiment)
-                update_current_stage(float(experiment + 0.1))
+                update_current_experiment(float(experiment + 0.1))
 
                 view_point(copp, experiment)
-                update_current_stage(float(experiment + 0.2))
+                update_current_experiment(float(experiment + 0.2))
 
                 point_cloud(experiment)
-                update_current_stage(float(experiment + 1))
+                update_current_experiment(float(experiment + 1))
 
             os.remove('.progress')
             copp.sim.stopSimulation()
@@ -1459,7 +1452,7 @@ def execute_experiment() -> None:
                     continue
 
                 convex_hull(copp, experiment)
-                update_current_stage(float(experiment + 1))
+                update_current_experiment(float(experiment + 1))
 
             os.remove('.progress')
             copp.sim.stopSimulation()
@@ -1472,7 +1465,7 @@ def execute_experiment() -> None:
                     continue
 
                 view_point(copp, experiment)
-                update_current_stage(float(experiment + 1))
+                update_current_experiment(float(experiment + 1))
 
             os.remove('.progress')
             copp.sim.stopSimulation()
@@ -1484,7 +1477,7 @@ def execute_experiment() -> None:
                     continue
 
                 point_cloud(experiment)
-                update_current_stage(float(experiment + 1))
+                update_current_experiment(float(experiment + 1))
 
             os.remove('.progress')
             return
