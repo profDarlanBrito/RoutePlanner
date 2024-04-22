@@ -18,6 +18,7 @@ import ast
 import cv2 as cv
 import datetime
 import platform
+import pymeshlab
 
 # Variables loaded from config.yaml
 CA_max = -1  # Bigger number the route has more points
@@ -862,32 +863,55 @@ def quadcopter_control_direct_points(sim, client, vision_handle: int,
         count_image += 1
 
 
-def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm) -> ndarray:
+def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[Any, ndarray]) -> ndarray:
     print('Starting computing distance matrix')
-    edge_weight_matrix_cewm = np.empty(0)
+
     i = 0
     j = 0
-    # count_target = 0
-    for target_cewm, S_cewm_start in S_cewm.items():
-        if i == 0 and j == 0:
-            edge_weight_matrix_cewm = np.zeros([2 * ((len(S_cewm_start) - 1) * len(settings['object names'])) - 1,
-                                                2 * ((len(S_cewm_start) - 1) * len(settings['object names'])) - 1])
-        for Si_cewm_start in S_cewm_start:
-            j = 0
-            # count_target_i = 0
-            for target_cewm_i, S_cewm_end in S_cewm.items():
-                for Si_cewm_end in S_cewm_end:
-                    idx1 = Si_cewm_start[-1][1]  # - count_target*targets_points_of_view_cewm[target_cewm].shape[0]
-                    idx2 = Si_cewm_end[0][1]  # - count_target_i*targets_points_of_view_cewm[target_cewm_i].shape[0]
-                    pt1 = targets_points_of_view_cewm[target_cewm][idx1]
-                    pt2 = targets_points_of_view_cewm[target_cewm_i][idx2]
-                    if i != j:
+    total_length = 0
+    for _, points_start_cewm in targets_points_of_view_cewm.items():
+        total_length += points_start_cewm.shape[0]
+
+    edge_weight_matrix_cewm = np.zeros([total_length,total_length])
+    for _,points_start_cewm in targets_points_of_view_cewm.items():
+        for pt1 in points_start_cewm:
+            for _,points_end_cewm in targets_points_of_view_cewm.items():
+                    for pt2 in points_end_cewm:
                         edge_weight_matrix_cewm[i, j] = np.linalg.norm(pt1 - pt2)
-                    j += 1
+                        j += 1
             i += 1
-    i -= 1
-    j -= 1
-    edge_weight_matrix_cewm = edge_weight_matrix_cewm[:i, :j]
+            j = 0
+
+
+    # edge_weight_matrix_cewm = np.zeros([length_start,length_start])
+    #
+    # for target_cewm, S_cewm_start in S_cewm.items():
+    #     # if i == 0 and j == 0:
+    #     #     edge_weight_matrix_cewm = np.zeros([2 * ((len(S_cewm_start) - 1) * len(settings['object names'])) - 1,
+    #     #                                         2 * ((len(S_cewm_start) - 1) * len(settings['object names'])) - 1])
+    #     for Si_cewm_start in S_cewm_start:
+    #         j = 0
+    #         # count_target_i = 0
+    #         if Si_cewm_start[-1][6] > length_start + len(S_cewm_start) or Si_cewm_start[-1][7] > length_start + len(S_cewm_start):
+    #             print('There are something wrong')
+    #         length_end = 0
+    #         idx1 = Si_cewm_start[-1][1]  # - count_target*targets_points_of_view_cewm[target_cewm].shape[0]
+    #         conversion_table = 7000 * [[]]
+    #         for target_cewm_i, S_cewm_end in S_cewm.items():
+    #             for Si_cewm_end in S_cewm_end:
+    #                 idx2 = Si_cewm_end[0][1]  # - count_target_i*targets_points_of_view_cewm[target_cewm_i].shape[0]
+    #                 pt1 = targets_points_of_view_cewm[target_cewm][idx1]
+    #                 pt2 = targets_points_of_view_cewm[target_cewm_i][idx2]
+    #                 if i != j:
+    #                     edge_weight_matrix_cewm[Si_cewm_start[-1][6], Si_cewm_end[0][7]] = np.linalg.norm(pt1 - pt2)
+    #                 conversion_table[j] = [Si_cewm_end[0][0], j]
+    #                 j += 1
+    #             length_end += len(S_cewm_end)
+    #         i += 1
+    #     length_start += len(S_cewm_start)
+    # i -= 1
+    # j -= 1
+    # edge_weight_matrix_cewm = edge_weight_matrix_cewm[:i, :j]
     return edge_weight_matrix_cewm
 
 
@@ -954,7 +978,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
             elif field_wpf == 'COMMENT: ':
                 copsfile.write(field_wpf + 'Optimization for reconstruction\n')
             elif field_wpf == 'DIMENSION: ':
-                copsfile.write(field_wpf + str(subgroup_size_wpf) + '\n')
+                copsfile.write(field_wpf + str(edge_weight_matrix_wpf.shape[0]) + '\n')
             elif field_wpf == 'TMAX: ':
                 copsfile.write(field_wpf + str(T_max) + '\n')
             elif field_wpf == 'START_CLUSTER: ':
@@ -1293,9 +1317,11 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     with open(f'variables/view_point_{experiment}.var', 'wb') as file:
         pickle.dump(travelled_distance_main, file)
         pickle.dump(travelled_spiral_distance, file)
+        pickle.dump(spiral_directory_name, file)
         pickle.dump(spiral_route_by_target, file)
         pickle.dump(route_by_group, file)
         pickle.dump(spiral_target_distance, file)
+        pickle.dump(directory_name, file)
         pickle.dump(day, file)  
         pickle.dump(month, file)  
         pickle.dump(hour, file)  
@@ -1306,9 +1332,11 @@ def point_cloud(experiment: int) -> None:
     with open(f'variables/view_point_{experiment}.var', 'rb') as f:
         travelled_distance_main = pickle.load(f)
         travelled_spiral_distance = pickle.load(f)
+        spiral_directory_name = pickle.load(f)
         spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
         spiral_target_distance = pickle.load(f)
+        directory_name = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
         hour = pickle.load(f)
@@ -1319,9 +1347,6 @@ def point_cloud(experiment: int) -> None:
     workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
     spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                            f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}')
-    
-    directory_name = settings['directory name'] + f'_exp_{experiment}_{day}_{month}_{hour}_{minute}'
-    spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
 
     colmap_folder = settings['colmap folder']
 
@@ -1399,6 +1424,33 @@ def point_cloud(experiment: int) -> None:
         statistics_colmap(colmap_folder, spiral_workspace_folder)
 
 
+def mesh_analysis(experiment: int):
+    print('Initiating mesh analysis')
+    with open(f'variables/view_point_{experiment}.var', 'rb') as f:
+        spiral_directory_name = pickle.load(f)
+        directory_name = pickle.load(f)
+        day = pickle.load(f)
+        month = pickle.load(f)
+        hour = pickle.load(f)
+        minute = pickle.load(f)
+
+    # Get the current date and time
+    workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
+    spiral_workspace_folder = os.path.join(settings['workspace folder'], f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}')
+
+    workspace_folder = os.path.normpath(workspace_folder)
+    dense_folder_ma = os.path.join(workspace_folder, 'dense')
+    if os.path.exists(dense_folder_ma):
+        for work_dir_structure_ma in os.walk(dense_folder_ma):
+            for work_dir_ma in work_dir_structure_ma[1]:
+                mesh_file = os.path.join(work_dir_ma, 'meshed-poisson.ply')
+                if not os.path.exists(mesh_file):
+                    continue
+                ms = pymeshlab.MeshSet()
+                ms.load_new_mesh(mesh_file)
+                ms.show_polyscope()
+
+
 def update_current_experiment(value_stage: float) -> None:
     with open(f'.progress', 'wb') as file:
         pickle.dump(value_stage, file)
@@ -1428,8 +1480,8 @@ def execute_experiment() -> None:
 
                     last_expe = next_experiment + 1
 
-            for experiment in range(settings['number of trials']): 
-                if experiment < last_expe: 
+            for experiment in range(settings['number of trials']):
+                if experiment < last_expe:
                     continue
 
                 convex_hull(copp, experiment)
@@ -1441,6 +1493,9 @@ def execute_experiment() -> None:
                 point_cloud(experiment)
                 update_current_experiment(float(experiment + 1))
 
+                mesh_analysis(experiment)
+                update_current_experiment(float(experiment + 1))
+
             os.remove('.progress')
             copp.sim.stopSimulation()
             return
@@ -1448,7 +1503,7 @@ def execute_experiment() -> None:
         if sys.argv[1] == 'convex_hull':
             copp = CoppeliaInterface(settings)
             for experiment in range(settings['number of trials']):
-                if experiment < last_expe: 
+                if experiment < last_expe:
                     continue
 
                 convex_hull(copp, experiment)
@@ -1461,7 +1516,7 @@ def execute_experiment() -> None:
         if sys.argv[1] == 'view_point':
             copp = CoppeliaInterface(settings)
             for experiment in range(settings['number of trials']):
-                if experiment < last_expe: 
+                if experiment < last_expe:
                     continue
 
                 view_point(copp, experiment)
@@ -1473,7 +1528,7 @@ def execute_experiment() -> None:
 
         if sys.argv[1] == 'point_cloud':
             for experiment in range(settings['number of trials']):
-                if experiment < last_expe: 
+                if experiment < last_expe:
                     continue
 
                 point_cloud(experiment)
@@ -1481,8 +1536,22 @@ def execute_experiment() -> None:
 
             os.remove('.progress')
             return
+
+        if sys.argv[1] == 'mesh_analysis':
+            for experiment in range(settings['number of trials']):
+                if experiment < last_expe:
+                    continue
+
+                mesh_analysis(experiment)
+                update_current_experiment(float(experiment + 1))
+
+            os.remove('.progress')
+            return
+
     except RuntimeError as e:
         print("An error occurred:", e)
+
+
 
 
 # Press the green button in the gutter to run the script.
@@ -1504,3 +1573,5 @@ if __name__ == '__main__':
             pickle.dump(0.0, file)
 
     execute_experiment()
+    if os.path.exists('.progress'):
+        os.remove('.progress')
