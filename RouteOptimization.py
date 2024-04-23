@@ -1317,11 +1317,9 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     with open(f'variables/view_point_{experiment}.var', 'wb') as file:
         pickle.dump(travelled_distance_main, file)
         pickle.dump(travelled_spiral_distance, file)
-        pickle.dump(spiral_directory_name, file)
         pickle.dump(spiral_route_by_target, file)
         pickle.dump(route_by_group, file)
         pickle.dump(spiral_target_distance, file)
-        pickle.dump(directory_name, file)
         pickle.dump(day, file)  
         pickle.dump(month, file)  
         pickle.dump(hour, file)  
@@ -1332,11 +1330,9 @@ def point_cloud(experiment: int) -> None:
     with open(f'variables/view_point_{experiment}.var', 'rb') as f:
         travelled_distance_main = pickle.load(f)
         travelled_spiral_distance = pickle.load(f)
-        spiral_directory_name = pickle.load(f)
         spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
         spiral_target_distance = pickle.load(f)
-        directory_name = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
         hour = pickle.load(f)
@@ -1347,6 +1343,9 @@ def point_cloud(experiment: int) -> None:
     workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
     spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                            f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}')
+    
+    directory_name = settings['directory name'] + f'_exp_{experiment}_{day}_{month}_{hour}_{minute}'
+    spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
 
     colmap_folder = settings['colmap folder']
 
@@ -1573,5 +1572,3 @@ if __name__ == '__main__':
             pickle.dump(0.0, file)
 
     execute_experiment()
-    if os.path.exists('.progress'):
-        os.remove('.progress')
