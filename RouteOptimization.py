@@ -1373,9 +1373,9 @@ def point_cloud(experiment: int) -> None:
     with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
         distance_file.write(str(travelled_spiral_distance))
     
-    spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
-    run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
-    statistics_colmap(colmap_folder, spiral_workspace_folder)
+    # spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
+    # run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
+    # statistics_colmap(colmap_folder, spiral_workspace_folder)
 
     MNRE_array = np.empty(0)
     spriral_route_key = spiral_route_by_target.keys()
@@ -1418,9 +1418,9 @@ def point_cloud(experiment: int) -> None:
         with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
             distance_file.write(str(spiral_target_distance[spiral_key]))
 
-        spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
-        run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
-        statistics_colmap(colmap_folder, spiral_workspace_folder)
+        # spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
+        # run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
+        # statistics_colmap(colmap_folder, spiral_workspace_folder)
 
 
 def mesh_analysis(experiment: int):

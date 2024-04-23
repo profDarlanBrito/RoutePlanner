@@ -26,7 +26,7 @@ vision sensor names: ./Vision_sensor_free
 quadcopter name: ./target
 # The quadcopter handle to get quadcotper position
 quadcopter base: ./base
-#Joint used to move the target in x y axis
+#Jointly used to move the target in x y axis
 target joint xy: ./Revolute_joint_xy
 #Joint used to move the target in x y-axis
 target joint zy: ./Revolute_joint_zy
@@ -35,8 +35,8 @@ time to stabilize: 10.0
 # The displacement that the robot will do before the simulation stops
 max displacement: 0.5
 # The total maximum time of the simulation
-total simulation time: 0.2
-# The unit displacement of the robot in three-dimensional coordinates. You can not put the brackets [] symbol
+total simulation time: 0.1
+# The unit displacement of the robot in three-dimensional coordinates.
 displacement: [0.0,0.1,-0.05]
 # The height of the checkerboard black squares corners. The height variable is the number of inner square corners of the calibration target
 height: 5
@@ -50,25 +50,25 @@ is_ok: 1
 cams: ['cam0', 'cam1']
 #Image file indexes
 cam indexes: [[1, 2],[3, 4]]
-# Positions file name
+# Position file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 50
-# Bigger number the route increase the maximum radius of the points of view. # Proportion of hemisphere radius
-max route radius: 3
-# Define the number of points by measure unit for points of view radius. Must be an integer number
-points per unit: 1
+CA_max: 4800
+# When we increase this number, the maximum points of view radius increase. # Proportion of hemisphere radius
+max route radius: 10
+# Define the number of points by measure unit for points of view radius.
+points per unit: 1.5
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 1
+points per sphere: 1.5
 # The proportion of the tallest z height to make the cylinder
 height proportion: 2.0
 # Define the maximum number of times that the point can be visited
 max visits: 30
-# Maximum number of iteration to try catch a subgroup
-max iter: 5000
+# Maximum number of iterations to try catch a subgroup
+max iter: 1000
 # Maximum travel budget
 T_max: 150000
-# Number of subdivision of the horizontal discretization
+# Number of subdivisions of the horizontal discretization
 n resolution: 24
 #Object names like on CoppeliaSim
 object names: [Casa_Velha, Chinese_Old_Build, Old_Build, West_Build]
@@ -76,14 +76,14 @@ object names: [Casa_Velha, Chinese_Old_Build, Old_Build, West_Build]
 colmap folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP-3.9.1-windows-cuda/COLMAP-3.9.1-windows-cuda/
 # Workspace folder to colmap
 workspace folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP_results
-# Image folder to col map
+# Image folder to colmap
 images folder: /Images
 # Number of trials for each experiment
 number of trials: 1
 # Near clip for vision sensor
 near clip: 1e-4
 # Far clip for vision sensor
-far clip: 10
+far clip: 100
 # Perspective angle
 perspective angle: 100.0
 # Compute the COLMAP dense model
