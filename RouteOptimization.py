@@ -49,14 +49,14 @@ def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder:
         run_colmap('colmap', workspace_folder, images_folder)
 
 
-def write_config_file(config_file_name, workspace_folder, config_lines):
+def write_config_file(config_file_name: str, workspace_folder: str, config_lines: list[str]):
     config_path = os.path.join(workspace_folder, os.path.basename(config_file_name)).replace("\\", "/")
     with open(config_path, 'w') as config_file:
         config_file.writelines(config_lines)
     return config_path
 
 
-def execute_colmap_command(colmap_exec, command, config_file_path):
+def execute_colmap_command(colmap_exec: str, command: str, config_file_path: str):
     process = subprocess.Popen([colmap_exec, command, '--project_path', config_file_path])
     process.communicate() # Wait for the process to finish
 
@@ -107,11 +107,17 @@ def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str):
                                                mapper_config_str)
         execute_colmap_command(colmap_exec, 'mapper', mapper_config_path)
 
-        # Create dense folder
-        dense_dir = os.path.join(workspace_folder, 'dense').replace("\\", "/")
-        os.mkdir(dense_dir)
 
-        for folder in os.listdir(sparse_dir): 
+        if settings['dense model'] == 1:
+            # Create dense folder
+            dense_dir = os.path.join(workspace_folder, 'dense').replace("\\", "/")
+            os.mkdir(dense_dir)
+
+        for folder in os.listdir(sparse_dir):
+
+            if settings['dense model'] == 0:
+                break
+        
             sub_dense_dir = os.path.join(dense_dir, folder).replace("\\", "/")
             sub_sparse_dir = os.path.join(sparse_dir, folder).replace("\\", "/")
             os.mkdir(sub_dense_dir)
@@ -173,7 +179,6 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
         while True:
             statistic_folder = os.path.join(workspace_folder_sc, f'sparse/{i}/')
             if os.path.exists(statistic_folder):
-                # exec_name = ''
                 if platform.system() == 'Windows':
                     colmap_exec = colmap_folder_sc + 'COLMAP.bat'
                 if platform.system() == 'Linux':
@@ -1007,7 +1012,7 @@ def execute_script(name_cops_file: str) -> None:
     try:
         # Execute the script using subprocess
         process = subprocess.Popen(['python', settings['COPS path'] + 'tabu_search.py',
-                                    '--path=./datasets/' + name_cops_file], stdout=subprocess.PIPE,
+                                    f"--path={settings['COPS dataset']}" + name_cops_file], stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
         # Wait for the process to finish
@@ -1210,7 +1215,7 @@ def convex_hull(copp: CoppeliaInterface, experiment: int):
     S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view)
     edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
     name_cops_file = settings['COPS problem'] + str(experiment)
-    write_problem_file('./datasets/',
+    write_problem_file(settings['COPS dataset'],
                         name_cops_file,
                         edge_weight_matrix,
                         len(settings['object names']),
@@ -1218,7 +1223,7 @@ def convex_hull(copp: CoppeliaInterface, experiment: int):
                         subgroup_size)
     execute_script(name_cops_file)
 
-    with open(f'variables/convex_hull_{experiment}.var', 'wb') as file:
+    with open(settings['save path'] + f'variables/convex_hull_{experiment}.var', 'wb') as file:
         pickle.dump(S, file)  
         pickle.dump(targets_points_of_view, file)  
         pickle.dump(centroid_points, file)  
@@ -1227,14 +1232,14 @@ def convex_hull(copp: CoppeliaInterface, experiment: int):
 
 def view_point(copp: CoppeliaInterface, experiment: int):
 
-    with open(f'variables/convex_hull_{experiment}.var', 'rb') as file:
+    with open(settings['save path'] + f'variables/convex_hull_{experiment}.var', 'rb') as file:
         S = pickle.load(file)
         targets_points_of_view = pickle.load(file)
         centroid_points = pickle.load(file)
         radius = pickle.load(file)
     
     main_route, travelled_distance_main, route_by_group = read_route_csv_file(
-        './datasets/results/' + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view)
+        settings['COPS result'] + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view)
     parts_to_spiral = np.fix(main_route.shape[0]/2)
 
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
@@ -1290,7 +1295,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
                                          'spiral_route', 
                                          spiral_directory_name)
 
-    with open(f'variables/view_point_{experiment}.var', 'wb') as file:
+    with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'wb') as file:
         pickle.dump(travelled_distance_main, file)
         pickle.dump(travelled_spiral_distance, file)
         pickle.dump(spiral_route_by_target, file)
@@ -1303,7 +1308,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
 
 
 def point_cloud(experiment: int) -> None:
-    with open(f'variables/view_point_{experiment}.var', 'rb') as f:
+    with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'rb') as f:
         travelled_distance_main = pickle.load(f)
         travelled_spiral_distance = pickle.load(f)
         spiral_route_by_target = pickle.load(f)
@@ -1356,7 +1361,7 @@ def point_cloud(experiment: int) -> None:
     MNRE_array = np.empty(0)
     spriral_route_key = spiral_route_by_target.keys()
     for route, spiral_key, count_group in zip(route_by_group, spriral_route_key, range(len(route_by_group))):
-        directory_name = (settings['directory name'] + 
+        image_directory_name = (settings['directory name'] + 
                           f'_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}')
 
         workspace_folder = os.path.join(settings['workspace folder'], 
@@ -1377,12 +1382,15 @@ def point_cloud(experiment: int) -> None:
         with open(workspace_folder + '/distance.txt', 'w') as distance_file:
             distance_file.write(str(travelled_distance_main))
 
-        images_folder = str(os.path.join(settings['path'], directory_name))
+        images_folder = str(os.path.join(settings['path'], image_directory_name))
         run_colmap_program(colmap_folder, workspace_folder, images_folder)
         MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
 
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                         f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{count_group}')
+        
+        spiral_image_directory_name = settings['directory name'] \
+            + f'_spriral_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
         
         # remove folder if exist
         if os.path.exists(spiral_workspace_folder):
@@ -1394,21 +1402,21 @@ def point_cloud(experiment: int) -> None:
         with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
             distance_file.write(str(spiral_target_distance[spiral_key]))
 
-        spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
+        spiral_images_folder = str(os.path.join(settings['path'], spiral_image_directory_name))
         run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
         statistics_colmap(colmap_folder, spiral_workspace_folder)
 
 
 def update_current_experiment(value_stage: float) -> None:
-    with open(f'.progress', 'wb') as file:
+    with open(settings['save path'] + '.progress', 'wb') as file:
         pickle.dump(value_stage, file)
 
 
 def execute_experiment() -> None:
     # Create the directory
-    os.makedirs('variables/', exist_ok=True)
+    os.makedirs(settings['save path'] + 'variables/', exist_ok=True)
 
-    with open(f'.progress', 'rb') as f:
+    with open(settings['save path'] + '.progress', 'rb') as f:
         last_expe = pickle.load(f)
 
     try:
@@ -1441,7 +1449,7 @@ def execute_experiment() -> None:
                 point_cloud(experiment)
                 update_current_experiment(float(experiment + 1))
 
-            os.remove('.progress')
+            os.remove(settings['save path'] + '.progress')
             copp.sim.stopSimulation()
             return
 
@@ -1454,7 +1462,7 @@ def execute_experiment() -> None:
                 convex_hull(copp, experiment)
                 update_current_experiment(float(experiment + 1))
 
-            os.remove('.progress')
+            os.remove(settings['save path'] + '.progress')
             copp.sim.stopSimulation()
             return
 
@@ -1467,7 +1475,7 @@ def execute_experiment() -> None:
                 view_point(copp, experiment)
                 update_current_experiment(float(experiment + 1))
 
-            os.remove('.progress')
+            os.remove(settings['save path'] + '.progress')
             copp.sim.stopSimulation()
             return
 
@@ -1479,7 +1487,7 @@ def execute_experiment() -> None:
                 point_cloud(experiment)
                 update_current_experiment(float(experiment + 1))
 
-            os.remove('.progress')
+            os.remove(settings['save path'] + '.progress')
             return
     except RuntimeError as e:
         print("An error occurred:", e)
@@ -1498,9 +1506,23 @@ if __name__ == '__main__':
     n_resolution = int(settings['n resolution'])
     points_per_unit = float(settings['points per unit'])
 
+    save_path = settings['save path']
+
+    path = settings['path']
+    COPS_dataset = settings['COPS dataset']
+    COPS_result = settings['COPS result']
+    workspace_folder = settings['workspace folder']
+
+    settings['path'] = os.path.join(save_path, path)
+    settings['COPS dataset'] = os.path.join(save_path, COPS_dataset)
+    settings['COPS result'] = os.path.join(save_path, COPS_result)
+    settings['workspace folder'] = os.path.join(save_path, workspace_folder)
+
+    os.makedirs(save_path, exist_ok=True)
+    
     # check if file not exits
-    if not os.path.isfile('.progress'):
-        with open(f'.progress', 'wb') as file:
+    if not os.path.isfile(settings['save path'] + '.progress'):
+        with open(settings['save path'] + '.progress', 'wb') as file:
             pickle.dump(0.0, file)
 
     execute_experiment()
