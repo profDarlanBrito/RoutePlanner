@@ -44,7 +44,7 @@ poisson_mesher_file_name = 'config/poisson_mesher.ini'
 
 def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder: str) -> None:
     if platform.system() == 'Windows':
-        run_colmap(colmap_folder + 'COLMAP.bat', workspace_folder, str(images_folder))
+        run_colmap(os.path.join(colmap_folder, 'COLMAP.bat'), workspace_folder, str(images_folder))
 
     if platform.system() == 'Linux':
         run_colmap('colmap', workspace_folder, images_folder)
@@ -1433,7 +1433,7 @@ def point_cloud(experiment: int) -> None:
 
 def mesh_analysis(experiment: int):
     print('Initiating mesh analysis')
-    with open(f'variables/view_point_{experiment}.var', 'rb') as f:
+    with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'rb') as f:
         spiral_directory_name = pickle.load(f)
         directory_name = pickle.load(f)
         day = pickle.load(f)
