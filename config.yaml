@@ -89,4 +89,6 @@ far clip: 10
 # Perspective angle
 perspective angle: 100.0
 # Compute the COLMAP dense model
-dense model: 1
+dense model: 0
+# Python exec, on the laboratory machines, it's python3.11
+python: python

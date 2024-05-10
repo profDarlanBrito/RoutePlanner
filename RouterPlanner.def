@@ -44,7 +44,7 @@ From: ubuntu:20.04
     wget https://github.com/colmap/colmap/archive/refs/tags/3.9.1.zip
     wget https://downloads.coppeliarobotics.com/V4_6_0_rev18/CoppeliaSim_Edu_V4_6_0_rev18_Ubuntu20_04.tar.xz
 
-    chmod 755 RoutePlanner/scripts/reconstruction.sh
+    chmod 755 RoutePlanner/run.sh
 
     unzip 3.9.1.zip
     cd colmap-3.9.1
@@ -73,20 +73,18 @@ From: ubuntu:20.04
     libffi-dev \
     liblzma-dev
 
-    git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.0
-    . "$HOME/.asdf/asdf.sh"
-    asdf plugin-add python
-    asdf install python 3.11.0
-    asdf global python 3.11.0
-    pip install -r RoutePlanner/requirements.txt
+    wget https://www.python.org/ftp/python/3.11.0/Python-3.11.0.tar.xz
+    tar -xvf Python-3.11.0.tar.xz
+    cd Python-3.11.0
+    ./configure
+    make
+    make install
+    cd
+    pip3.11 install -r RoutePlanner/requirements.txt
 
 
 %environment
     export PATH=$PATH:/usr/local/cuda/bin
-    . "$HOME/.asdf/asdf.sh"
-
-%apprun scene
-    python RoutePlanner/RouteOptimization.py
 
 %labels
     Author Verlab
