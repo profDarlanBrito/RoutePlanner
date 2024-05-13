@@ -11,9 +11,7 @@ COPS result: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/res
 # COPS problem filename
 COPS problem: 3dreconstructionPathPlannerBuilds
 # Path to COPS script
-COPS path: ../COPS/
-# Path to save experiments
-save path: ./save_files/
+COPS path: C:/Users/dnune/OneDrive/Documentos/VerLab/COPS/
 # Numerical sequence to image names. As an example if you want to save the images as calibimg1, calibimg2, ...
 #sequence: [40,186,523,602,727,772,874,950,1030,1280,1319,1422,1440,1585,1657,1795,1924,2187,2271,2295,2379,2398,2444,2537,2587,2622,2628,2751,2828,2859]
 sequence: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
@@ -37,7 +35,7 @@ time to stabilize: 10.0
 # The displacement that the robot will do before the simulation stops
 max displacement: 0.5
 # The total maximum time of the simulation
-total simulation time: 0.1
+total simulation time: 0.2
 # The unit displacement of the robot in three-dimensional coordinates.
 displacement: [0.0,0.1,-0.05]
 # The height of the checkerboard black squares corners. The height variable is the number of inner square corners of the calibration target
@@ -55,13 +53,14 @@ cam indexes: [[1, 2],[3, 4]]
 # Position file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 4800
+CA_max: 15800
+CA_min: 10000
 # When we increase this number, the maximum points of view radius increase. # Proportion of hemisphere radius
-max route radius: 10
+max route radius: 20
 # Define the number of points by measure unit for points of view radius.
-points per unit: 1.5
+points per unit: 2.0
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 1.5
+points per sphere: 2.0
 # The proportion of the tallest z height to make the cylinder
 height proportion: 2.0
 # Define the maximum number of times that the point can be visited
@@ -89,6 +88,8 @@ far clip: 100
 # Perspective angle
 perspective angle: 100.0
 # Compute the COLMAP dense model
-dense model: 0
+dense model: 1
+# Path to save experiments
+save path: ./save_files/
 # Python exec, on the laboratory machines, it's python3.11
 python: python
