@@ -19,6 +19,7 @@ import cv2 as cv
 import datetime
 import platform
 import pymeshlab
+import multiprocessing
 
 # Variables loaded from config.yaml
 CA_max = -1  # Bigger number the route has more points
@@ -1036,7 +1037,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
 def execute_script(name_cops_file: str) -> None:
     try:
         # Execute the script using subprocess
-        process = subprocess.Popen(['python', settings['COPS path'] + 'tabu_search.py',
+        process = subprocess.Popen([settings['python'], settings['COPS path'] + 'tabu_search.py',
                                     f"--path={settings['COPS dataset']}" + name_cops_file], stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
@@ -1231,8 +1232,13 @@ def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: in
     return route_gst, route_by_target_gst, spiral_target_distance_gst, total_distance_gst
 
 
-def convex_hull(copp: CoppeliaInterface, experiment: int):
-    positions, target_hull, centroid_points, radius = initializations(copp)
+def convex_hull(experiment: int):
+    coppelia = CoppeliaInterface(settings)
+
+    positions, target_hull, centroid_points, radius = initializations(coppelia)
+    coppelia.sim.stopSimulation()
+    del coppelia
+
     targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(
         centroid_points,
         radius,
@@ -1473,13 +1479,16 @@ def execute_experiment() -> None:
 
     try:
         if len(sys.argv) < 2:
-            copp = CoppeliaInterface(settings)
 
             if last_expe != 0:
                 next_experiment = int(last_expe)
                 if np.isclose(last_expe - next_experiment, 0.1):
+                    copp = CoppeliaInterface(settings)
+
                     view_point(copp, next_experiment)
                     update_current_experiment(next_experiment + 0.2)
+
+                    copp.sim.stopSimulation()
                     last_expe += 0.1
 
                 if np.isclose(last_expe - next_experiment, 0.2):
@@ -1492,11 +1501,18 @@ def execute_experiment() -> None:
                 if experiment < last_expe:
                     continue
 
-                convex_hull(copp, experiment)
+                proc = multiprocessing.Process(target=convex_hull, args=(experiment,))
+                proc.start()
+                proc.join()
                 update_current_experiment(float(experiment + 0.1))
 
+
+                copp = CoppeliaInterface(settings)
                 view_point(copp, experiment)
+
                 update_current_experiment(float(experiment + 0.2))
+                copp.sim.stopSimulation()
+                del copp
 
                 point_cloud(experiment)
                 update_current_experiment(float(experiment + 1))
@@ -1505,20 +1521,19 @@ def execute_experiment() -> None:
                 update_current_experiment(float(experiment + 1))
 
             os.remove(settings['save path'] + '.progress')
-            copp.sim.stopSimulation()
             return
 
         if sys.argv[1] == 'convex_hull':
-            copp = CoppeliaInterface(settings)
             for experiment in range(settings['number of trials']):
                 if experiment < last_expe:
                     continue
 
-                convex_hull(copp, experiment)
+                proc = multiprocessing.Process(target=convex_hull, args=(experiment,))
+                proc.start()
+                proc.join()
                 update_current_experiment(float(experiment + 1))
 
             os.remove(settings['save path'] + '.progress')
-            copp.sim.stopSimulation()
             return
 
         if sys.argv[1] == 'view_point':
@@ -1558,8 +1573,6 @@ def execute_experiment() -> None:
 
     except RuntimeError as e:
         print("An error occurred:", e)
-
-
 
 
 # Press the green button in the gutter to run the script.

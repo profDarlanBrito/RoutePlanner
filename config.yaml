@@ -11,7 +11,9 @@ COPS result: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/res
 # COPS problem filename
 COPS problem: 3dreconstructionPathPlannerBuilds
 # Path to COPS script
-COPS path: C:/Users/dnune/OneDrive/Documentos/VerLab/COPS/
+COPS path: ../COPS/
+# Path to save experiments
+save path: ./save_files/
 # Numerical sequence to image names. As an example if you want to save the images as calibimg1, calibimg2, ...
 #sequence: [40,186,523,602,727,772,874,950,1030,1280,1319,1422,1440,1585,1657,1795,1924,2187,2271,2295,2379,2398,2444,2537,2587,2622,2628,2751,2828,2859]
 sequence: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
@@ -88,3 +90,5 @@ far clip: 100
 perspective angle: 100.0
 # Compute the COLMAP dense model
 dense model: 0
+# Python exec, on the laboratory machines, it's python3.11
+python: python
