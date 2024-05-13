@@ -355,12 +355,12 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                                       max_idx_s))  # Index of the next visited point of view. This index is considering all target
                 prior_idx = max_idx
             # If the above step do not reach the CA minimum shows a message to user.
-            if iteration >= max_iter - 1:
-                print('Decrease CA_max')
-                print(f'{CA=}')
-                print(f'{len(S[target][-1])=}')
+            # if iteration >= max_iter - 1:
+            #     print('Decrease CA_max')
+            #     print(f'{CA=}')
+            #     print(f'{len(S[target][-1])=}')
             # If the subgroup is empty remove it from the subgroup list
-            if len(S[target][-1]) == 0:
+            if len(S[target][-1]) == 0 or CA < settings['CA_min']:
                 S[target].pop()
             else:
                 subgroup_idx += 1
@@ -444,6 +444,7 @@ def initializations(copp_i) -> tuple[
     targets_hull_i = {}
     centroid_points_i = {}
     radius_i = {}
+    settings = parse_settings_file('config.yaml')
     for object_name_i in settings['object names']:
         copp_i.handles[object_name_i] = copp_i.sim.getObject(f"./{object_name_i}")
         if copp_i.handles[object_name_i] < 0:
@@ -884,7 +885,7 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[A
         for pt1 in points_start_cewm:
             for _,points_end_cewm in targets_points_of_view_cewm.items():
                     for pt2 in points_end_cewm:
-                        edge_weight_matrix_cewm[i, j] = np.linalg.norm(pt1 - pt2)
+                        edge_weight_matrix_cewm[i, j] = np.linalg.norm(pt1[:3] - pt2[:3]) + np.linalg.norm(np.deg2rad(pt1[3:]) - np.deg2rad(pt2[3:]))
                         j += 1
             i += 1
             j = 0
@@ -1018,7 +1019,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
                         GTSP_CLUSTER_SECTION_str[count_cluster][0] = f'{count_cluster} '
                         count_idx = 1
                         for lS_spf in S_spf:
-                            copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][-1]} {lS_spf[0][6]} " +
+                            copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][5]} {lS_spf[0][6]} " +
                                            ' '.join(str(vertex[7]) for vertex in lS_spf) + '\n')
                             GTSP_CLUSTER_SECTION_str[count_cluster][count_idx] = f'{lS_spf[0][0]} '
                             count_idx += 1
@@ -1233,6 +1234,9 @@ def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: in
 
 
 def convex_hull(experiment: int):
+    print('Starting convex hull ...')
+    global settings
+    settings = load_variables()
     coppelia = CoppeliaInterface(settings)
 
     positions, target_hull, centroid_points, radius = initializations(coppelia)
@@ -1259,7 +1263,7 @@ def convex_hull(experiment: int):
         pickle.dump(targets_points_of_view, file)  
         pickle.dump(centroid_points, file)  
         pickle.dump(radius, file)
-
+    print('Ending convex hull')
 
 def view_point(copp: CoppeliaInterface, experiment: int):
 
@@ -1273,13 +1277,13 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         settings['COPS result'] + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view)
     parts_to_spiral = np.fix(main_route.shape[0]/2)
 
-    spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
-        get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
-    
-
+    # spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
+    #     get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
+    #
+    #
     copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
-    vision_handle = copp.handles[settings['vision sensor names']]
-    filename = settings['filename']
+    # vision_handle = copp.handles[settings['vision sensor names']]
+    # filename = settings['filename']
 
     # Get the current date and time
     current_datetime = datetime.datetime.now()
@@ -1289,20 +1293,21 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     minute = str(current_datetime.minute)
     
     directory_name = settings['directory name'] + f'_exp_{experiment}_{day}_{month}_{hour}_{minute}'
-    spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
-    quadcopter_control_direct_points(copp.sim, copp.client, vision_handle, main_route, filename, directory_name)
+    # spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
+    # quadcopter_control_direct_points(copp.sim, copp.client, vision_handle, main_route, filename, directory_name)
+    #
+    # copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
+    #
+    # quadcopter_control_direct_points(copp.sim,
+    #                                  copp.client,
+    #                                  vision_handle,
+    #                                  spiral_routes,
+    #                                  'spiral_route',
+    #                                  spiral_directory_name)
 
-    copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
-
-    quadcopter_control_direct_points(copp.sim, 
-                                     copp.client, 
-                                     vision_handle, 
-                                     spiral_routes, 
-                                     'spiral_route', 
-                                     spiral_directory_name)
-
-    spiral_route_key = spiral_route_by_target.keys()
-    for route, spiral_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
+    # spiral_route_key = spiral_route_by_target.keys()
+    # for route, spiral_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
+    for route, count_group in zip(route_by_group, range(len(route_by_group))):
         filename = settings['filename']
         vision_handle = copp.handles[settings['vision sensor names']]
 
@@ -1315,23 +1320,23 @@ def view_point(copp: CoppeliaInterface, experiment: int):
 
         copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
 
-        spiral_route = spiral_route_by_target[spiral_key]
-        spiral_group_name = f'_spriral_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
-        spiral_directory_name = settings['directory name'] + spiral_group_name
-
-        quadcopter_control_direct_points(copp.sim, 
-                                         copp.client, 
-                                         vision_handle, 
-                                         spiral_route, 
-                                         'spiral_route', 
-                                         spiral_directory_name)
+        # spiral_route = spiral_route_by_target[spiral_key]
+        # spiral_group_name = f'_spriral_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
+        # spiral_directory_name = settings['directory name'] + spiral_group_name
+        #
+        # quadcopter_control_direct_points(copp.sim,
+        #                                  copp.client,
+        #                                  vision_handle,
+        #                                  spiral_route,
+        #                                  'spiral_route',
+        #                                  spiral_directory_name)
 
     with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'wb') as file:
         pickle.dump(travelled_distance_main, file)
-        pickle.dump(travelled_spiral_distance, file)
-        pickle.dump(spiral_route_by_target, file)
+        # pickle.dump(travelled_spiral_distance, file)
+        # pickle.dump(spiral_route_by_target, file)
         pickle.dump(route_by_group, file)
-        pickle.dump(spiral_target_distance, file)
+        # pickle.dump(spiral_target_distance, file)
         pickle.dump(day, file)  
         pickle.dump(month, file)  
         pickle.dump(hour, file)  
@@ -1341,10 +1346,10 @@ def view_point(copp: CoppeliaInterface, experiment: int):
 def point_cloud(experiment: int) -> None:
     with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'rb') as f:
         travelled_distance_main = pickle.load(f)
-        travelled_spiral_distance = pickle.load(f)
-        spiral_route_by_target = pickle.load(f)
+        # travelled_spiral_distance = pickle.load(f)
+        # spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
-        spiral_target_distance = pickle.load(f)
+        # spiral_target_distance = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
         hour = pickle.load(f)
@@ -1382,16 +1387,17 @@ def point_cloud(experiment: int) -> None:
     # Create the directory
     os.makedirs(spiral_workspace_folder)
     
-    with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
-        distance_file.write(str(travelled_spiral_distance))
+    # with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
+    #     distance_file.write(str(travelled_spiral_distance))
     
     # spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
     # run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
     # statistics_colmap(colmap_folder, spiral_workspace_folder)
 
     MNRE_array = np.empty(0)
-    spriral_route_key = spiral_route_by_target.keys()
-    for route, spiral_key, count_group in zip(route_by_group, spriral_route_key, range(len(route_by_group))):
+    # spriral_route_key = spiral_route_by_target.keys()
+    # for route, spiral_key, count_group in zip(route_by_group, spriral_route_key, range(len(route_by_group))):
+    for route, count_group in zip(route_by_group, range(len(route_by_group))):
         image_directory_name = (settings['directory name'] +
                           f'_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}')
 
@@ -1430,8 +1436,8 @@ def point_cloud(experiment: int) -> None:
         # Create the directory
         os.makedirs(spiral_workspace_folder)
 
-        with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
-            distance_file.write(str(spiral_target_distance[spiral_key]))
+        # with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
+        #     distance_file.write(str(spiral_target_distance[spiral_key]))
 
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
         run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
@@ -1574,19 +1580,33 @@ def execute_experiment() -> None:
     except RuntimeError as e:
         print("An error occurred:", e)
 
+def load_variables():
+    settings = parse_settings_file('config.yaml')
+    global CA_max
+    CA_max = float(settings['CA_max'])
+    global max_route_radius
+    max_route_radius = float(settings['max route radius'])
+    global points_per_sphere
+    points_per_sphere = float(settings['points per sphere'])
+    global height_proportion
+    height_proportion = float(settings['height proportion'])
+    global max_visits
+    max_visits = int(settings['max visits'])
+    global max_iter
+    max_iter = int(settings['max iter'])
+    global T_max
+    T_max = float(settings['T_max'])
+    global n_resolution
+    n_resolution = int(settings['n resolution'])
+    global points_per_unit
+    points_per_unit = float(settings['points per unit'])
+    return settings
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    settings = parse_settings_file('config.yaml')
-    CA_max = float(settings['CA_max'])
-    max_route_radius = float(settings['max route radius'])
-    points_per_sphere = float(settings['points per sphere'])
-    height_proportion = float(settings['height proportion'])
-    max_visits = int(settings['max visits'])
-    max_iter = int(settings['max iter'])
-    T_max = float(settings['T_max'])
-    n_resolution = int(settings['n resolution'])
-    points_per_unit = float(settings['points per unit'])
+
+    settings = load_variables()
 
     save_path = settings['save path']
 
