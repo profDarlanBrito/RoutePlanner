@@ -920,12 +920,13 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[A
     # i -= 1
     # j -= 1
     # edge_weight_matrix_cewm = edge_weight_matrix_cewm[:i, :j]
+    print(f'size of edge matrix: {edge_weight_matrix_cewm.shape[0]} x {edge_weight_matrix_cewm.shape[0]}')
     return edge_weight_matrix_cewm
 
 
 def ConvertArray2String(fileCA2S, array: ndarray):
     np.set_printoptions(threshold=10000000000)
-    np.savetxt(fileCA2S, array, fmt='%.5f', delimiter=' ')
+    np.savetxt(fileCA2S, array, fmt='%.3f', delimiter=' ')
     return fileCA2S
 
 
@@ -1078,29 +1079,29 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
     is_group_zero_zero = True
     for S_idx_rrcf in chose_subgroups:
         for information_rrcf in table_rrcf:
-            if information_rrcf[1] <= S_idx_rrcf <= information_rrcf[2]:
-                is_first_element = True
-                for group_rrcf in S_rrcf[information_rrcf[0]]:
-                    for element in group_rrcf:
-                        if element[0] == S_idx_rrcf:
-                            pt_idx_prior = element[1]
-                            pt_idx_post = element[2]
-                            pt_prior_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_prior]
-                            pt_post_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_post]
-                            travelled_distance += np.linalg.norm(pt_post_coordinates[:3] - pt_prior_coordinates[:3])
-                            if is_first_element:
-                                route_rrcf = np.row_stack((route_rrcf, pt_prior_coordinates, pt_post_coordinates))
-                                is_first_element = False
-                                if is_group_zero_zero:
-                                    is_group_zero_zero = False
-                                else:
-                                    route_by_group[count_group] = np.row_stack((route_by_group[count_group],
-                                                                                pt_prior_coordinates,
-                                                                                pt_post_coordinates))
+            # if information_rrcf[1] <= S_idx_rrcf <= information_rrcf[2]:
+            is_first_element = True
+            for group_rrcf in S_rrcf[information_rrcf[0]]:
+                for element in group_rrcf:
+                    if element[0] == S_idx_rrcf:
+                        pt_idx_prior = element[1]
+                        pt_idx_post = element[2]
+                        pt_prior_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_prior]
+                        pt_post_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_post]
+                        travelled_distance += np.linalg.norm(pt_post_coordinates[:3] - pt_prior_coordinates[:3])
+                        if is_first_element:
+                            route_rrcf = np.row_stack((route_rrcf, pt_prior_coordinates, pt_post_coordinates))
+                            is_first_element = False
+                            if is_group_zero_zero:
+                                is_group_zero_zero = False
                             else:
-                                route_rrcf = np.row_stack((route_rrcf, pt_post_coordinates))
-                                route_by_group[count_group] = np.row_stack(
-                                    (route_by_group[count_group], pt_post_coordinates))
+                                route_by_group[count_group] = np.row_stack((route_by_group[count_group],
+                                                                            pt_prior_coordinates,
+                                                                            pt_post_coordinates))
+                        else:
+                            route_rrcf = np.row_stack((route_rrcf, pt_post_coordinates))
+                            route_by_group[count_group] = np.row_stack(
+                                (route_by_group[count_group], pt_post_coordinates))
         if is_group_zero:
             is_group_zero = False
         else:
