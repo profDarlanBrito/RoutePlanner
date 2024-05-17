@@ -1259,6 +1259,7 @@ def convex_hull(experiment: int):
                         subgroup_size)
     execute_script(name_cops_file)
 
+
     with open(settings['save path'] + f'variables/convex_hull_{experiment}.var', 'wb') as file:
         pickle.dump(S, file)  
         pickle.dump(targets_points_of_view, file)  
