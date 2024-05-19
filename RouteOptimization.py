@@ -1602,13 +1602,6 @@ def load_variables():
     n_resolution = int(settings['n resolution'])
     global points_per_unit
     points_per_unit = float(settings['points per unit'])
-    return settings
-
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-
-    settings = load_variables()
 
     save_path = settings['save path']
 
@@ -1621,6 +1614,16 @@ if __name__ == '__main__':
     settings['COPS dataset'] = os.path.join(save_path, COPS_dataset)
     settings['COPS result'] = os.path.join(save_path, COPS_result)
     settings['workspace folder'] = os.path.join(save_path, workspace_folder)
+
+    return settings
+
+
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+
+    settings = load_variables()
+
+    save_path = settings['save path']
 
     os.makedirs(save_path, exist_ok=True)
 
