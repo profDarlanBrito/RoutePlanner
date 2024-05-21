@@ -71,6 +71,7 @@ def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str):
     :param image_folder: Folder to images used for reconstruction. There is no name pattern to images
     :return: Nothing
     """
+    print('Executing colmap script ...')
     try:
         # Extract features
         with open(feature_extractor_file_name, 'r') as feature_config_file_read:
@@ -272,9 +273,11 @@ def points_along_line(start_point, end_point, num_points):
     return points
 
 
-def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict, target_points_of_view_sf: dict) -> tuple[dict, int]:
+def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict, target_points_of_view_sf: dict,
+                       positions: dict = None) -> tuple[dict, int]:
     """
     Forms the subgroups of points of view around each object.
+    :param positions:
     :param targets_border_sf: Dictionary with the convex hull computed by Delaunay function of Scipy for each target object
     :param points_of_view_contribution_sf: Dictionary with a reward of each point of view. Each key of the dictionary is an object target
     :param target_points_of_view_sf: Dictionary with the positions of each point of view around each target object
@@ -290,6 +293,11 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
     length = 0
     # Get the points of view for each target object
     for target, points in target_points_of_view_sf.items():
+        if positions is None:
+            object_area = 1.0
+        else:
+            object_area = ConvexHull(positions[target]).volume
+        CA_max_sf = CA_max * object_area/10
         S[target] = []
         # Create a subgroup 0 with position and orientation equals to zero. This subgroup is the start and end subgroup
         if subgroup_idx == 0:
@@ -311,7 +319,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
             idx_list = [i]
             show_number_of_points += 1
             iteration = 0
-            while CA < CA_max and iteration < max_iter:
+            while CA < CA_max_sf and iteration < max_iter:
                 iteration += 1
                 indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=search_size)  # Select randomly the index of points where the drone can go
                 max_contribution = 0
@@ -360,6 +368,7 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
             #     print(f'{CA=}')
             #     print(f'{len(S[target][-1])=}')
             # If the subgroup is empty remove it from the subgroup list
+
             if len(S[target][-1]) == 0 or CA < settings['CA_min']:
                 S[target].pop()
             else:
@@ -1037,6 +1046,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
 
 
 def execute_script(name_cops_file: str) -> None:
+    print('Executing COPS ...')
     try:
         # Execute the script using subprocess
         process = subprocess.Popen([settings['python'], settings['COPS path'] + 'tabu_search.py',
@@ -1248,7 +1258,7 @@ def convex_hull(experiment: int):
         centroid_points,
         radius,
         positions)
-    S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view)
+    S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
     edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
     name_cops_file = settings['COPS problem'] + str(experiment)
     write_problem_file(settings['COPS dataset'],
