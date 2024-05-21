@@ -1287,7 +1287,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     
     main_route, travelled_distance_main, route_by_group = read_route_csv_file(
         settings['COPS result'] + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view)
-    parts_to_spiral = np.fix(main_route.shape[0]/10)
+    parts_to_spiral = 10 #np.fix(main_route.shape[0]/40)
 
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
         get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
