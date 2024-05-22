@@ -1438,8 +1438,7 @@ def point_cloud(experiment: int) -> None:
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                         f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{count_group}')
 
-        # spiral_image_directory_name = settings['directory name'] \
-        #     + f'_spriral_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
+        spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
 
         # remove folder if exist
         if os.path.exists(spiral_workspace_folder):
