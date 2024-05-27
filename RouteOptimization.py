@@ -272,7 +272,6 @@ def points_along_line(start_point, end_point, num_points):
     points = np.column_stack((x, y, z))
     return points
 
-
 def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict, target_points_of_view_sf: dict,
                        positions: dict = None) -> tuple[dict, int]:
     """
@@ -1354,6 +1353,21 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         pickle.dump(hour, file)  
         pickle.dump(minute, file)
 
+def remove_unused_files(workspace_folder):
+    """
+    Remove the stereo folder and the images folder in the dense folder
+    """
+    dense_folder = os.path.join(workspace_folder, 'dense')
+    for folder in os.listdir(dense_folder):
+        stereo_folder = os.path.join(folder, 'stereo')
+        images_folder = os.path.join(folder, 'images')
+
+        stereo_folder_path = os.path.join(dense_folder, stereo_folder)
+        images_folder_path = os.path.join(dense_folder, images_folder)
+
+        shutil.rmtree(stereo_folder_path)
+        shutil.rmtree(images_folder_path)
+
 
 def point_cloud(experiment: int) -> None:
     with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'rb') as f:
@@ -1434,6 +1448,7 @@ def point_cloud(experiment: int) -> None:
         images_folder = str(os.path.join(settings['path'], image_directory_name))
         run_colmap_program(colmap_folder, workspace_folder, images_folder)
         MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
+        remove_unused_files(workspace_folder)
 
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                         f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{count_group}')
@@ -1453,6 +1468,7 @@ def point_cloud(experiment: int) -> None:
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
         run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
         statistics_colmap(colmap_folder, spiral_workspace_folder)
+        remove_unused_files(spiral_workspace_folder)
 
 
 def mesh_analysis(experiment: int):
