@@ -1024,7 +1024,6 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
                     GTSP_CLUSTER_SECTION_str = [[]] * len(settings['object names'])
                     for target_wpf, S_spf in S_wpf.items():
                         GTSP_CLUSTER_SECTION_str[count_cluster] = [[]] * (len(S_spf) + 1)
-                        # GTSP_CLUSTER_SECTION_str += f'{count_cluster} '
                         GTSP_CLUSTER_SECTION_str[count_cluster][0] = f'{count_cluster} '
                         count_idx = 1
                         for lS_spf in S_spf:
@@ -1032,7 +1031,6 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
                                            ' '.join(str(vertex[7]) for vertex in lS_spf) + '\n')
                             GTSP_CLUSTER_SECTION_str[count_cluster][count_idx] = f'{lS_spf[0][0]} '
                             count_idx += 1
-                        # GTSP_CLUSTER_SECTION_str += '\n'
                         count_cluster += 1
             elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
                 with open(complete_file_name, 'a') as copsfile:
@@ -1091,8 +1089,10 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
             # if information_rrcf[1] <= S_idx_rrcf <= information_rrcf[2]:
             is_first_element = True
             for group_rrcf in S_rrcf[information_rrcf[0]]:
+                # print(f'Group size: {len(group_rrcf)}')
                 for element in group_rrcf:
                     if element[0] == S_idx_rrcf:
+                        # print(f'Size of selected group: {len(group_rrcf)}')
                         pt_idx_prior = element[1]
                         pt_idx_post = element[2]
                         pt_prior_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_prior]
