@@ -1503,6 +1503,51 @@ def update_current_experiment(value_stage: float) -> None:
         pickle.dump(value_stage, file)
 
 
+def generate_poisson_mesh() -> None:
+
+    if platform.system() == 'Windows':
+        colmap_exec = os.path.join(settings['colmap folder'], 'COLMAP.bat')
+
+    if platform.system() == 'Linux':
+        colmap_exec = 'colmap'
+
+    save_path = settings['workspace folder']
+    for workspace_folder in os.listdir(save_path):
+
+        folder_path = os.path.join(save_path, workspace_folder)
+        folder_path = os.path.join(folder_path, 'dense')
+
+        # Check if the 'dense' folder exists
+        if not os.path.isdir(folder_path):
+            continue
+
+        for folder_i in os.listdir(folder_path):
+            print(os.path.join(workspace_folder, folder_i))
+            curr_dir = os.path.join(folder_path, folder_i)
+
+            # Check if 'meshed-poisson.ply' file exist
+            if os.path.isfile(os.path.join(curr_dir, 'meshed-poisson.ply')):
+                continue
+            
+            # Check if 'fused.ply' file does not exist
+            if not os.path.isfile(os.path.join(curr_dir, 'fused.ply')):
+                print(f"Cannot find 'fused.ply' in {curr_dir}")
+                continue
+
+            # Generate mesh using Poisson meshing
+            with open(poisson_mesher_file_name, 'r') as poisson_mesher_file_read:
+                poisson_mesher_config_str = poisson_mesher_file_read.readlines()
+                poisson_mesher_config_str[3] = f'input_path={curr_dir}/fused.ply\n'
+                poisson_mesher_config_str[4] = f'output_path={curr_dir}/meshed-poisson.ply\n'
+
+            poisson_folder = os.path.join(save_path, workspace_folder)
+            poisson_mesher_config_path = write_config_file(poisson_mesher_file_name, 
+                                                           poisson_folder, 
+                                                           poisson_mesher_config_str)
+
+            execute_colmap_command(colmap_exec, 'poisson_mesher', poisson_mesher_config_path)
+
+
 def execute_experiment() -> None:
     # Create the directory
     os.makedirs(settings['save path'] + 'variables/', exist_ok=True)
@@ -1602,6 +1647,10 @@ def execute_experiment() -> None:
                 update_current_experiment(float(experiment + 1))
 
             os.remove(settings['save path'] + '.progress')
+            return
+        
+        if sys.argv[1] == 'poisson_check':
+            generate_poisson_mesh()
             return
 
     except RuntimeError as e:

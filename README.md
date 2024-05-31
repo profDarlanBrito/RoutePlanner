@@ -47,6 +47,7 @@ Optional available arguments:
 convex_hull (Generates an optimized route around objects in the scene using COPS)
 view_point (Captures images of objects in the scene using CoppeliaSim)
 point_cloud (Performs reconstruction from the images)
+poisson_check (Check if the Poisson mesh was generated, if not, create it using `fused.ply` file)
 ```
 To execute, use the RouteOptimization.py script, for example:
 ```
@@ -62,4 +63,5 @@ python RouteOptimization.py
 python RouteOptimization.py convex_hull
 python RouteOptimization.py view_point 
 python RouteOptimization.py point_cloud
+python RouteOptimization.py poisson_check
 ```
