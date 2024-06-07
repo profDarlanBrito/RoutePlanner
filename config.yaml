@@ -96,4 +96,4 @@ python: python
 # Path to CoppeliaSim obj
 obj folder: obj/
 # Use OBJ to avoid opening Coppelia in the convex_hull command
-use obj: 1
+use obj: 0
