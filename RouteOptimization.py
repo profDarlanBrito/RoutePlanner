@@ -1400,7 +1400,9 @@ def point_cloud(experiment: int) -> None:
     os.makedirs(workspace_folder)
     
     with open(workspace_folder + '/distance.txt', 'w') as distance_file:
-        distance_file.write(str(travelled_distance_main))
+        distance_file.write(f'distance: {str(travelled_distance_main)}\n')
+        distance_file.write(f'CA_max: {settings["CA_max"]}\n')
+        distance_file.write(f'CA_min: {settings["CA_min"]}')
     
     # images_folder = str(os.path.join(settings['path'], directory_name))
     # run_colmap_program(colmap_folder, workspace_folder, images_folder)
