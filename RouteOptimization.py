@@ -1247,11 +1247,18 @@ def convex_hull(experiment: int):
     print('Starting convex hull ...')
     global settings
     settings = load_variables()
-    coppelia = CoppeliaInterface(settings)
 
-    positions, target_hull, centroid_points, radius = initializations(coppelia)
-    coppelia.sim.stopSimulation()
-    del coppelia
+    if settings['use obj'] == 1:
+        with open(os.path.join(settings['obj folder'], settings['obj_file']), "rb") as file:
+            positions = pickle.load(file)
+            target_hull = pickle.load(file)
+            centroid_points = pickle.load(file)
+            radius = pickle.load(file)
+    else:
+        coppelia = CoppeliaInterface(settings)
+        positions, target_hull, centroid_points, radius = initializations(coppelia)
+        coppelia.sim.stopSimulation()
+        del coppelia
 
     targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(
         centroid_points,
@@ -1660,6 +1667,14 @@ def execute_experiment() -> None:
 
 def load_variables():
     settings = parse_settings_file('config.yaml')
+
+    if len(sys.argv) >= 4:
+        settings['CA_min'] = int(sys.argv[2])
+        settings['CA_max'] = int(sys.argv[3])
+    
+    if len(sys.argv) >= 5:
+        settings['obj_file'] = sys.argv[4]
+
     global CA_max
     CA_max = float(settings['CA_max'])
     global max_route_radius

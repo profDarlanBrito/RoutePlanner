@@ -71,7 +71,7 @@ max iter: 1000
 T_max: 150000
 # Number of subdivisions of the horizontal discretization
 n resolution: 24
-#Object names like on CoppeliaSim
+# Object names like on CoppeliaSim
 object names: [Casa_Velha, Chinese_Old_Build, Old_Build, West_Build]
 # Path to colmap
 colmap folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP-3.9.1-windows-cuda/COLMAP-3.9.1-windows-cuda/
@@ -93,3 +93,7 @@ dense model: 1
 save path: ./save_files/
 # Python exec, on the laboratory machines, it's python3.11
 python: python
+# Path to CoppeliaSim obj
+obj folder: obj/
+# Use OBJ to avoid opening Coppelia in the convex_hull command
+use obj: 1
