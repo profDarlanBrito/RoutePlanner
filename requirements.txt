@@ -25,4 +25,4 @@ spherical_geometry==1.3.1
 opencv-python==4.9.0.80
 gdown==5.1.0
 sympy==1.12
-
+pymeshlab==2023.12.post1
