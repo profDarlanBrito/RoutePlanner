@@ -46,6 +46,7 @@ From: ubuntu:20.04
 
     chmod 755 RoutePlanner/RouteOptimization.sh
 
+    export PATH=$PATH:/usr/local/cuda/bin
     unzip 3.9.1.zip
     cd colmap-3.9.1
     mkdir build
