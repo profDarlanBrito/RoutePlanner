@@ -1366,6 +1366,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         pickle.dump(hour, file)  
         pickle.dump(minute, file)
 
+
 def remove_unused_files(workspace_folder):
     """
     Remove the stereo folder and the images folder in the dense folder
