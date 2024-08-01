@@ -1068,6 +1068,7 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
     route_rrcf = np.empty([0, 6])
     route_by_group = [np.empty([0, 6])] * len(settings['object names'])
     travelled_distance = 0
+    route_by_object = {}
     try:
         with open(file_path, newline='', encoding='utf-8') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=';')
@@ -1084,6 +1085,7 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
     count_group = 0
     is_group_zero = True
     is_group_zero_zero = True
+    group_name = '0'
     for S_idx_rrcf in chose_subgroups:
         for information_rrcf in table_rrcf:
             # if information_rrcf[1] <= S_idx_rrcf <= information_rrcf[2]:
@@ -1104,6 +1106,7 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
                             if is_group_zero_zero:
                                 is_group_zero_zero = False
                             else:
+                                group_name = information_rrcf[0]
                                 route_by_group[count_group] = np.row_stack((route_by_group[count_group],
                                                                             pt_prior_coordinates,
                                                                             pt_post_coordinates))
@@ -1111,13 +1114,15 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
                             route_rrcf = np.row_stack((route_rrcf, pt_post_coordinates))
                             route_by_group[count_group] = np.row_stack(
                                 (route_by_group[count_group], pt_post_coordinates))
+        # route_by_object[information_rrcf[0]] = route_by_group[count_group]
         if is_group_zero:
             is_group_zero = False
         else:
+            route_by_object[group_name] = route_by_group[count_group]
             count_group += 1
     print(f'{travelled_distance=}')
     route_rrcf = np.row_stack((route_rrcf, route_rrcf[0]))
-    return route_rrcf, travelled_distance, route_by_group
+    return route_rrcf, travelled_distance, route_by_group, route_by_object
 
 
 def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_name_gi: str):
@@ -1290,8 +1295,8 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         targets_points_of_view = pickle.load(file)
         centroid_points = pickle.load(file)
         radius = pickle.load(file)
-    
-    main_route, travelled_distance_main, route_by_group = read_route_csv_file(
+    route_by_object = {}
+    main_route, travelled_distance_main, route_by_group, route_by_object = read_route_csv_file(
         settings['COPS result'] + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view)
     parts_to_spiral = 10 #np.fix(main_route.shape[0]/40)
 
@@ -1324,22 +1329,22 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     #                                  spiral_directory_name)
 
     spiral_route_key = spiral_route_by_target.keys()
-    for route, spiral_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
+    for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
     # for route, count_group in zip(route_by_group, range(len(route_by_group))):
         filename = settings['filename']
         vision_handle = copp.handles[settings['vision sensor names']]
 
-        group_name = f'_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
+        group_name = f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
         directory_name = settings['directory name'] + group_name
 
         copp.sim.setObjectOrientation(vision_handle, [0, np.pi / 2, np.pi / 2], copp.sim.handle_parent)
-        
-        quadcopter_control_direct_points(copp.sim, copp.client,  vision_handle, route, filename, directory_name)
+        route_of_object = route_by_object[object_key]
+        quadcopter_control_direct_points(copp.sim, copp.client,  vision_handle, route_of_object, filename, directory_name)
 
         copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
 
-        spiral_route = spiral_route_by_target[spiral_key]
-        spiral_group_name = f'_spriral_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
+        spiral_route = spiral_route_by_target[object_key]
+        spiral_group_name = f'_spriral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
         spiral_directory_name = settings['directory name'] + spiral_group_name
         #
         quadcopter_control_direct_points(copp.sim,
@@ -1354,6 +1359,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         pickle.dump(travelled_spiral_distance, file)
         pickle.dump(spiral_route_by_target, file)
         pickle.dump(route_by_group, file)
+        pickle.dump(route_by_object, file)
         pickle.dump(spiral_target_distance, file)
         pickle.dump(day, file)  
         pickle.dump(month, file)  
@@ -1382,6 +1388,7 @@ def point_cloud(experiment: int) -> None:
         travelled_spiral_distance = pickle.load(f)
         spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
+        route_by_object = pickle.load(f)
         spiral_target_distance = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
@@ -1431,13 +1438,13 @@ def point_cloud(experiment: int) -> None:
 
     MNRE_array = np.empty(0)
     spriral_route_key = spiral_route_by_target.keys()
-    for route, spiral_key, count_group in zip(route_by_group, spriral_route_key, range(len(route_by_group))):
+    for route, object_key, count_group in zip(route_by_group, spriral_route_key, range(len(route_by_group))):
     # for route, count_group in zip(route_by_group, range(len(route_by_group))):
         image_directory_name = (settings['directory name'] +
-                          f'_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}')
+                          f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
 
         workspace_folder = os.path.join(settings['workspace folder'],
-                                        f'exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{count_group}')
+                                        f'exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
 
         # remove folder if exist
         if os.path.exists(workspace_folder):
@@ -1453,6 +1460,8 @@ def point_cloud(experiment: int) -> None:
 
         with open(workspace_folder + '/distance.txt', 'w') as distance_file:
             distance_file.write(str(travelled_distance_main))
+        with open(workspace_folder + '/object_name.txt', 'w') as object_name_file:
+            object_name_file.write(object_key)
 
         images_folder = str(os.path.join(settings['path'], image_directory_name))
         run_colmap_program(colmap_folder, workspace_folder, images_folder)
@@ -1460,9 +1469,9 @@ def point_cloud(experiment: int) -> None:
         remove_unused_files(workspace_folder)
 
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
-                                        f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{count_group}')
+                                        f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
 
-        spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_group_{count_group}_{day}_{month}_{hour}_{minute}'
+        spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
 
         # remove folder if exist
         if os.path.exists(spiral_workspace_folder):
@@ -1472,7 +1481,7 @@ def point_cloud(experiment: int) -> None:
         os.makedirs(spiral_workspace_folder)
 
         with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
-            distance_file.write(str(spiral_target_distance[spiral_key]))
+            distance_file.write(str(spiral_target_distance[object_key]))
 
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
         run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
