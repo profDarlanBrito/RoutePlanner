@@ -34,13 +34,15 @@ points_per_unit = -1
 scale_to_height_spiral = 1.5  # Scale multiplied by the object target centroid Z to compute the spiral trajectory Z
 search_size = 20  # Size of the random points that will be used to search the next position of the UAV.
 number_of_line_points = 10  # The number of the points that will be used to define a line that will be verified if is through the convex hull
-feature_extractor_file_name = 'config/feature_extractor.ini'
-exhaustive_matcher_file_name = 'config/exhaustive_matcher.ini'
-mapper_file_name = 'config/mapper.ini'
-image_undistorter_file_name = 'config/image_undistorter.ini'
-patch_match_stereo_file_name = 'config/patch_match_stereo.ini'
-stereo_fusion_file_name = 'config/stereo_fusion.ini'
-poisson_mesher_file_name = 'config/poisson_mesher.ini'
+feature_extractor_file = 'config/feature_extractor.ini'
+exhaustive_file = 'config/exhaustive_matcher.ini'
+mapper_file = 'config/mapper.ini'
+image_undistorter_file = 'config/image_undistorter.ini'
+patch_match_stereo_file = 'config/patch_match_stereo.ini'
+stereo_fusion_file = 'config/stereo_fusion.ini'
+poisson_mesher_file = 'config/poisson_mesher.ini'
+model_aligner_file = 'config/model_aligner.ini'
+model_converter_file = 'config/model_converter.ini'
 
 
 def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder: str) -> None:
@@ -63,7 +65,169 @@ def execute_colmap_command(colmap_exec: str, command: str, config_file_path: str
     process.communicate() # Wait for the process to finish
 
 
-def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str):
+def extract_features(colmap_exec, workspace_folder, image_folder):
+    # Extract features
+    with open(feature_extractor_file, 'r') as feature_config_file_read:
+        feature_extractor_config_str = feature_config_file_read.readlines()
+        feature_extractor_config_str[3] = f'database_path={workspace_folder}/database.db\n'
+        feature_extractor_config_str[4] = f'image_path={image_folder}\n'
+
+    feature_config_path = write_config_file(feature_extractor_file, workspace_folder, feature_extractor_config_str)
+    execute_colmap_command(colmap_exec, 'feature_extractor', feature_config_path)
+    
+
+def perform_exhaustive_matching(colmap_exec, workspace_folder):
+    # Perform exhaustive matching
+    with open(exhaustive_file, 'r') as exhaustive_matcher_file_read:
+        exhaustive_config_str = exhaustive_matcher_file_read.readlines()
+        exhaustive_config_str[3] = f'database_path={workspace_folder}/database.db\n'
+
+    exhaustive_matcher_config_path = write_config_file(exhaustive_file, workspace_folder, exhaustive_config_str)
+    execute_colmap_command(colmap_exec, 'exhaustive_matcher', exhaustive_matcher_config_path)
+
+
+def run_mapper(colmap_exec, workspace_folder, image_folder, sparse_dir): 
+    # Run the mapper
+    with open(mapper_file, 'r') as mapper_file_read:
+        mapper_config_str = mapper_file_read.readlines()
+        mapper_config_str[3] = f'database_path={workspace_folder}/database.db\n'
+        mapper_config_str[4] = f'image_path={image_folder}\n'
+        mapper_config_str[5] = f'output_path={sparse_dir}\n'
+    
+    mapper_config_path = write_config_file(mapper_file, workspace_folder, mapper_config_str)
+    execute_colmap_command(colmap_exec, 'mapper', mapper_config_path)
+
+
+def align_scene(colmap_exec, workspace_folder, input_path, output_path, ref_images_file_path):
+    # Register camera centers
+    with open(model_aligner_file, 'r') as model_aligner_file_read:
+        model_aligner_config_str = model_aligner_file_read.readlines()
+        model_aligner_config_str[3] = f'input_path={input_path}\n'
+        model_aligner_config_str[4] = f'output_path={output_path}\n'
+        model_aligner_config_str[5] = f'ref_images_path={ref_images_file_path}\n'
+    
+    model_aligner_config_path = write_config_file(model_aligner_file, workspace_folder, model_aligner_config_str)
+    execute_colmap_command(colmap_exec, 'model_aligner', model_aligner_config_path)
+
+
+def undistort_images(colmap_exec, workspace_folder, image_folder, sub_sparse_dir, sub_dense_dir):
+    # Undistort images
+    with open(image_undistorter_file, 'r') as image_undistorter_file_read:
+        image_config_str = image_undistorter_file_read.readlines()
+        image_config_str[0] = f'image_path={image_folder}\n'
+        image_config_str[1] = f'input_path={sub_sparse_dir}\n'
+        image_config_str[2] = f'output_path={sub_dense_dir}\n'
+
+    image_undistorter_config_path = write_config_file(image_undistorter_file, workspace_folder, image_config_str)
+    execute_colmap_command(colmap_exec, 'image_undistorter', image_undistorter_config_path)
+
+
+def perform_stereo_matching(colmap_exec, workspace_folder, sub_dense_dir):
+    # Perform stereo matching
+    with open(patch_match_stereo_file, 'r') as patch_match_stereo_file_read:
+        stereo_config_str = patch_match_stereo_file_read.readlines()
+        stereo_config_str[3] = f'workspace_path={sub_dense_dir}\n'
+    
+    patch_match_stereo_config_path = write_config_file(patch_match_stereo_file, workspace_folder, stereo_config_str)
+    execute_colmap_command(colmap_exec, 'patch_match_stereo', patch_match_stereo_config_path)
+
+
+def perform_stereo_fusion(colmap_exec, workspace_folder, sub_dense_dir):
+    # Perform stereo fusion
+    with open(stereo_fusion_file, 'r') as stereo_fusion_file_read:
+        stereo_fusion_config_str = stereo_fusion_file_read.readlines()
+        stereo_fusion_config_str[3] = f'workspace_path={sub_dense_dir}\n'
+        stereo_fusion_config_str[6] = f'output_path={sub_dense_dir}/fused.ply\n'
+    
+    stereo_fusion_config_path = write_config_file(stereo_fusion_file, workspace_folder, stereo_fusion_config_str)
+    execute_colmap_command(colmap_exec, 'stereo_fusion', stereo_fusion_config_path)
+
+
+def generate_mesh_poisson(colmap_exec, workspace_folder, sub_dense_dir):
+    # Generate mesh using Poisson meshing
+    with open(poisson_mesher_file, 'r') as poisson_mesher_file_read:
+        poisson_config_str = poisson_mesher_file_read.readlines()
+        poisson_config_str[3] = f'input_path={sub_dense_dir}/fused.ply\n'
+        poisson_config_str[4] = f'output_path={sub_dense_dir}/meshed-poisson.ply\n'
+
+    poisson_mesher_config_path = write_config_file(poisson_mesher_file, workspace_folder, poisson_config_str)
+    execute_colmap_command(colmap_exec, 'poisson_mesher', poisson_mesher_config_path)
+
+
+def convert_model(colmap_exec, workspace_folder, target_dir):
+    # Converte bin model to txt model
+    with open(model_converter_file, 'r') as model_converter_file_read:
+        model_converter_config_str = model_converter_file_read.readlines()
+        model_converter_config_str[4] = f'input_path={target_dir}\n'
+        model_converter_config_str[5] = f'output_path={target_dir}\n'
+
+    model_converter_config_path = write_config_file(model_converter_file, 
+                                                    workspace_folder, 
+                                                    model_converter_config_str)
+    execute_colmap_command(colmap_exec, 'model_converter', model_converter_config_path)
+
+
+def sparse_reconstruction(colmap_exec, workspace_folder, image_folder):
+    extract_features(colmap_exec, workspace_folder, image_folder)
+
+    perform_exhaustive_matching(colmap_exec, workspace_folder)
+
+    # Create sparse folder
+    sparse_dir = os.path.join(workspace_folder, 'sparse').replace("\\", "/")
+    os.mkdir(sparse_dir)
+
+    run_mapper(colmap_exec, workspace_folder, image_folder, sparse_dir)
+    return sparse_dir
+
+
+def align_scene_poses(colmap_exec, workspace_folder, image_folder, sparse_dir):
+    ref_images_file_path = os.path.join(image_folder, "ref_images.txt")
+    if os.path.isfile(ref_images_file_path):
+        # Create sparse aligned folder
+        sparse_aligned_dir = os.path.join(workspace_folder, 'sparse_aligned').replace("\\", "/")
+        os.mkdir(sparse_aligned_dir)
+
+        for folder in os.listdir(sparse_dir):
+            
+            input_path = os.path.join(sparse_dir, folder).replace("\\", "/")
+            output_path = os.path.join(sparse_aligned_dir, folder).replace("\\", "/")
+            os.mkdir(output_path)
+            
+            align_scene(colmap_exec, workspace_folder, input_path, output_path, ref_images_file_path)
+        
+        sparse_dir = sparse_aligned_dir
+    
+    return sparse_dir
+
+
+def dense_reconstruction(colmap_exec, workspace_folder, image_folder, sparse_dir):
+    if settings['dense model'] == 1:
+        # Create dense folder
+        dense_dir = os.path.join(workspace_folder, 'dense').replace("\\", "/")
+        os.mkdir(dense_dir)
+
+    for folder in os.listdir(sparse_dir):
+
+        if settings['dense model'] == 0:
+            break
+
+        sub_dense_dir = os.path.join(dense_dir, folder).replace("\\", "/")
+        sub_dense_sparse_dir = os.path.join(sub_dense_dir, 'sparse')
+        sub_sparse_dir = os.path.join(sparse_dir, folder).replace("\\", "/")
+        os.mkdir(sub_dense_dir)
+
+        undistort_images(colmap_exec, workspace_folder, image_folder, sub_sparse_dir, sub_dense_dir)
+
+        perform_stereo_matching(colmap_exec, workspace_folder, sub_dense_dir)
+
+        perform_stereo_fusion(colmap_exec, workspace_folder, sub_dense_dir)
+
+        generate_mesh_poisson(colmap_exec, workspace_folder, sub_dense_dir)
+        
+        convert_model(colmap_exec, workspace_folder, sub_dense_sparse_dir)
+
+
+def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str) -> None:
     """
     Execute the COLMAP script on Windows
     :param colmap_folder: Folder where is stored the COLMAP.bat file
@@ -73,101 +237,11 @@ def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str):
     """
     print('Executing colmap script ...')
     try:
-        # Extract features
-        with open(feature_extractor_file_name, 'r') as feature_config_file_read:
-            feature_extractor_config_str = feature_config_file_read.readlines()
-            feature_extractor_config_str[3] = f'database_path={workspace_folder}/database.db\n'
-            feature_extractor_config_str[4] = f'image_path={image_folder}\n'
+        sparse_dir = sparse_reconstruction(colmap_exec, workspace_folder, image_folder)
+       
+        sparse_dir = align_scene_poses(colmap_exec, workspace_folder, image_folder, sparse_dir)
 
-        feature_config_path = write_config_file(feature_extractor_file_name, 
-                                                workspace_folder,
-                                                feature_extractor_config_str)
-        execute_colmap_command(colmap_exec, 'feature_extractor', feature_config_path)
-
-        # Perform exhaustive matching
-        with open(exhaustive_matcher_file_name, 'r') as exhaustive_matcher_file_read:
-            exhaustive_matcher_config_str = exhaustive_matcher_file_read.readlines()
-            exhaustive_matcher_config_str[3] = f'database_path={workspace_folder}/database.db\n'
-
-        exhaustive_matcher_config_path = write_config_file(exhaustive_matcher_file_name, 
-                                                           workspace_folder, 
-                                                           exhaustive_matcher_config_str)
-        execute_colmap_command(colmap_exec, 'exhaustive_matcher', exhaustive_matcher_config_path)
-        
-        # Create sparse folder
-        sparse_dir = os.path.join(workspace_folder, 'sparse').replace("\\", "/")
-        os.mkdir(sparse_dir)
-        
-        # Run the mapper
-        with open(mapper_file_name, 'r') as mapper_file_read:
-            mapper_config_str = mapper_file_read.readlines()
-            mapper_config_str[3] = f'database_path={workspace_folder}/database.db\n'
-            mapper_config_str[4] = f'image_path={image_folder}\n'
-            mapper_config_str[5] = f'output_path={sparse_dir}\n'
-        
-        mapper_config_path = write_config_file(mapper_file_name, 
-                                               workspace_folder, 
-                                               mapper_config_str)
-        execute_colmap_command(colmap_exec, 'mapper', mapper_config_path)
-
-
-        if settings['dense model'] == 1:
-            # Create dense folder
-            dense_dir = os.path.join(workspace_folder, 'dense').replace("\\", "/")
-            os.mkdir(dense_dir)
-
-        for folder in os.listdir(sparse_dir):
-
-            if settings['dense model'] == 0:
-                break
-
-            sub_dense_dir = os.path.join(dense_dir, folder).replace("\\", "/")
-            sub_sparse_dir = os.path.join(sparse_dir, folder).replace("\\", "/")
-            os.mkdir(sub_dense_dir)
-
-            # Undistort images
-            with open(image_undistorter_file_name, 'r') as image_undistorter_file_read:
-                image_undistorter_config_str = image_undistorter_file_read.readlines()
-                image_undistorter_config_str[0] = f'image_path={image_folder}\n'
-                image_undistorter_config_str[1] = f'input_path={sub_sparse_dir}\n'
-                image_undistorter_config_str[2] = f'output_path={sub_dense_dir}\n'
-
-            image_undistorter_config_path = write_config_file(image_undistorter_file_name, 
-                                                              workspace_folder, 
-                                                              image_undistorter_config_str)
-            execute_colmap_command(colmap_exec, 'image_undistorter',image_undistorter_config_path)
-
-            # Perform stereo matching
-            with open(patch_match_stereo_file_name, 'r') as patch_match_stereo_file_read:
-                patch_match_stereo_config_str = patch_match_stereo_file_read.readlines()
-                patch_match_stereo_config_str[3] = f'workspace_path={sub_dense_dir}\n'
-            
-            patch_match_stereo_config_path = write_config_file(patch_match_stereo_file_name, 
-                                                               workspace_folder, 
-                                                               patch_match_stereo_config_str)
-            execute_colmap_command(colmap_exec, 'patch_match_stereo', patch_match_stereo_config_path)
-
-            # Perform stereo fusion
-            with open(stereo_fusion_file_name, 'r') as stereo_fusion_file_read:
-                stereo_fusion_config_str = stereo_fusion_file_read.readlines()
-                stereo_fusion_config_str[3] = f'workspace_path={sub_dense_dir}\n'
-                stereo_fusion_config_str[6] = f'output_path={sub_dense_dir}/fused.ply\n'
-            
-            stereo_fusion_config_path = write_config_file(stereo_fusion_file_name, 
-                                                          workspace_folder, 
-                                                          stereo_fusion_config_str)
-            execute_colmap_command(colmap_exec, 'stereo_fusion', stereo_fusion_config_path)
-
-            # Generate mesh using Poisson meshing
-            with open(poisson_mesher_file_name, 'r') as poisson_mesher_file_read:
-                poisson_mesher_config_str = poisson_mesher_file_read.readlines()
-                poisson_mesher_config_str[3] = f'input_path={sub_dense_dir}/fused.ply\n'
-                poisson_mesher_config_str[4] = f'output_path={sub_dense_dir}/meshed-poisson.ply\n'
-
-            poisson_mesher_config_path = write_config_file(poisson_mesher_file_name, 
-                                                           workspace_folder, 
-                                                           poisson_mesher_config_str)
-            execute_colmap_command(colmap_exec, 'poisson_mesher', poisson_mesher_config_path)
+        dense_reconstruction(colmap_exec, workspace_folder, image_folder, sparse_dir)
         
         print("Script executed successfully.")
     except Exception as e:
@@ -1132,6 +1206,9 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     img, resolution = sim.getVisionSensorImg(vision_handle)
     img = np.frombuffer(img, dtype=np.uint8).reshape(resolution[1], resolution[0], 3)
 
+    # Camera position
+    position  = sim.getObjectPosition(vision_handle, sim.handle_world)
+
     # Define the directory name
     directory_name = directory_name_gi
 
@@ -1156,8 +1233,11 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     hour = str(current_datetime.hour)
     minute = str(current_datetime.minute)
 
-    filename = (full_path + '/' + file_name + '_' + day + '_' + month + '_' + hour + '_' + minute + '_' +
-                str(sequence) + '.' + settings['extension'])
+    image_name = (file_name + '_' + day + '_' + month + '_' + hour + '_' + minute + '_' + str(sequence) + '.' + 
+                  settings['extension'])
+    filename = os.path.join(full_path, image_name)
+    
+    ref_image_path = os.path.join(full_path, "ref_images.txt")
 
     # In CoppeliaSim images are left to right (x-axis), and bottom to top (y-axis)
     # (consistent with the axes of vision sensors, pointing Z outwards, Y up)
@@ -1165,6 +1245,9 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     img = cv.flip(cv.cvtColor(img, cv.COLOR_BGR2RGB), 0)
 
     cv.imwrite(filename, img)
+
+    with open(ref_image_path, "a") as file:
+        file.write(f"{image_name} {position[0]} {position[1]} {position[2]}\n")
 
 
 def generate_spiral_points(box_side_gsp, step):
@@ -1360,6 +1443,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         pickle.dump(hour, file)  
         pickle.dump(minute, file)
 
+
 def remove_unused_files(workspace_folder):
     """
     Remove the stereo folder and the images folder in the dense folder
@@ -1368,12 +1452,15 @@ def remove_unused_files(workspace_folder):
     for folder in os.listdir(dense_folder):
         stereo_folder = os.path.join(folder, 'stereo')
         images_folder = os.path.join(folder, 'images')
+        vis_file = os.path.join(folder, 'fused.ply.vis')
 
         stereo_folder_path = os.path.join(dense_folder, stereo_folder)
         images_folder_path = os.path.join(dense_folder, images_folder)
+        vis_file_path = os.path.join(dense_folder, vis_file)
 
         shutil.rmtree(stereo_folder_path)
         shutil.rmtree(images_folder_path)
+        os.remove(vis_file_path)
 
 
 def point_cloud(experiment: int) -> None:
@@ -1543,18 +1630,7 @@ def generate_poisson_mesh() -> None:
                 print(f"Cannot find 'fused.ply' in {curr_dir}")
                 continue
 
-            # Generate mesh using Poisson meshing
-            with open(poisson_mesher_file_name, 'r') as poisson_mesher_file_read:
-                poisson_mesher_config_str = poisson_mesher_file_read.readlines()
-                poisson_mesher_config_str[3] = f'input_path={curr_dir}/fused.ply\n'
-                poisson_mesher_config_str[4] = f'output_path={curr_dir}/meshed-poisson.ply\n'
-
-            poisson_folder = os.path.join(save_path, workspace_folder)
-            poisson_mesher_config_path = write_config_file(poisson_mesher_file_name, 
-                                                           poisson_folder, 
-                                                           poisson_mesher_config_str)
-
-            execute_colmap_command(colmap_exec, 'poisson_mesher', poisson_mesher_config_path)
+            generate_mesh_poisson(colmap_exec, workspace_folder, curr_dir)
 
 
 def execute_experiment() -> None:
