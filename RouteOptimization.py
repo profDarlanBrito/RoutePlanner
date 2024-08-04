@@ -1572,6 +1572,8 @@ def point_cloud(experiment: int) -> None:
 
         with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
             distance_file.write(str(spiral_target_distance[object_key]))
+        with open(spiral_workspace_folder + '/object_name.txt', 'w') as object_name_file:
+            object_name_file.write(object_key)
 
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
         run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
@@ -1924,7 +1926,7 @@ def process_paths(list_image_path, list_reconstruction_path, list_plt_path):
     for image_path, reconstruction_path, plt_path in zip(list_image_path, list_reconstruction_path, list_plt_path):
         data.append(process_reconstruction(image_path, reconstruction_path, plt_path))
 
-    save_to_csv(data, 'metrics.csv')
+    save_to_csv(data, os.path.join(settings['save path'], 'metrics.csv'))
 
 
 def mesh_analysis():
@@ -1964,9 +1966,11 @@ def mesh_analysis():
         for obj in obj_name:
             workspace_folder_group = os.path.join(settings['workspace folder'], f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
             spiral_workspace_folder_group = os.path.join(settings['workspace folder'], f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
-            images_folder = os.path.join(settings['path'], f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
-            ply_path = f'mesh_obj/{obj}.ply'
 
+            images_folder = os.path.join(settings['path'], f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder_spiral = os.path.join(settings['path'], f'scene_builds_spriral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+
+            ply_path = f'mesh_obj/{obj}.ply'
             if os.path.isdir(workspace_folder_group):
 
                 dense_folder = os.path.join(workspace_folder_group, 'dense')
@@ -1983,7 +1987,7 @@ def mesh_analysis():
                 for i in os.listdir(dense_folder):
                     reconstruction_path = os.path.join(dense_folder, i)
 
-                    list_image_path.append(images_folder)
+                    list_image_path.append(images_folder_spiral)
                     list_reconstruction_path.append(reconstruction_path)
                     list_plt_path.append(ply_path)
     
@@ -2025,8 +2029,9 @@ def generate_poisson_mesh() -> None:
             if not os.path.isfile(os.path.join(curr_dir, 'fused.ply')):
                 print(f"Cannot find 'fused.ply' in {curr_dir}")
                 continue
-
-            generate_mesh_poisson(colmap_exec, workspace_folder, curr_dir)
+            
+            print(colmap_exec, workspace_folder, curr_dir)
+            generate_mesh_poisson(colmap_exec, os.path.join(save_path, workspace_folder), curr_dir)
 
 
 def execute_experiment() -> None:
