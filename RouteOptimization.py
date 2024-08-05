@@ -1769,7 +1769,12 @@ def save_to_csv(data, filename):
     with open(filename, 'w', newline='') as output_file:
         dict_writer = csv.DictWriter(output_file, fieldnames=keys)
         dict_writer.writeheader()
-        dict_writer.writerows(data)
+
+        for line in data:
+            if line is None:
+                continue
+            
+            dict_writer.writerow(line)
 
 
 def get_tranformation_matrix(camera_cloud, real_camera_cloud):
@@ -1881,7 +1886,12 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     real_camera_cloud = o3d.geometry.PointCloud()
     real_camera_cloud.points = o3d.utility.Vector3dVector(real_camera_pos)
 
-    T = get_tranformation_matrix(camera_cloud, real_camera_cloud)
+    try:
+        T = get_tranformation_matrix(camera_cloud, real_camera_cloud)
+    except Exception as e:
+        print(e)
+        return None
+
     print("Used Transformation Matrix:")
     print(T)
 
