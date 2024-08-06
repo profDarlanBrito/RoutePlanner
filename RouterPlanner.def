@@ -81,7 +81,12 @@ From: ubuntu:20.04
     make
     make install
     cd
+    
     pip3.11 install -r RoutePlanner/requirements.txt
+    cd RoutePlanner
+    gdown 1w1AdYegAplRWNPhswgpy8qSmuBjSTAc4
+    unzip mesh_obj.zip
+    cd
 
 
 %environment
