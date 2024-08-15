@@ -1222,8 +1222,8 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     # Camera position [x y z]
     position = sim.getObjectPosition(vision_handle, sim.handle_world)
 
-    # Camera orientation Euler angles [alpha beta gamma]
-    orientarion = sim.getObjectOrientation(vision_handle, sim.handle_world)
+    # Camera orientation Euler angles [qx qy qz qw]
+    orientarion = sim.getObjectQuaternion(vision_handle, sim.handle_world)
 
     # Define the directory name
     directory_name = directory_name_gi
@@ -1263,7 +1263,7 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     cv.imwrite(filename, img)
 
     with open(ref_image_path, "a") as file:
-        file.write(f"{image_name} {position[0]} {position[1]} {position[2]} {orientarion[0]} {orientarion[1]} {orientarion[2]}\n")
+        file.write(f"{image_name} {position[0]} {position[1]} {position[2]} {orientarion[3]} {orientarion[0]} {orientarion[1]} {orientarion[2]}\n")
 
 
 def generate_spiral_points(box_side_gsp, step):
