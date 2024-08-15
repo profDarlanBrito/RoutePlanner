@@ -64,6 +64,7 @@ python RouteOptimization.py convex_hull
 python RouteOptimization.py view_point 
 python RouteOptimization.py point_cloud
 python RouteOptimization.py poisson_check
+python RouteOptimization.py mesh_analysis
 ```
 
 ## Commands Singularity 4
