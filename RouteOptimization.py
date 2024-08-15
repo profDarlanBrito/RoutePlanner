@@ -400,8 +400,13 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                 indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=search_size)  # Select randomly the index of points where the drone can go
                 max_contribution = 0
                 for index in indexes_of_points:
+                    if index in idx_list:
+                        continue
                     distance_p2p = np.linalg.norm(target_points_of_view_sf[target][prior_idx, :3] - target_points_of_view_sf[target][index, :3])
                     contribution = abs(abs(points_of_view_contribution_sf[target][index]) - distance_p2p)  #
+                    distance_orientation = np.linalg.norm(target_points_of_view_sf[target][prior_idx, 3:] - target_points_of_view_sf[target][index, 3:])
+                    if distance_orientation < 1:
+                        contribution = contribution - 0.9 * contribution
                     if contribution > max_contribution:
                         max_idx = index
                         max_contribution = abs(points_of_view_contribution_sf[target][index])
