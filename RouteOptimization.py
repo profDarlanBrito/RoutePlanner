@@ -1177,9 +1177,12 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
         with open(file_path, newline='', encoding='utf-8') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=';')
             for row in csv_reader:
+                route_reward = row[5]
                 route_str = row[8]
     except Exception as e:
         print(f"An error occurred: {e}")
+    with open('route_reward_file.txt', 'w') as csvfile:
+        csvfile.write('route_reward: ' + route_reward)
     chose_subgroups = ast.literal_eval(route_str.replace('  ', ','))
     bigger_idx = 0
     table_rrcf = []
@@ -1538,7 +1541,7 @@ def point_cloud(experiment: int) -> None:
         distance_file.write(f'distance: {str(travelled_distance_main)}\n')
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
-
+    shutil.copy('route_reward_file.txt', workspace_folder + 'route_reward_file.txt')
     # images_folder = str(os.path.join(settings['path'], directory_name))
     # run_colmap_program(colmap_folder, workspace_folder, images_folder)
     # statistics_colmap(colmap_folder, workspace_folder)
