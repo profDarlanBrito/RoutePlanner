@@ -65,7 +65,7 @@ def write_config_file(config_file_name: str, workspace_folder: str, config_lines
 
 def execute_colmap_command(colmap_exec: str, command: str, config_file_path: str):
     process = subprocess.Popen([colmap_exec, command, '--project_path', config_file_path])
-    process.communicate() # Wait for the process to finish
+    process.communicate()  # Wait for the process to finish
 
 
 def extract_features(colmap_exec, workspace_folder, image_folder):
@@ -77,7 +77,7 @@ def extract_features(colmap_exec, workspace_folder, image_folder):
 
     feature_config_path = write_config_file(feature_extractor_file, workspace_folder, feature_extractor_config_str)
     execute_colmap_command(colmap_exec, 'feature_extractor', feature_config_path)
-    
+
 
 def perform_exhaustive_matching(colmap_exec, workspace_folder):
     # Perform exhaustive matching
@@ -89,14 +89,14 @@ def perform_exhaustive_matching(colmap_exec, workspace_folder):
     execute_colmap_command(colmap_exec, 'exhaustive_matcher', exhaustive_matcher_config_path)
 
 
-def run_mapper(colmap_exec, workspace_folder, image_folder, sparse_dir): 
+def run_mapper(colmap_exec, workspace_folder, image_folder, sparse_dir):
     # Run the mapper
     with open(mapper_file, 'r') as mapper_file_read:
         mapper_config_str = mapper_file_read.readlines()
         mapper_config_str[3] = f'database_path={workspace_folder}/database.db\n'
         mapper_config_str[4] = f'image_path={image_folder}\n'
         mapper_config_str[5] = f'output_path={sparse_dir}\n'
-    
+
     mapper_config_path = write_config_file(mapper_file, workspace_folder, mapper_config_str)
     execute_colmap_command(colmap_exec, 'mapper', mapper_config_path)
 
@@ -108,7 +108,7 @@ def align_scene(colmap_exec, workspace_folder, input_path, output_path, ref_imag
         model_aligner_config_str[3] = f'input_path={input_path}\n'
         model_aligner_config_str[4] = f'output_path={output_path}\n'
         model_aligner_config_str[5] = f'ref_images_path={ref_images_file_path}\n'
-    
+
     model_aligner_config_path = write_config_file(model_aligner_file, workspace_folder, model_aligner_config_str)
     execute_colmap_command(colmap_exec, 'model_aligner', model_aligner_config_path)
 
@@ -130,7 +130,7 @@ def perform_stereo_matching(colmap_exec, workspace_folder, sub_dense_dir):
     with open(patch_match_stereo_file, 'r') as patch_match_stereo_file_read:
         stereo_config_str = patch_match_stereo_file_read.readlines()
         stereo_config_str[3] = f'workspace_path={sub_dense_dir}\n'
-    
+
     patch_match_stereo_config_path = write_config_file(patch_match_stereo_file, workspace_folder, stereo_config_str)
     execute_colmap_command(colmap_exec, 'patch_match_stereo', patch_match_stereo_config_path)
 
@@ -141,7 +141,7 @@ def perform_stereo_fusion(colmap_exec, workspace_folder, sub_dense_dir):
         stereo_fusion_config_str = stereo_fusion_file_read.readlines()
         stereo_fusion_config_str[3] = f'workspace_path={sub_dense_dir}\n'
         stereo_fusion_config_str[6] = f'output_path={sub_dense_dir}/fused.ply\n'
-    
+
     stereo_fusion_config_path = write_config_file(stereo_fusion_file, workspace_folder, stereo_fusion_config_str)
     execute_colmap_command(colmap_exec, 'stereo_fusion', stereo_fusion_config_path)
 
@@ -164,8 +164,8 @@ def convert_model(colmap_exec, workspace_folder, target_dir):
         model_converter_config_str[4] = f'input_path={target_dir}\n'
         model_converter_config_str[5] = f'output_path={target_dir}\n'
 
-    model_converter_config_path = write_config_file(model_converter_file, 
-                                                    workspace_folder, 
+    model_converter_config_path = write_config_file(model_converter_file,
+                                                    workspace_folder,
                                                     model_converter_config_str)
     execute_colmap_command(colmap_exec, 'model_converter', model_converter_config_path)
 
@@ -191,15 +191,14 @@ def align_scene_poses(colmap_exec, workspace_folder, image_folder, sparse_dir):
         os.mkdir(sparse_aligned_dir)
 
         for folder in os.listdir(sparse_dir):
-            
             input_path = os.path.join(sparse_dir, folder).replace("\\", "/")
             output_path = os.path.join(sparse_aligned_dir, folder).replace("\\", "/")
             os.mkdir(output_path)
-            
+
             align_scene(colmap_exec, workspace_folder, input_path, output_path, ref_images_file_path)
-        
+
         sparse_dir = sparse_aligned_dir
-    
+
     return sparse_dir
 
 
@@ -226,7 +225,7 @@ def dense_reconstruction(colmap_exec, workspace_folder, image_folder, sparse_dir
         perform_stereo_fusion(colmap_exec, workspace_folder, sub_dense_dir)
 
         generate_mesh_poisson(colmap_exec, workspace_folder, sub_dense_dir)
-        
+
         convert_model(colmap_exec, workspace_folder, sub_dense_sparse_dir)
 
 
@@ -241,11 +240,11 @@ def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str) -> No
     print('Executing colmap script ...')
     try:
         sparse_dir = sparse_reconstruction(colmap_exec, workspace_folder, image_folder)
-       
+
         sparse_dir = align_scene_poses(colmap_exec, workspace_folder, image_folder, sparse_dir)
 
         dense_reconstruction(colmap_exec, workspace_folder, image_folder, sparse_dir)
-        
+
         print("Script executed successfully.")
     except Exception as e:
         print("An error occurred:", e)
@@ -265,8 +264,10 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
                 if platform.system() == 'Linux':
                     colmap_exec = 'colmap'
 
-                with subprocess.Popen([colmap_exec, 'model_analyzer', '--path', statistic_folder], shell=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
-                    output, stderr = process.communicate(timeout=10)  # Capture stdout and stderr. The result is shown on stderr
+                with subprocess.Popen([colmap_exec, 'model_analyzer', '--path', statistic_folder], shell=False,
+                                      text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+                    output, stderr = process.communicate(
+                        timeout=10)  # Capture stdout and stderr. The result is shown on stderr
 
                 # Check if there were any errors
                 if process.returncode != 0:
@@ -282,9 +283,11 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
                         print(stderr)
                         # Read data from COLMAP output
                         points_value_idx = stderr.find(':', stderr.find('Points')) + 1
-                        number_of_points = int(stderr[points_value_idx: stderr.find('\n', points_value_idx)])  # Number of points
+                        number_of_points = int(
+                            stderr[points_value_idx: stderr.find('\n', points_value_idx)])  # Number of points
                         error_value_idx = stderr.find(':', stderr.find('Mean reprojection error')) + 1
-                        error_value = float(stderr[error_value_idx: stderr.find('p', error_value_idx)])  # Reconstruction error
+                        error_value = float(
+                            stderr[error_value_idx: stderr.find('p', error_value_idx)])  # Reconstruction error
                         MNRE = error_value / number_of_points  # Compute de Mean Normalized Reconstruction Error
 
                         # Save important data to file
@@ -349,6 +352,7 @@ def points_along_line(start_point, end_point, num_points):
     points = np.column_stack((x, y, z))
     return points
 
+
 def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: dict, target_points_of_view_sf: dict,
                        positions: dict = None) -> tuple[dict, int]:
     """
@@ -373,18 +377,20 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
             object_area = 1.0
         else:
             object_area = ConvexHull(positions[target]).volume
-        CA_max_sf = CA_max * object_area/10
+        CA_max_sf = CA_max * object_area / 10
         S[target] = []
         # Create a subgroup 0 with position and orientation equals to zero. This subgroup is the start and end subgroup
         if subgroup_idx == 0:
             S[target].append([])
             S[target][-1].append((subgroup_idx, subgroup_idx, 0, 0, 0.0, 0.0, 0, 0))
             subgroup_idx += 1
-        visits_to_position = np.zeros(points.shape[0])  # Number of visits to a point of view. Used to determine the maximum number of visits to a point of view
+        visits_to_position = np.zeros(points.shape[
+                                          0])  # Number of visits to a point of view. Used to determine the maximum number of visits to a point of view
         if is_first_target:
             visits_to_position[0] += max_visits + 1
         indexes_of_ini_points = list(range(points.shape[0]))
-        random_points = sample(indexes_of_ini_points, len(indexes_of_ini_points))  # Selects randomly the index of points to form the groups
+        random_points = sample(indexes_of_ini_points,
+                               len(indexes_of_ini_points))  # Selects randomly the index of points to form the groups
         show_number_of_points = 0
         for i in random_points:
             CA = 0
@@ -397,14 +403,17 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
             iteration = 0
             while CA < CA_max_sf and iteration < max_iter:
                 iteration += 1
-                indexes_of_points = np.random.randint(low=0, high=points.shape[0], size=search_size)  # Select randomly the index of points where the drone can go
+                indexes_of_points = np.random.randint(low=0, high=points.shape[0],
+                                                      size=search_size)  # Select randomly the index of points where the drone can go
                 max_contribution = 0
                 for index in indexes_of_points:
                     if index in idx_list:
                         continue
-                    distance_p2p = np.linalg.norm(target_points_of_view_sf[target][prior_idx, :3] - target_points_of_view_sf[target][index, :3])
+                    distance_p2p = np.linalg.norm(
+                        target_points_of_view_sf[target][prior_idx, :3] - target_points_of_view_sf[target][index, :3])
                     contribution = abs(abs(points_of_view_contribution_sf[target][index]) - distance_p2p)  #
-                    distance_orientation = np.linalg.norm(target_points_of_view_sf[target][prior_idx, 3:] - target_points_of_view_sf[target][index, 3:])
+                    distance_orientation = np.linalg.norm(
+                        target_points_of_view_sf[target][prior_idx, 3:] - target_points_of_view_sf[target][index, 3:])
                     if distance_orientation < 1:
                         contribution = contribution - 0.9 * contribution
                     if contribution > max_contribution:
@@ -418,7 +427,9 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                     continue
                 is_line_through_convex_hull_sf = False
                 for target_compare, hull_sf in targets_border_sf.items():
-                    line_points = points_along_line(target_points_of_view_sf[target][prior_idx, :3], target_points_of_view_sf[target][max_idx, :3], number_of_line_points)
+                    line_points = points_along_line(target_points_of_view_sf[target][prior_idx, :3],
+                                                    target_points_of_view_sf[target][max_idx, :3],
+                                                    number_of_line_points)
                     is_line_through_convex_hull_sf = is_line_through_convex_hull(hull_sf, line_points)
                     if is_line_through_convex_hull_sf:
                         break
@@ -434,14 +445,17 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                 prior_idx_s = length + prior_idx
                 max_idx_s = length + max_idx
                 # Dictionary with subgroups by object target. Each target has n subgroups. And each subgroup has your elements which is composed by a tuple with:
-                S[target][-1].append((subgroup_idx,  # General index of the group considering all subgroups of all objects
-                                      prior_idx,  # Index of the previous visited point of view. This index is by target
-                                      max_idx,  # Index of the next visited point of view. This index is by target
-                                      distance_p2p,  # Euclidean distance between the start and end points.
-                                      total_distance,  # Total travelled distance until the point max_idx. The last element of the subgroup will have the total travelled distance in subgroup
-                                      CA,  #  Total reward of the subgroup until the max_idx point. The last element of the subgroup will have the total reward for the subgroup
-                                      prior_idx_s,  # Index of the previous visited point of view. This index considering all target
-                                      max_idx_s))  # Index of the next visited point of view. This index is considering all target
+                S[target][-1].append(
+                    (subgroup_idx,  # General index of the group considering all subgroups of all objects
+                     prior_idx,  # Index of the previous visited point of view. This index is by target
+                     max_idx,  # Index of the next visited point of view. This index is by target
+                     distance_p2p,  # Euclidean distance between the start and end points.
+                     total_distance,
+                     # Total travelled distance until the point max_idx. The last element of the subgroup will have the total travelled distance in subgroup
+                     CA,
+                     # Total reward of the subgroup until the max_idx point. The last element of the subgroup will have the total reward for the subgroup
+                     prior_idx_s,  # Index of the previous visited point of view. This index considering all target
+                     max_idx_s))  # Index of the next visited point of view. This index is considering all target
                 prior_idx = max_idx
             # If the above step do not reach the CA minimum shows a message to user.
             # if iteration >= max_iter - 1:
@@ -517,7 +531,8 @@ def save_points(route_sp: dict, targets_points_of_view_sr: dict):
 
 
 def initializations(copp_i) -> tuple[
-    dict[Any, ndarray[Any, dtype[floating[_64Bit] | float_]] | ndarray[Any, dtype[Any]]], dict[Any, Delaunay], dict[Any, tuple[ndarray[Any, dtype[Any]], float]], dict[Any, tuple[ndarray[Any, dtype[Any]], float]]]:
+    dict[Any, ndarray[Any, dtype[floating[_64Bit] | float_]] | ndarray[Any, dtype[Any]]], dict[Any, Delaunay], dict[
+        Any, tuple[ndarray[Any, dtype[Any]], float]], dict[Any, tuple[ndarray[Any, dtype[Any]], float]]]:
     """
     Function to get the points from CoppeliaSim. The points of each object cannot be at the same plane, at least one
     must be a different plane. On CoppeliaSim you must add discs around the object to form a convex hull these points
@@ -549,11 +564,14 @@ def initializations(copp_i) -> tuple[
             handle = copp_i.sim.getObject(points_names, {'index': i, 'noError': True})
             if handle < 0:
                 break
-            positions[object_name_i] = np.row_stack((positions[object_name_i], copp_i.sim.getObjectPosition(handle, copp_i.sim.handle_world)))
+            positions[object_name_i] = np.row_stack(
+                (positions[object_name_i], copp_i.sim.getObjectPosition(handle, copp_i.sim.handle_world)))
             i += 1
 
-        targets_hull_i[object_name_i] = Delaunay(positions[object_name_i])  # Compute the convex hull of the target objects
-        centroid_points_i[object_name_i], radius_i[object_name_i] = _centroid_poly(positions[object_name_i])  # Compute the centroid of objects
+        targets_hull_i[object_name_i] = Delaunay(
+            positions[object_name_i])  # Compute the convex hull of the target objects
+        centroid_points_i[object_name_i], radius_i[object_name_i] = _centroid_poly(
+            positions[object_name_i])  # Compute the centroid of objects
         j = j + 1
 
     return positions, targets_hull_i, centroid_points_i, radius_i
@@ -627,7 +645,9 @@ def euler_angles_from_normal(normal_vector):
 
 def draw_cylinders_hemispheres(centroid_points_pf: dict,
                                radius_pf: dict,
-                               target_points_pf: dict) -> tuple[dict[Any, ndarray[Any, dtype[Any]] | ndarray[Any, dtype[floating[_64Bit] | float_]]], dict[Any, list[float] | list[Any]], list[ndarray[Any, dtype[Any]]]]:
+                               target_points_pf: dict) -> tuple[
+    dict[Any, ndarray[Any, dtype[Any]] | ndarray[Any, dtype[floating[_64Bit] | float_]]], dict[
+        Any, list[float] | list[Any]], list[ndarray[Any, dtype[Any]]]]:
     """
     Draw the hemispheres and the cylinders around the object
     :param centroid_points_pf: Dictionary of arrays of points with the central points of the objects
@@ -691,7 +711,8 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
                     weights[k - 1] = weight
                 else:
                     weight = weights[k - 1]
-                vector_points_pf[target] = np.row_stack((vector_points_pf[target], np.concatenate((point_position, np.array([yaw, pitch, roll])))))
+                vector_points_pf[target] = np.row_stack(
+                    (vector_points_pf[target], np.concatenate((point_position, np.array([yaw, pitch, roll])))))
                 conversion_table.append(np.concatenate((point_position, np.array([yaw, pitch, roll]))))
                 vector_points_weight_pf[target].append(weight)
             count_hemisphere += 1
@@ -763,7 +784,8 @@ def get_side_hemisphere_area(count_plane_gsha: int,
         is_in = False
         intersection_points = []
         for plane_gsha in frustum_planes:
-            distance = (abs(np.dot(plane_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_gsha[3]) / np.sqrt(plane_gsha[0] ** 2 + plane_gsha[1] ** 2 + plane_gsha[2] ** 2))
+            distance = (abs(np.dot(plane_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_gsha[
+                3]) / np.sqrt(plane_gsha[0] ** 2 + plane_gsha[1] ** 2 + plane_gsha[2] ** 2))
             if distance < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
                 x = (-plane_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_gsha[1] -
                      meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_gsha[2]) / plane_gsha[0]
@@ -970,16 +992,16 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[A
     for _, points_start_cewm in targets_points_of_view_cewm.items():
         total_length += points_start_cewm.shape[0]
 
-    edge_weight_matrix_cewm = np.zeros([total_length,total_length])
-    for _,points_start_cewm in targets_points_of_view_cewm.items():
+    edge_weight_matrix_cewm = np.zeros([total_length, total_length])
+    for _, points_start_cewm in targets_points_of_view_cewm.items():
         for pt1 in points_start_cewm:
-            for _,points_end_cewm in targets_points_of_view_cewm.items():
-                    for pt2 in points_end_cewm:
-                        edge_weight_matrix_cewm[i, j] = np.linalg.norm(pt1[:3] - pt2[:3]) + np.linalg.norm(np.deg2rad(pt1[3:]) - np.deg2rad(pt2[3:]))
-                        j += 1
+            for _, points_end_cewm in targets_points_of_view_cewm.items():
+                for pt2 in points_end_cewm:
+                    edge_weight_matrix_cewm[i, j] = np.linalg.norm(pt1[:3] - pt2[:3]) + np.linalg.norm(
+                        np.deg2rad(pt1[3:]) - np.deg2rad(pt2[3:]))
+                    j += 1
             i += 1
             j = 0
-
 
     # edge_weight_matrix_cewm = np.zeros([length_start,length_start])
     #
@@ -1249,10 +1271,10 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     hour = str(current_datetime.hour)
     minute = str(current_datetime.minute)
 
-    image_name = (file_name + '_' + day + '_' + month + '_' + hour + '_' + minute + '_' + str(sequence) + '.' + 
+    image_name = (file_name + '_' + day + '_' + month + '_' + hour + '_' + minute + '_' + str(sequence) + '.' +
                   settings['extension'])
     filename = os.path.join(full_path, image_name)
-    
+
     ref_image_path = os.path.join(full_path, "ref_images.txt")
 
     # In CoppeliaSim images are left to right (x-axis), and bottom to top (y-axis)
@@ -1263,7 +1285,8 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     cv.imwrite(filename, img)
 
     with open(ref_image_path, "a") as file:
-        file.write(f"{image_name} {position[0]} {position[1]} {position[2]} {orientarion[3]} {orientarion[0]} {orientarion[1]} {orientarion[2]}\n")
+        file.write(
+            f"{image_name} {position[0]} {position[1]} {position[2]} {orientarion[3]} {orientarion[0]} {orientarion[1]} {orientarion[2]}\n")
 
 
 def generate_spiral_points(box_side_gsp, step):
@@ -1323,7 +1346,8 @@ def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: in
         spiral_point, spiral_direction = get_single_target_spiral_trajectory(centroid_gst, radius_box_gst, parts_gst)
         spiral_target_distance_gst[target_gst] = 0
         for count_point in range(spiral_point.shape[0] - 1):
-            spiral_target_distance_gst[target_gst] += np.linalg.norm(spiral_point[count_point, :3] - spiral_point[count_point + 1, :3])
+            spiral_target_distance_gst[target_gst] += np.linalg.norm(
+                spiral_point[count_point, :3] - spiral_point[count_point + 1, :3])
         route_by_target_gst[target_gst] = np.column_stack((spiral_point, spiral_direction))
         route_gst = np.row_stack((route_gst, route_by_target_gst[target_gst]))
         total_distance_gst += spiral_target_distance_gst[target_gst]
@@ -1367,23 +1391,22 @@ def convex_hull(experiment: int):
     edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
     name_cops_file = settings['COPS problem'] + str(experiment)
     write_problem_file(settings['COPS dataset'],
-                        name_cops_file,
-                        edge_weight_matrix,
-                        len(settings['object names']),
-                        S,
-                        subgroup_size)
+                       name_cops_file,
+                       edge_weight_matrix,
+                       len(settings['object names']),
+                       S,
+                       subgroup_size)
     execute_script(name_cops_file)
 
-
     with open(settings['save path'] + f'variables/convex_hull_{experiment}.var', 'wb') as file:
-        pickle.dump(S, file)  
-        pickle.dump(targets_points_of_view, file)  
-        pickle.dump(centroid_points, file)  
+        pickle.dump(S, file)
+        pickle.dump(targets_points_of_view, file)
+        pickle.dump(centroid_points, file)
         pickle.dump(radius, file)
     print('Ending convex hull')
 
-def view_point(copp: CoppeliaInterface, experiment: int):
 
+def view_point(copp: CoppeliaInterface, experiment: int):
     with open(settings['save path'] + f'variables/convex_hull_{experiment}.var', 'rb') as file:
         S = pickle.load(file)
         targets_points_of_view = pickle.load(file)
@@ -1392,7 +1415,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     route_by_object = {}
     main_route, travelled_distance_main, route_by_group, route_by_object = read_route_csv_file(
         settings['COPS result'] + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view)
-    parts_to_spiral = 10 #np.fix(main_route.shape[0]/40)
+    parts_to_spiral = 10  # np.fix(main_route.shape[0]/40)
 
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
         get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
@@ -1408,7 +1431,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     day = str(current_datetime.day)
     hour = str(current_datetime.hour)
     minute = str(current_datetime.minute)
-    
+
     # directory_name = settings['directory name'] + f'_exp_{experiment}_{day}_{month}_{hour}_{minute}'
     # spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
     # quadcopter_control_direct_points(copp.sim, copp.client, vision_handle, main_route, filename, directory_name)
@@ -1424,7 +1447,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
 
     spiral_route_key = spiral_route_by_target.keys()
     for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
-    # for route, count_group in zip(route_by_group, range(len(route_by_group))):
+        # for route, count_group in zip(route_by_group, range(len(route_by_group))):
         filename = settings['filename']
         vision_handle = copp.handles[settings['vision sensor names']]
 
@@ -1433,7 +1456,8 @@ def view_point(copp: CoppeliaInterface, experiment: int):
 
         copp.sim.setObjectOrientation(vision_handle, [0, np.pi / 2, np.pi / 2], copp.sim.handle_parent)
         route_of_object = route_by_object[object_key]
-        quadcopter_control_direct_points(copp.sim, copp.client,  vision_handle, route_of_object, filename, directory_name)
+        quadcopter_control_direct_points(copp.sim, copp.client, vision_handle, route_of_object, filename,
+                                         directory_name)
 
         copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
 
@@ -1455,9 +1479,9 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         pickle.dump(route_by_group, file)
         pickle.dump(route_by_object, file)
         pickle.dump(spiral_target_distance, file)
-        pickle.dump(day, file)  
-        pickle.dump(month, file)  
-        pickle.dump(hour, file)  
+        pickle.dump(day, file)
+        pickle.dump(month, file)
+        pickle.dump(hour, file)
         pickle.dump(minute, file)
 
 
@@ -1493,12 +1517,11 @@ def point_cloud(experiment: int) -> None:
         hour = pickle.load(f)
         minute = pickle.load(f)
 
-
     # Get the current date and time
     workspace_folder = os.path.join(settings['workspace folder'], f'exp_{experiment}_{day}_{month}_{hour}_{minute}')
     spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                            f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}')
-    
+
     # directory_name = settings['directory name'] + f'_exp_{experiment}_{day}_{month}_{hour}_{minute}'
     spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
 
@@ -1510,12 +1533,12 @@ def point_cloud(experiment: int) -> None:
 
     # Create the directory
     os.makedirs(workspace_folder)
-    
+
     with open(workspace_folder + '/distance.txt', 'w') as distance_file:
         distance_file.write(f'distance: {str(travelled_distance_main)}\n')
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
-    
+
     # images_folder = str(os.path.join(settings['path'], directory_name))
     # run_colmap_program(colmap_folder, workspace_folder, images_folder)
     # statistics_colmap(colmap_folder, workspace_folder)
@@ -1523,13 +1546,13 @@ def point_cloud(experiment: int) -> None:
     # remove folder if exist
     if os.path.exists(spiral_workspace_folder):
         shutil.rmtree(spiral_workspace_folder)
-    
+
     # Create the directory
     # os.makedirs(spiral_workspace_folder)
-    
+
     # with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
     #     distance_file.write(str(travelled_spiral_distance))
-    
+
     # spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
     # run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
     # statistics_colmap(colmap_folder, spiral_workspace_folder)
@@ -1537,9 +1560,9 @@ def point_cloud(experiment: int) -> None:
     MNRE_array = np.empty(0)
     spriral_route_key = spiral_route_by_target.keys()
     for route, object_key, count_group in zip(route_by_group, spriral_route_key, range(len(route_by_group))):
-    # for route, count_group in zip(route_by_group, range(len(route_by_group))):
+        # for route, count_group in zip(route_by_group, range(len(route_by_group))):
         image_directory_name = (settings['directory name'] +
-                          f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
+                                f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
 
         workspace_folder = os.path.join(settings['workspace folder'],
                                         f'exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
@@ -1567,9 +1590,10 @@ def point_cloud(experiment: int) -> None:
         remove_unused_files(workspace_folder)
 
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
-                                        f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
+                                               f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
 
-        spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+        spiral_directory_name = settings[
+                                    'directory name'] + f'_spriral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
 
         # remove folder if exist
         if os.path.exists(spiral_workspace_folder):
@@ -1591,7 +1615,7 @@ def point_cloud(experiment: int) -> None:
 
 def read_camera_pos_files(file_path: str, ref_file_path: str) -> dict:
     """Read the camera position files and return a dictionary with the camera positions"""
-    
+
     # Ler o arquivo e extrair apenas os centros das câmeras
     camera_centers = {}
 
@@ -1716,7 +1740,7 @@ def metrics(source_points: ndarray, target_points: ndarray) -> dict:
         rmse += curr_min ** 2
 
     mae /= n
-    rmse = np.sqrt(rmse / n) 
+    rmse = np.sqrt(rmse / n)
 
     return {
         "source_points": n,
@@ -1748,9 +1772,9 @@ def get_last_directories(path, count):
 
     if path_parts[-1] == '':
         path_parts.pop()
-    
+
     last_three_dirs = os.path.join(*path_parts[-count:])
-    
+
     return last_three_dirs
 
 
@@ -1765,9 +1789,9 @@ def back_directories(path, count):
 
     if path_parts[0] == '':
         path_parts[0] = os.sep
-    
-    last_three_dirs = os.path.join(*path_parts[:n-count])
-    
+
+    last_three_dirs = os.path.join(*path_parts[:n - count])
+
     return last_three_dirs
 
 
@@ -1781,7 +1805,7 @@ def save_to_csv(data, filename):
         for line in data:
             if line is None:
                 continue
-            
+
             dict_writer.writerow(line)
 
 
@@ -1810,7 +1834,7 @@ def get_tranformation_matrix(camera_cloud, real_camera_cloud):
             if camera_error > max_cam_error_find and camera_error > min_camera_error:
                 max_cam_error_find = camera_error
                 k = i
-                
+
             if camera_error < min:
                 min = camera_error
 
@@ -1824,8 +1848,8 @@ def get_tranformation_matrix(camera_cloud, real_camera_cloud):
         if k == -1:
             break
 
-        colmap_points = np.delete(colmap_points, k , 0)
-        real_points = np.delete(real_points, k , 0)
+        colmap_points = np.delete(colmap_points, k, 0)
+        real_points = np.delete(real_points, k, 0)
 
         camera_cloud.points = o3d.utility.Vector3dVector(colmap_points)
         real_camera_cloud.points = o3d.utility.Vector3dVector(real_points)
@@ -1863,7 +1887,7 @@ def crop_point_cloud(target_pcd, bounding_box):
             continue
         else:
             bounding_points.append(p)
-    
+
     return bounding_points
 
 
@@ -1910,10 +1934,10 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     bbp = source_pcd.get_axis_aligned_bounding_box()
     bounding_points = crop_point_cloud(target_pcd, bbp)
-    
+
     target_pcd.points = o3d.utility.Vector3dVector(bounding_points)
 
-    new_mesh_path =  os.path.dirname(mesh_plt_path)
+    new_mesh_path = os.path.dirname(mesh_plt_path)
     o3d.io.write_point_cloud(os.path.join(new_mesh_path, 'meshed-poisson-crop.ply'), target_pcd)
 
     print("Start calculate hausdorff_distance")
@@ -1928,7 +1952,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     return {
         'reconstruction_path': last_dir,
-        'ply': os.path.basename(plt_path), 
+        'ply': os.path.basename(plt_path),
         'source_points': metrics_dist[0]['source_points'],
         'distance': dist,
         'min': np.min((metrics_dist[0]['min'], metrics_dist[1]['min'])),
@@ -1982,11 +2006,15 @@ def mesh_analysis():
             minute = pickle.load(f)
 
         for obj in obj_name:
-            workspace_folder_group = os.path.join(settings['workspace folder'], f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
-            spiral_workspace_folder_group = os.path.join(settings['workspace folder'], f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            workspace_folder_group = os.path.join(settings['workspace folder'],
+                                                  f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            spiral_workspace_folder_group = os.path.join(settings['workspace folder'],
+                                                         f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
 
-            images_folder = os.path.join(settings['path'], f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
-            images_folder_spiral = os.path.join(settings['path'], f'scene_builds_spriral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder = os.path.join(settings['path'],
+                                         f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder_spiral = os.path.join(settings['path'],
+                                                f'scene_builds_spriral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
 
             ply_path = f'mesh_obj/{obj}.ply'
             if os.path.isdir(workspace_folder_group):
@@ -2008,7 +2036,7 @@ def mesh_analysis():
                     list_image_path.append(images_folder_spiral)
                     list_reconstruction_path.append(reconstruction_path)
                     list_plt_path.append(ply_path)
-    
+
     process_paths(list_image_path, list_reconstruction_path, list_plt_path)
 
 
@@ -2018,7 +2046,6 @@ def update_current_experiment(value_stage: float) -> None:
 
 
 def generate_poisson_mesh() -> None:
-
     if platform.system() == 'Windows':
         colmap_exec = os.path.join(settings['colmap folder'], 'COLMAP.bat')
 
@@ -2042,12 +2069,12 @@ def generate_poisson_mesh() -> None:
             # Check if 'meshed-poisson.ply' file exist
             if os.path.isfile(os.path.join(curr_dir, 'meshed-poisson.ply')):
                 continue
-            
+
             # Check if 'fused.ply' file does not exist
             if not os.path.isfile(os.path.join(curr_dir, 'fused.ply')):
                 print(f"Cannot find 'fused.ply' in {curr_dir}")
                 continue
-            
+
             print(colmap_exec, workspace_folder, curr_dir)
             generate_mesh_poisson(colmap_exec, os.path.join(save_path, workspace_folder), curr_dir)
 
@@ -2088,7 +2115,6 @@ def execute_experiment() -> None:
                 proc.join()
                 update_current_experiment(float(experiment + 0.1))
 
-
                 copp = CoppeliaInterface(settings)
                 view_point(copp, experiment)
 
@@ -2099,7 +2125,7 @@ def execute_experiment() -> None:
                 point_cloud(experiment)
                 update_current_experiment(float(experiment + 1))
 
-                mesh_analysis(experiment)
+                mesh_analysis()
                 update_current_experiment(float(experiment + 1))
 
             os.remove(settings['save path'] + '.progress')
@@ -2145,7 +2171,7 @@ def execute_experiment() -> None:
         if sys.argv[1] == 'poisson_check':
             generate_poisson_mesh()
             return
-        
+
         if sys.argv[1] == 'mesh_analysis':
             mesh_analysis()
             return
@@ -2153,13 +2179,14 @@ def execute_experiment() -> None:
     except RuntimeError as e:
         print("An error occurred:", e)
 
+
 def load_variables():
     settings = parse_settings_file('config.yaml')
 
     if len(sys.argv) >= 4:
         settings['CA_min'] = int(sys.argv[2])
         settings['CA_max'] = int(sys.argv[3])
-    
+
     if len(sys.argv) >= 5:
         settings['obj_file'] = sys.argv[4]
 

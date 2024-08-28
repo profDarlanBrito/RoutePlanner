@@ -53,8 +53,8 @@ cam indexes: [[1, 2],[3, 4]]
 # Position file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 15800
-CA_min: 10000
+CA_max: 250
+CA_min: 1
 # When we increase this number, the maximum points of view radius increase. # Proportion of hemisphere radius
 max route radius: 20
 # Define the number of points by measure unit for points of view radius.
@@ -72,7 +72,7 @@ T_max: 150000
 # Number of subdivisions of the horizontal discretization
 n resolution: 24
 # Object names like on CoppeliaSim
-object names: [Casa_Velha, Chinese_Old_Build, Old_Build, West_Build]
+object names: [Bens_G63, Bobcat, T_type]
 # Path to colmap
 colmap folder: C:/Users/dnune/OneDrive/Documentos/VerLab/COLMAP-3.9.1-windows-cuda/COLMAP-3.9.1-windows-cuda/
 # Workspace folder to colmap
