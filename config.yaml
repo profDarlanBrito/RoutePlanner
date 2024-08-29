@@ -56,13 +56,13 @@ positions file name: positions.csv
 CA_max: 250
 CA_min: 1
 # When we increase this number, the maximum points of view radius increase. # Proportion of hemisphere radius
-max route radius: 20
+max route radius: 10
 # Define the number of points by measure unit for points of view radius.
-points per unit: 2.0
+points per unit: 1.0
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 2.0
+points per sphere: 1.0
 # The proportion of the tallest z height to make the cylinder
-height proportion: 2.0
+height proportion: 1.0
 # Define the maximum number of times that the point can be visited
 max visits: 30
 # Maximum number of iterations to try catch a subgroup

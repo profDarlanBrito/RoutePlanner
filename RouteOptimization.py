@@ -1952,7 +1952,8 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     distance_file_path = os.path.join(distance_file_path, 'distance.txt')
     with open(distance_file_path, 'r') as file:
         dist = float(file.readline().strip())
-
+    with open('route_reward_file.txt','r') as reward_file:
+        route_reward = float(reward_file.readline().strip())
     return {
         'reconstruction_path': last_dir,
         'ply': os.path.basename(plt_path),
@@ -1962,6 +1963,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
         'max': np.max((metrics_dist[0]['max'], metrics_dist[1]['max'])),
         'mae': metrics_dist[0]['mae'] + metrics_dist[1]['mae'],
         'rmse': metrics_dist[0]['rmse'] + metrics_dist[1]['rmse'],
+        'route_reward': route_reward,
     }
 
 
