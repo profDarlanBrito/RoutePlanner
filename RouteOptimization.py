@@ -1,3 +1,5 @@
+import string
+
 from GeometryOperations import (draw_cylinder_with_hemisphere, compute_central_hemisphere_area, intersect_plane_sphere)
 from typing import Tuple, Dict, Any, List
 from numpy import ndarray, dtype, floating, float_, bool_
@@ -1182,6 +1184,7 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
     except Exception as e:
         print(f"An error occurred: {e}")
     with open('route_reward_file.txt', 'w') as csvfile:
+        route_reward = route_reward.replace(',','.')
         csvfile.write('route_reward: ' + route_reward)
     chose_subgroups = ast.literal_eval(route_str.replace('  ', ','))
     bigger_idx = 0
@@ -1541,7 +1544,7 @@ def point_cloud(experiment: int) -> None:
         distance_file.write(f'distance: {str(travelled_distance_main)}\n')
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
-    shutil.copy('route_reward_file.txt', workspace_folder + 'route_reward_file.txt')
+    shutil.copy('route_reward_file.txt', workspace_folder + '/route_reward_file.txt')
     # images_folder = str(os.path.join(settings['path'], directory_name))
     # run_colmap_program(colmap_folder, workspace_folder, images_folder)
     # statistics_colmap(colmap_folder, workspace_folder)
@@ -1952,8 +1955,8 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     distance_file_path = os.path.join(distance_file_path, 'distance.txt')
     with open(distance_file_path, 'r') as file:
         dist = float(file.readline().strip())
-    with open('route_reward_file.txt','r') as reward_file:
-        route_reward = float(reward_file.readline().strip())
+    with open('./route_reward_file.txt','r') as reward_file:
+        route_reward = float(reward_file.readline().split(':')[1])
     return {
         'reconstruction_path': last_dir,
         'ply': os.path.basename(plt_path),
