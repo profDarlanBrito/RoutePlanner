@@ -1381,6 +1381,8 @@ def convex_hull(experiment: int):
             target_hull = pickle.load(file)
             centroid_points = pickle.load(file)
             radius = pickle.load(file)
+            settings['object names'] = pickle.load(file)
+
     else:
         coppelia = CoppeliaInterface(settings)
         positions, target_hull, centroid_points, radius = initializations(coppelia)
