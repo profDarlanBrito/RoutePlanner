@@ -243,8 +243,6 @@ def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str) -> No
     try:
         sparse_dir = sparse_reconstruction(colmap_exec, workspace_folder, image_folder)
 
-        sparse_dir = align_scene_poses(colmap_exec, workspace_folder, image_folder, sparse_dir)
-
         dense_reconstruction(colmap_exec, workspace_folder, image_folder, sparse_dir)
 
         print("Script executed successfully.")
