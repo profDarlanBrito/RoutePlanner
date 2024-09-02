@@ -1167,7 +1167,7 @@ def execute_script(name_cops_file: str) -> None:
         print("An error occurred:", e)
 
 
-def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dict) -> tuple[
+def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dict, experiment: int) -> tuple[
     ndarray, float, list[ndarray]]:
     route_rrcf = np.empty([0, 6])
     route_by_group = [np.empty([0, 6])] * len(settings['object names'])
@@ -1181,9 +1181,11 @@ def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dic
                 route_str = row[8]
     except Exception as e:
         print(f"An error occurred: {e}")
-    with open('route_reward_file.txt', 'w') as csvfile:
+
+    with open(os.path.join(settings['save path'], f'route_reward_file_{experiment}.txt'), 'w') as csvfile:
         route_reward = route_reward.replace(',','.')
         csvfile.write('route_reward: ' + route_reward)
+
     chose_subgroups = ast.literal_eval(route_str.replace('  ', ','))
     bigger_idx = 0
     table_rrcf = []
@@ -1420,7 +1422,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         radius = pickle.load(file)
     route_by_object = {}
     main_route, travelled_distance_main, route_by_group, route_by_object = read_route_csv_file(
-        settings['COPS result'] + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view)
+        settings['COPS result'] + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view, experiment)
     parts_to_spiral = 10  # np.fix(main_route.shape[0]/40)
 
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
@@ -1544,7 +1546,7 @@ def point_cloud(experiment: int) -> None:
         distance_file.write(f'distance: {str(travelled_distance_main)}\n')
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
-    shutil.copy('route_reward_file.txt', workspace_folder + '/route_reward_file.txt')
+    
     # images_folder = str(os.path.join(settings['path'], directory_name))
     # run_colmap_program(colmap_folder, workspace_folder, images_folder)
     # statistics_colmap(colmap_folder, workspace_folder)
@@ -1953,10 +1955,15 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     distance_file_path = back_directories(reconstruction_path, 2)
     distance_file_path = os.path.join(distance_file_path, 'distance.txt')
+
     with open(distance_file_path, 'r') as file:
         dist = float(file.readline().strip())
-    with open('./route_reward_file.txt','r') as reward_file:
+
+    experiment = get_experiment_number(reconstruction_path)
+
+    with open(os.path.join(settings['save path'], f'route_reward_file_{experiment}.txt'),'r') as reward_file:
         route_reward = float(reward_file.readline().split(':')[1])
+
     return {
         'reconstruction_path': last_dir,
         'ply': os.path.basename(plt_path),
@@ -1968,6 +1975,18 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
         'rmse': metrics_dist[0]['rmse'] + metrics_dist[1]['rmse'],
         'route_reward': route_reward,
     }
+
+
+def get_experiment_number(reconstruction_path: str):
+    path = back_directories(reconstruction_path, 2)
+    path = get_last_directories(path, 1)
+
+    split_name = path.split('_')
+
+    if split_name[0] == 'spiral':
+        return split_name[2]
+    
+    return split_name[1]
 
 
 def process_paths(list_image_path, list_reconstruction_path, list_plt_path):
