@@ -728,7 +728,7 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict,
         point_cloud = pv.PolyData(points)
         plotter.add_mesh(point_cloud)
 
-    plotter.show()
+    # plotter.show()
     return vector_points_pf, vector_points_weight_pf, conversion_table
 
 
