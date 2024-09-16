@@ -1113,7 +1113,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
             elif field_wpf == 'DUBINS_RADIUS: ':
                 copsfile.write(field_wpf + '50' + '\n')
             elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
-                copsfile.write(field_wpf + 'IMPLICIT' + '\n')
+                copsfile.write(field_wpf + 'EXPLICIT' + '\n')
             elif field_wpf == 'EDGE_WEIGHT_FORMAT: ':
                 copsfile.write(field_wpf + 'FULL_MATRIX' + '\n')
             elif field_wpf == 'EDGE_WEIGHT_SECTION':

@@ -11,7 +11,7 @@ COPS result: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/res
 # COPS problem filename
 COPS problem: 3dreconstructionPathPlannerBuilds
 # Path to COPS script
-COPS path: C:/Users/dnune/OneDrive/Documentos/VerLab/COPS/
+COPS path: C:/Users/dnune/OneDrive/Documentos/VerLab/COPS_l/
 # Numerical sequence to image names. As an example if you want to save the images as calibimg1, calibimg2, ...
 #sequence: [40,186,523,602,727,772,874,950,1030,1280,1319,1422,1440,1585,1657,1795,1924,2187,2271,2295,2379,2398,2444,2537,2587,2622,2628,2751,2828,2859]
 sequence: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
@@ -53,24 +53,25 @@ cam indexes: [[1, 2],[3, 4]]
 # Position file name
 positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
-CA_max: 250
+CA_max: 700
 CA_min: 1
 # When we increase this number, the maximum points of view radius increase. # Proportion of hemisphere radius
-max route radius: 10
-# Define the number of points by measure unit for points of view radius.
-points per unit: 1.0
+max route radius: 2
+# Define the number of points by measure unit for points of view radius. Increase points per unit above 1 decrease the number of points between 0 and 1
+# when you decrease, increase the number of points. The max route radius divided by points per unit must be greater than one
+points per unit: 1
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 1.0
+points per sphere: 1
 # The proportion of the tallest z height to make the cylinder
-height proportion: 1.0
+height proportion: 3.0
 # Define the maximum number of times that the point can be visited
-max visits: 30
+max visits: 10
 # Maximum number of iterations to try catch a subgroup
 max iter: 1000
 # Maximum travel budget
-T_max: 150000
+T_max: 300
 # Number of subdivisions of the horizontal discretization
-n resolution: 24
+n resolution: 15
 # Object names like on CoppeliaSim
 object names: [Bens_G63, Bobcat, T_type]
 # Path to colmap
