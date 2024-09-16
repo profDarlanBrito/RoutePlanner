@@ -2091,6 +2091,9 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     print("Used Transformation Matrix:")
     print(T)
 
+    target_mesh = o3d.io.read_triangle_mesh(mesh_plt_path)
+    target_mesh.transform(T)
+
     source_pcd = o3d.io.read_point_cloud(plt_path)
     target_pcd = o3d.io.read_point_cloud(mesh_plt_path)
 
@@ -2099,10 +2102,14 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     bbp = source_pcd.get_axis_aligned_bounding_box()
     bounding_points = crop_point_cloud(target_pcd, bbp)
 
+    cropped_mesh = target_mesh.crop(bbp)
+
     target_pcd.points = o3d.utility.Vector3dVector(bounding_points)
 
     new_mesh_path = os.path.dirname(mesh_plt_path)
-    o3d.io.write_point_cloud(os.path.join(new_mesh_path, 'meshed-poisson-crop.ply'), target_pcd)
+
+    o3d.io.write_point_cloud(os.path.join(new_mesh_path, 'point-cloud-crop.ply'), target_pcd)
+    o3d.io.write_triangle_mesh(os.path.join(new_mesh_path, 'meshed-poisson-crop.ply'), cropped_mesh)
 
     print("Start calculate hausdorff_distance")
     metrics_dist = calculate_metrics_distance(source_pcd, target_pcd)
