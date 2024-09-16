@@ -1065,9 +1065,13 @@ def read_problem_file(filename: str) -> dict:
     return read_fields
 
 
+# fieldnames = ['NAME: ', 'TYPE: ', 'COMMENT: ', 'DIMENSION: ', 'TMAX: ', 'START_CLUSTER: ', 'END_CLUSTER: ',
+#               'CLUSTERS: ', 'SUBGROUPS: ', 'DUBINS_RADIUS: ', 'EDGE_WEIGHT_TYPE: ', 'EDGE_WEIGHT_FORMAT: ',
+#               'EDGE_WEIGHT_SECTION', 'GTSP_SUBGROUP_SECTION: ', 'GTSP_CLUSTER_SECTION: ']
+
 fieldnames = ['NAME: ', 'TYPE: ', 'COMMENT: ', 'DIMENSION: ', 'TMAX: ', 'START_CLUSTER: ', 'END_CLUSTER: ',
-              'CLUSTERS: ', 'SUBGROUPS: ', 'DUBINS_RADIUS: ', 'EDGE_WEIGHT_TYPE: ', 'EDGE_WEIGHT_FORMAT: ',
-              'EDGE_WEIGHT_SECTION', 'GTSP_SUBGROUP_SECTION: ', 'GTSP_CLUSTER_SECTION: ']
+              'CLUSTERS: ', 'SUBGROUPS: ', 'EDGE_WEIGHT_TYPE: ',
+              'NODE_COORD_SECTION: ', 'GTSP_SUBGROUP_SECTION: ', 'GTSP_CLUSTER_SECTION: ']
 
 
 def copy_file(source_path, destination_path):
@@ -1142,6 +1146,80 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
                     for cluster_idxs in GTSP_CLUSTER_SECTION_str:
                         copsfile.writelines(cluster_idxs)
                         copsfile.write('\n')
+
+    copsfile.close()
+
+def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, offset_table: dict,
+                          number_of_targets: int, S_wpf: dict, subgroup_size_wpf: int):
+    print('Starting writing problem file')
+    subgroup_count = 0
+
+    # Create the directory
+    os.makedirs(dir_wpf, exist_ok=True)
+
+    complete_file_name = dir_wpf + filename_wpf + '.cops'
+    # print(f'{complete_file_name=}')
+    GTSP_CLUSTER_SECTION_str = []
+    with open(complete_file_name, 'w') as copsfile:
+        for field_wpf in fieldnames:
+            if field_wpf == 'NAME: ':
+                copsfile.write(field_wpf + filename_wpf + settings['directory name'] + '\n')
+            elif field_wpf == 'TYPE: ':
+                copsfile.write(field_wpf + 'TSP\n')
+            elif field_wpf == 'COMMENT: ':
+                copsfile.write(field_wpf + 'Optimization for reconstruction\n')
+            elif field_wpf == 'DIMENSION: ':
+                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
+            elif field_wpf == 'TMAX: ':
+                copsfile.write(field_wpf + str(T_max) + '\n')
+            elif field_wpf == 'START_CLUSTER: ':
+                copsfile.write(field_wpf + '0\n')
+            elif field_wpf == 'END_CLUSTER: ':
+                copsfile.write(field_wpf + '0\n')
+            elif field_wpf == 'CLUSTERS: ':
+                copsfile.write(field_wpf + str(number_of_targets + 1) + '\n')
+            elif field_wpf == 'SUBGROUPS: ':
+                copsfile.write(field_wpf + str(subgroup_size_wpf) + '\n')
+            elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
+                copsfile.write(field_wpf + 'EUC_3D' + '\n')
+            elif field_wpf == 'NODE_COORD_SECTION: ':
+                copsfile.write('NODE_COORD_SECTION: id_vertex x y z\n')
+                for i, point in enumerate(node_coord):
+                    copsfile.write(f'{i} {point[0]} {point[1]} {point[2]}\n')                
+            elif field_wpf == 'GTSP_SUBGROUP_SECTION: ':
+                copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
+                count_cluster = 0
+                GTSP_CLUSTER_SECTION_str = [[]] * (len(settings['object names']) + 1)
+
+                offset = 0
+                for target_wpf, S_spf in S_wpf.items():
+                    
+                    if len(S_spf[0]) == 1 and S_spf[0][0][0] == 0:
+                        GTSP_CLUSTER_SECTION_str[count_cluster] = ['0 ', '0 '] 
+                        count_cluster += 1
+
+                        copsfile.write(f"{S_spf[0][0][0]} {S_spf[0][-1][5]} " +
+                                        ' '.join(str(vertex[1] + offset) for vertex in S_spf[0]) + '\n')
+                        
+                        S_spf = S_spf[1:]
+
+                    GTSP_CLUSTER_SECTION_str[count_cluster] = [[]] * (len(S_spf) + 1)
+                    GTSP_CLUSTER_SECTION_str[count_cluster][0] = f'{count_cluster} '
+                    count_idx = 1
+                    for lS_spf in S_spf:
+                        copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][5]} " +
+                                        ' '.join(str(vertex[1] + offset) for vertex in lS_spf) + '\n')
+                        
+                        GTSP_CLUSTER_SECTION_str[count_cluster][count_idx] = f'{lS_spf[0][0]} '
+                        count_idx += 1
+                    count_cluster += 1
+
+                    offset += offset_table[target_wpf]
+            elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
+                copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
+                for cluster_idxs in GTSP_CLUSTER_SECTION_str:
+                    copsfile.writelines(cluster_idxs)
+                    copsfile.write('\n')
 
     copsfile.close()
 
@@ -1395,15 +1473,31 @@ def convex_hull(experiment: int):
         centroid_points,
         radius,
         positions)
+    
     S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
-    edge_weight_matrix = compute_edge_weight_matrix(S, targets_points_of_view)
     name_cops_file = settings['COPS problem'] + str(experiment)
-    write_problem_file(settings['COPS dataset'],
+
+    offset_table = {}
+    for key, value in targets_points_of_view.items():
+        offset_table[key] = len(value)
+
+    interval = {}
+    offset = 0
+    for key, value in targets_points_of_view.items():
+
+        n = len(value)
+        if all(value[0] == conversion_table[offset]) and all(value[-1] == conversion_table[offset + n - 1]):
+            interval[key] = [offset, offset + n - 1]
+            offset += n
+
+    write_problem_file_3d(settings['COPS dataset'],
                        name_cops_file,
-                       edge_weight_matrix,
+                       conversion_table,
+                       offset_table,
                        len(settings['object names']),
                        S,
                        subgroup_size)
+    
     execute_script(name_cops_file)
 
     with open(settings['save path'] + f'variables/convex_hull_{experiment}.var', 'wb') as file:
@@ -1411,7 +1505,70 @@ def convex_hull(experiment: int):
         pickle.dump(targets_points_of_view, file)
         pickle.dump(centroid_points, file)
         pickle.dump(radius, file)
+        pickle.dump(conversion_table, file)
+        pickle.dump(interval, file)
+        
     print('Ending convex hull')
+
+
+def get_result_cops_route(result_cops_path: str, points_by_id: dict):
+    with open(result_cops_path, 'r') as csv_file:
+        reader = csv.reader(csv_file, delimiter=';')
+        _ = next(reader)  # header
+        line = next(reader)  # first line content
+        line = line[7].replace("  ", ", ")
+        cops_route = ast.literal_eval(line)
+
+    route = [points_by_id[cops_route[0][0]]]
+    route_id = [cops_route[0][0]]
+    
+    for _, key_id in cops_route:
+        route.append(points_by_id[key_id])
+        route_id.append(key_id)
+
+    return route, route_id
+
+
+def compute_route_distance(route: list):
+    distance  = 0
+
+    for i, p in enumerate(route[1:]):
+        distance += np.linalg.norm(route[i][:3] - p[:3]) # p == route[i + 1]
+
+    return distance
+
+
+def get_result_by_cluster(points_by_id: dict, cops_by_id: list, interval: dict):
+    n = len(interval)
+    cluster = {}
+    
+    for point_id in cops_by_id:
+
+        # ignore initial drone position
+        if point_id == 0:
+            continue
+        
+        for group_name, (min, max) in interval.items():
+            if min <= point_id <= max:
+                if group_name not in cluster:
+                    cluster[group_name] = []
+
+                cluster[group_name].append(points_by_id[point_id])
+
+                break
+
+    return cluster
+
+
+def read_route_cops(result_cops_path: str, interval: dict, conversion_table: list):
+
+    cops_route, cops_by_id = get_result_cops_route(result_cops_path, conversion_table)
+
+    cops_route_by_group = get_result_by_cluster(conversion_table, cops_by_id, interval)
+
+    route_distace = compute_route_distance(cops_route)
+
+    return route_distace, cops_route, cops_route_by_group
 
 
 def view_point(copp: CoppeliaInterface, experiment: int):
@@ -1420,15 +1577,16 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         targets_points_of_view = pickle.load(file)
         centroid_points = pickle.load(file)
         radius = pickle.load(file)
-    route_by_object = {}
-    main_route, travelled_distance_main, route_by_group, route_by_object = read_route_csv_file(
-        settings['COPS result'] + settings['COPS problem'] + str(experiment) + '.csv', S, targets_points_of_view, experiment)
-    parts_to_spiral = 10  # np.fix(main_route.shape[0]/40)
+        conversion_table = pickle.load(file)
+        interval = pickle.load(file)
 
+    result_cops_path = os.path.join(settings['COPS result'], f"{settings['COPS problem']}{str(experiment)}.csv")
+    route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval, conversion_table)
+
+    parts_to_spiral = 10  # np.fix(main_route.shape[0]/40)
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
         get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
-    #
-    #
+    
     copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
     # vision_handle = copp.handles[settings['vision sensor names']]
     # filename = settings['filename']
@@ -1441,7 +1599,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     minute = str(current_datetime.minute)
 
     # directory_name = settings['directory name'] + f'_exp_{experiment}_{day}_{month}_{hour}_{minute}'
-    # spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
+    # spiral_directory_name = settings['directory name'] + f'_spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
     # quadcopter_control_direct_points(copp.sim, copp.client, vision_handle, main_route, filename, directory_name)
     #
     # copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
@@ -1454,7 +1612,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     #                                  spiral_directory_name)
 
     spiral_route_key = spiral_route_by_target.keys()
-    for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
+    for route, object_key, count_group in zip(cops_route_by_group, spiral_route_key, range(len(cops_route_by_group))):
         # for route, count_group in zip(route_by_group, range(len(route_by_group))):
         filename = settings['filename']
         vision_handle = copp.handles[settings['vision sensor names']]
@@ -1463,16 +1621,16 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         directory_name = settings['directory name'] + group_name
 
         copp.sim.setObjectOrientation(vision_handle, [0, np.pi / 2, np.pi / 2], copp.sim.handle_parent)
-        route_of_object = route_by_object[object_key]
+        route_of_object = cops_route_by_group[object_key]
         quadcopter_control_direct_points(copp.sim, copp.client, vision_handle, route_of_object, filename,
                                          directory_name)
 
         copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
 
         spiral_route = spiral_route_by_target[object_key]
-        spiral_group_name = f'_spriral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+        spiral_group_name = f'_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
         spiral_directory_name = settings['directory name'] + spiral_group_name
-        #
+        
         quadcopter_control_direct_points(copp.sim,
                                          copp.client,
                                          vision_handle,
@@ -1481,11 +1639,10 @@ def view_point(copp: CoppeliaInterface, experiment: int):
                                          spiral_directory_name)
 
     with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'wb') as file:
-        pickle.dump(travelled_distance_main, file)
+        pickle.dump(route_distace, file)
         pickle.dump(travelled_spiral_distance, file)
         pickle.dump(spiral_route_by_target, file)
-        pickle.dump(route_by_group, file)
-        pickle.dump(route_by_object, file)
+        pickle.dump(cops_route_by_group, file)
         pickle.dump(spiral_target_distance, file)
         pickle.dump(day, file)
         pickle.dump(month, file)
@@ -1518,7 +1675,6 @@ def point_cloud(experiment: int) -> None:
         travelled_spiral_distance = pickle.load(f)
         spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
-        route_by_object = pickle.load(f)
         spiral_target_distance = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
@@ -1531,7 +1687,7 @@ def point_cloud(experiment: int) -> None:
                                            f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}')
 
     # directory_name = settings['directory name'] + f'_exp_{experiment}_{day}_{month}_{hour}_{minute}'
-    spiral_directory_name = settings['directory name'] + f'_spriral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
+    spiral_directory_name = settings['directory name'] + f'_spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}'
 
     colmap_folder = settings['colmap folder']
 
@@ -1566,8 +1722,8 @@ def point_cloud(experiment: int) -> None:
     # statistics_colmap(colmap_folder, spiral_workspace_folder)
 
     MNRE_array = np.empty(0)
-    spriral_route_key = spiral_route_by_target.keys()
-    for route, object_key, count_group in zip(route_by_group, spriral_route_key, range(len(route_by_group))):
+    spiral_route_key = spiral_route_by_target.keys()
+    for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
         # for route, count_group in zip(route_by_group, range(len(route_by_group))):
         image_directory_name = (settings['directory name'] +
                                 f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
@@ -1601,7 +1757,7 @@ def point_cloud(experiment: int) -> None:
                                                f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
 
         spiral_directory_name = settings[
-                                    'directory name'] + f'_spriral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+                                    'directory name'] + f'_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
 
         # remove folder if exist
         if os.path.exists(spiral_workspace_folder):
@@ -1935,6 +2091,9 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     print("Used Transformation Matrix:")
     print(T)
 
+    target_mesh = o3d.io.read_triangle_mesh(mesh_plt_path)
+    target_mesh.transform(T)
+
     source_pcd = o3d.io.read_point_cloud(plt_path)
     target_pcd = o3d.io.read_point_cloud(mesh_plt_path)
 
@@ -1943,10 +2102,14 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     bbp = source_pcd.get_axis_aligned_bounding_box()
     bounding_points = crop_point_cloud(target_pcd, bbp)
 
+    cropped_mesh = target_mesh.crop(bbp)
+
     target_pcd.points = o3d.utility.Vector3dVector(bounding_points)
 
     new_mesh_path = os.path.dirname(mesh_plt_path)
-    o3d.io.write_point_cloud(os.path.join(new_mesh_path, 'meshed-poisson-crop.ply'), target_pcd)
+
+    o3d.io.write_point_cloud(os.path.join(new_mesh_path, 'point-cloud-crop.ply'), target_pcd)
+    o3d.io.write_triangle_mesh(os.path.join(new_mesh_path, 'meshed-poisson-crop.ply'), cropped_mesh)
 
     print("Start calculate hausdorff_distance")
     metrics_dist = calculate_metrics_distance(source_pcd, target_pcd)
@@ -2025,7 +2188,6 @@ def mesh_analysis():
             travelled_spiral_distance = pickle.load(f)
             spiral_route_by_target = pickle.load(f)
             route_by_group = pickle.load(f)
-            route_by_object = pickle.load(f)
             spiral_target_distance = pickle.load(f)
             day = pickle.load(f)
             month = pickle.load(f)
@@ -2041,7 +2203,7 @@ def mesh_analysis():
             images_folder = os.path.join(settings['path'],
                                          f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
             images_folder_spiral = os.path.join(settings['path'],
-                                                f'scene_builds_spriral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+                                                f'scene_builds_spiral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
 
             ply_path = f'mesh_obj/{obj}.ply'
             if os.path.isdir(workspace_folder_group):
