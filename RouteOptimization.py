@@ -1745,7 +1745,7 @@ def point_cloud(experiment: int) -> None:
 
         with open(os.path.join(workspace_folder, '/distance.txt'), 'w') as distance_file:
             distance_file.write(str(travelled_distance_main))
-            
+
         with open(os.path.join(workspace_folder, '/object_name.txt'), 'w') as object_name_file:
             object_name_file.write(object_key)
 
@@ -1980,13 +1980,12 @@ def get_tranformation_matrix(camera_cloud, real_camera_cloud):
     transformation = align_points(camera_cloud, real_camera_cloud)
     camera_cloud.transform(transformation)
 
-    n_error = np.linalg.norm(np.array(camera_cloud.points) - np.array(real_camera_cloud.points)) / len(
+    cam_error = np.linalg.norm(np.array(camera_cloud.points) - np.array(real_camera_cloud.points)) / len(
         np.array(camera_cloud.points)
     )
-    print(f"{n_error=:.8f}")
 
     T = transformation
-    while n_error > 0.0005:
+    while cam_error > 0.0005:
         n = len(camera_cloud.points)
         colmap_points = np.array(camera_cloud.points)
         real_points = np.array(real_camera_cloud.points)
@@ -2024,8 +2023,8 @@ def get_tranformation_matrix(camera_cloud, real_camera_cloud):
 
         camera_cloud.transform(T)
 
-        n_error = np.linalg.norm(np.array(colmap_points) - np.array(real_points)) / n
-        print(f"{n_error=}")
+        cam_error = np.linalg.norm(np.array(colmap_points) - np.array(real_points)) / n
+        print(f"{cam_error=:.8f}")
 
     return T
 
@@ -2231,7 +2230,7 @@ def mesh_analysis():
     process_paths(list_image_path, list_reconstruction_path, list_plt_path)
 
 
-def update_current_experiment(value_stage: float) -> None:
+def update_current_experiment(value_stage: int) -> None:
     with open(os.path.join(settings['save path'], '.progress'), 'wb') as file:
         pickle.dump(value_stage, file)
 
@@ -2280,23 +2279,6 @@ def execute_experiment() -> None:
     try:
         if len(sys.argv) < 2:
 
-            if last_expe != 0:
-                next_experiment = int(last_expe)
-                if np.isclose(last_expe - next_experiment, 0.1):
-                    copp = CoppeliaInterface(settings)
-
-                    view_point(copp, next_experiment)
-                    update_current_experiment(next_experiment + 0.2)
-
-                    copp.sim.stopSimulation()
-                    last_expe += 0.1
-
-                if np.isclose(last_expe - next_experiment, 0.2):
-                    point_cloud(next_experiment)
-                    update_current_experiment(next_experiment + 1)
-
-                    last_expe = next_experiment + 1
-
             for experiment in range(settings['number of trials']):
                 if experiment < last_expe:
                     continue
@@ -2304,20 +2286,19 @@ def execute_experiment() -> None:
                 proc = multiprocessing.Process(target=convex_hull, args=(experiment,))
                 proc.start()
                 proc.join()
-                update_current_experiment(float(experiment + 0.1))
 
                 copp = CoppeliaInterface(settings)
                 view_point(copp, experiment)
 
-                update_current_experiment(float(experiment + 0.2))
                 copp.sim.stopSimulation()
                 del copp
 
                 point_cloud(experiment)
-                update_current_experiment(float(experiment + 1))
+
+                generate_poisson_mesh(experiment)
 
                 mesh_analysis()
-                update_current_experiment(float(experiment + 1))
+                update_current_experiment(int(experiment + 1))
 
             os.remove(os.path.join(settings['save path'], '.progress'))
             return
@@ -2330,7 +2311,7 @@ def execute_experiment() -> None:
                 proc = multiprocessing.Process(target=convex_hull, args=(experiment,))
                 proc.start()
                 proc.join()
-                update_current_experiment(float(experiment + 1))
+                update_current_experiment(int(experiment + 1))
 
             os.remove(os.path.join(settings['save path'], '.progress'))
             return
@@ -2342,7 +2323,7 @@ def execute_experiment() -> None:
                     continue
 
                 view_point(copp, experiment)
-                update_current_experiment(float(experiment + 1))
+                update_current_experiment(int(experiment + 1))
 
             os.remove(os.path.join(settings['save path'], '.progress'))
             copp.sim.stopSimulation()
@@ -2354,7 +2335,7 @@ def execute_experiment() -> None:
                     continue
 
                 point_cloud(experiment)
-                update_current_experiment(float(experiment + 1))
+                update_current_experiment(int(experiment + 1))
 
             os.remove(os.path.join(settings['save path'], '.progress'))
             return
@@ -2428,6 +2409,6 @@ if __name__ == '__main__':
     progress_file = os.path.join(settings['save path'], '.progress')
     if not os.path.isfile(progress_file):
         with open(progress_file, 'wb') as file:
-            pickle.dump(0.0, file)
+            pickle.dump(0, file)
 
     execute_experiment()
