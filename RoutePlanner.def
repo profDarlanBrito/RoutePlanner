@@ -42,7 +42,7 @@ From: ubuntu:20.04
     git clone https://github.com/profDarlanBrito/COPS.git
     git clone https://github.com/profDarlanBrito/RoutePlanner.git
     wget https://github.com/colmap/colmap/archive/refs/tags/3.9.1.zip
-    wget https://downloads.coppeliarobotics.com/V4_6_0_rev18/CoppeliaSim_Edu_V4_6_0_rev18_Ubuntu20_04.tar.xz
+    # wget https://downloads.coppeliarobotics.com/V4_6_0_rev18/CoppeliaSim_Edu_V4_6_0_rev18_Ubuntu20_04.tar.xz
 
     chmod 755 RoutePlanner/RouteOptimization.sh
 
@@ -56,7 +56,7 @@ From: ubuntu:20.04
     ninja install
     cd
 
-    tar -xvf CoppeliaSim_Edu_V4_6_0_rev18_Ubuntu20_04.tar.xz 
+    # tar -xvf CoppeliaSim_Edu_V4_6_0_rev18_Ubuntu20_04.tar.xz 
 
     apt -y install \
     make \
@@ -87,6 +87,10 @@ From: ubuntu:20.04
     gdown 1w1AdYegAplRWNPhswgpy8qSmuBjSTAc4
     unzip mesh_obj.zip
     cd
+
+    # limpar cache das instalações
+    rm -rf /var/lib/apt/lists/*
+    apt-get clean
 
 
 %environment

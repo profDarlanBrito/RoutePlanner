@@ -66,25 +66,3 @@ python RouteOptimization.py point_cloud
 python RouteOptimization.py poisson_check
 python RouteOptimization.py mesh_analysis
 ```
-
-## Commands Singularity 4
-#### sandbox
-```
-singularity build --sandbox route_planner/ docker://index.docker.io/library/ubuntu:20.04
-```
-#### edit
-```
-singularity shell --nv --writable --fakeroot --no-home --bind /homeLocal/othiago/local_mnt/:/mnt route_planner/
-```
-#### edit env
-```
-/.singularity.d/env/91-environment.sh
-```
-#### build
-```
-singularity build --fakeroot --fix-perms route_planner.sif route_planner/
-```
-#### run
-```
-nohup singularity exec --nv --no-home --fakeroot --bind [bind_path]:/mnt route_planner.sif /root/RoutePlanner/RouteOptimization.sh [commands] &
-```
