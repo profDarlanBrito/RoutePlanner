@@ -12,9 +12,6 @@ COPS result: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/res
 COPS problem: 3dreconstructionPathPlannerBuilds
 # Path to COPS script
 COPS path: C:/Users/dnune/OneDrive/Documentos/VerLab/COPS_l/
-# Numerical sequence to image names. As an example if you want to save the images as calibimg1, calibimg2, ...
-#sequence: [40,186,523,602,727,772,874,950,1030,1280,1319,1422,1440,1585,1657,1795,1924,2187,2271,2295,2379,2398,2444,2537,2587,2622,2628,2751,2828,2859]
-sequence: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
 #Extension to saved images
 extension: png
 # The total time to simulation
@@ -26,32 +23,18 @@ vision sensor names: ./Vision_sensor_free
 quadcopter name: ./target
 # The quadcopter handle to get quadcotper position
 quadcopter base: ./base
-#Jointly used to move the target in x y axis
-target joint xy: ./Revolute_joint_xy
-#Joint used to move the target in x y-axis
-target joint zy: ./Revolute_joint_zy
 # If the robot needs a stopped time to stabilize the image before take the pictures
 time to stabilize: 10.0
 # The displacement that the robot will do before the simulation stops
 max displacement: 0.5
 # The total maximum time of the simulation
 total simulation time: 0.2
-# The unit displacement of the robot in three-dimensional coordinates.
-displacement: [0.0,0.1,-0.05]
 # The height of the checkerboard black squares corners. The height variable is the number of inner square corners of the calibration target
 height: 5
 # The width of the checkerboard black squares corners. The width variable is the number of inner square corners of the calibration target
 width: 8
-# The scale to the box size
-box size scale: 0.01
 # Flag to test if the file was correct
 is_ok: 1
-#Camera names
-cams: ['cam0', 'cam1']
-#Image file indexes
-cam indexes: [[1, 2],[3, 4]]
-# Position file name
-positions file name: positions.csv
 # The minimum value of the CA equation to create a group. Bigger number for route has more points
 CA_max: 700
 CA_min: 1
@@ -61,9 +44,9 @@ max route radius: 2
 # when you decrease, increase the number of points. The max route radius divided by points per unit must be greater than one
 points per unit: 1
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 1
+points per sphere: 3
 # The proportion of the tallest z height to make the cylinder
-height proportion: 3.0
+height proportion: 2.0
 # Define the maximum number of times that the point can be visited
 max visits: 10
 # Maximum number of iterations to try catch a subgroup
