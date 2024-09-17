@@ -1228,8 +1228,8 @@ def execute_script(name_cops_file: str) -> None:
     print('Executing COPS ...')
     try:
         # Execute the script using subprocess
-        process = subprocess.Popen([settings['python'], settings['COPS path'] + 'tabu_search.py',
-                                    f"--path={settings['COPS dataset']}" + name_cops_file], stdout=subprocess.PIPE,
+        process = subprocess.Popen([settings['python'], os.path.join(settings['COPS path'], 'tabu_search.py'),
+                                    f"--path={os.path.join(settings['COPS dataset'], name_cops_file)}"], stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
         # Wait for the process to finish
@@ -1500,7 +1500,7 @@ def convex_hull(experiment: int):
     
     execute_script(name_cops_file)
 
-    with open(settings['save path'] + f'variables/convex_hull_{experiment}.var', 'wb') as file:
+    with open(os.path.join(settings['save path'], f'variables/convex_hull_{experiment}.var'), 'wb') as file:
         pickle.dump(S, file)
         pickle.dump(targets_points_of_view, file)
         pickle.dump(centroid_points, file)
@@ -1572,7 +1572,7 @@ def read_route_cops(result_cops_path: str, interval: dict, conversion_table: lis
 
 
 def view_point(copp: CoppeliaInterface, experiment: int):
-    with open(settings['save path'] + f'variables/convex_hull_{experiment}.var', 'rb') as file:
+    with open(os.path.join(settings['save path'], f'variables/convex_hull_{experiment}.var'), 'rb') as file:
         S = pickle.load(file)
         targets_points_of_view = pickle.load(file)
         centroid_points = pickle.load(file)
@@ -1638,7 +1638,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
                                          'spiral_route',
                                          spiral_directory_name)
 
-    with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'wb') as file:
+    with open(os.path.join(settings['save path'], f'variables/view_point_{experiment}.var'), 'wb') as file:
         pickle.dump(route_distace, file)
         pickle.dump(travelled_spiral_distance, file)
         pickle.dump(spiral_route_by_target, file)
@@ -1670,7 +1670,7 @@ def remove_unused_files(workspace_folder):
 
 
 def point_cloud(experiment: int) -> None:
-    with open(settings['save path'] + f'variables/view_point_{experiment}.var', 'rb') as f:
+    with open(os.path.join(settings['save path'], f'variables/view_point_{experiment}.var'), 'rb') as f:
         travelled_distance_main = pickle.load(f)
         travelled_spiral_distance = pickle.load(f)
         spiral_route_by_target = pickle.load(f)
@@ -1698,7 +1698,7 @@ def point_cloud(experiment: int) -> None:
     # Create the directory
     os.makedirs(workspace_folder)
 
-    with open(workspace_folder + '/distance.txt', 'w') as distance_file:
+    with open(os.path.join(workspace_folder, '/distance.txt'), 'w') as distance_file:
         distance_file.write(f'distance: {str(travelled_distance_main)}\n')
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
@@ -1743,9 +1743,10 @@ def point_cloud(experiment: int) -> None:
             for j in range(i + 1, route.shape[0]):
                 travelled_distance_main += np.linalg.norm(route[i, :3] - route[j, :3])
 
-        with open(workspace_folder + '/distance.txt', 'w') as distance_file:
+        with open(os.path.join(workspace_folder, '/distance.txt'), 'w') as distance_file:
             distance_file.write(str(travelled_distance_main))
-        with open(workspace_folder + '/object_name.txt', 'w') as object_name_file:
+            
+        with open(os.path.join(workspace_folder, '/object_name.txt'), 'w') as object_name_file:
             object_name_file.write(object_key)
 
         images_folder = str(os.path.join(settings['path'], image_directory_name))
@@ -1766,9 +1767,10 @@ def point_cloud(experiment: int) -> None:
         # Create the directory
         os.makedirs(spiral_workspace_folder)
 
-        with open(spiral_workspace_folder + '/distance.txt', 'w') as distance_file:
+        with open(os.path.join(spiral_workspace_folder, '/distance.txt'), 'w') as distance_file:
             distance_file.write(str(spiral_target_distance[object_key]))
-        with open(spiral_workspace_folder + '/object_name.txt', 'w') as object_name_file:
+
+        with open(os.path.join(spiral_workspace_folder, '/object_name.txt'), 'w') as object_name_file:
             object_name_file.write(object_key)
 
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
@@ -2230,7 +2232,7 @@ def mesh_analysis():
 
 
 def update_current_experiment(value_stage: float) -> None:
-    with open(settings['save path'] + '.progress', 'wb') as file:
+    with open(os.path.join(settings['save path'], '.progress'), 'wb') as file:
         pickle.dump(value_stage, file)
 
 
@@ -2270,9 +2272,9 @@ def generate_poisson_mesh() -> None:
 
 def execute_experiment() -> None:
     # Create the directory
-    os.makedirs(settings['save path'] + 'variables/', exist_ok=True)
+    os.makedirs(os.path.join(settings['save path'], 'variables'), exist_ok=True)
 
-    with open(settings['save path'] + '.progress', 'rb') as f:
+    with open(os.path.join(settings['save path'], '.progress'), 'rb') as f:
         last_expe = pickle.load(f)
 
     try:
@@ -2317,7 +2319,7 @@ def execute_experiment() -> None:
                 mesh_analysis()
                 update_current_experiment(float(experiment + 1))
 
-            os.remove(settings['save path'] + '.progress')
+            os.remove(os.path.join(settings['save path'], '.progress'))
             return
 
         if sys.argv[1] == 'convex_hull':
@@ -2330,7 +2332,7 @@ def execute_experiment() -> None:
                 proc.join()
                 update_current_experiment(float(experiment + 1))
 
-            os.remove(settings['save path'] + '.progress')
+            os.remove(os.path.join(settings['save path'], '.progress'))
             return
 
         if sys.argv[1] == 'view_point':
@@ -2342,7 +2344,7 @@ def execute_experiment() -> None:
                 view_point(copp, experiment)
                 update_current_experiment(float(experiment + 1))
 
-            os.remove(settings['save path'] + '.progress')
+            os.remove(os.path.join(settings['save path'], '.progress'))
             copp.sim.stopSimulation()
             return
 
@@ -2354,7 +2356,7 @@ def execute_experiment() -> None:
                 point_cloud(experiment)
                 update_current_experiment(float(experiment + 1))
 
-            os.remove(settings['save path'] + '.progress')
+            os.remove(os.path.join(settings['save path'], '.progress'))
             return
 
         if sys.argv[1] == 'poisson_check':
@@ -2423,8 +2425,9 @@ if __name__ == '__main__':
     os.makedirs(save_path, exist_ok=True)
 
     # check if file not exits
-    if not os.path.isfile(settings['save path'] + '.progress'):
-        with open(settings['save path'] + '.progress', 'wb') as file:
+    progress_file = os.path.join(settings['save path'], '.progress')
+    if not os.path.isfile(progress_file):
+        with open(progress_file, 'wb') as file:
             pickle.dump(0.0, file)
 
     execute_experiment()
