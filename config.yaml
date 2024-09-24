@@ -42,9 +42,9 @@ CA_min: 1
 max route radius: 2
 # Define the number of points by measure unit for points of view radius. Increase points per unit above 1 decrease the number of points between 0 and 1
 # when you decrease, increase the number of points. The max route radius divided by points per unit must be greater than one
-points per unit: 1
+points per unit: 0.5
 # Density of points in the radius. If the number increase density decrease
-points per sphere: 3
+points per sphere: 1
 # The proportion of the tallest z height to make the cylinder
 height proportion: 2.0
 # Define the maximum number of times that the point can be visited

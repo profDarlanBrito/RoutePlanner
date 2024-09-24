@@ -1087,7 +1087,7 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
                        S_wpf: dict, subgroup_size_wpf: int):
     print('Starting writing problem file')
     subgroup_count = 0
-
+    write_bin_problem_file(dir_wpf, filename_wpf, edge_weight_matrix_wpf)
     # Create the directory
     os.makedirs(dir_wpf, exist_ok=True)
 
@@ -1149,11 +1149,25 @@ def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: 
 
     copsfile.close()
 
+def write_bin_problem_file(dir_wbpf: str, filename_wbpf: str, edge_weight_matrix_wbpf: ndarray):#, number_of_targets: int,
+                       #S_wbpf: dict, subgroup_size_wbpf: int):
+    print('Writing binary file')
+
+    os.makedirs(dir_wbpf, exist_ok=True)
+
+    complete_file_name = dir_wbpf + filename_wbpf + '_b.cops'
+
+    data = ('NAME',filename_wbpf + settings['directory name'],'EDGE_WEIGHT_SECTION',edge_weight_matrix_wbpf)
+
+    # Write the data to a binary file
+    with open(complete_file_name, 'wb') as file:
+        pickle.dump(data, file)
+
+
 def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, offset_table: dict,
                           number_of_targets: int, S_wpf: dict, subgroup_size_wpf: int):
     print('Starting writing problem file')
     subgroup_count = 0
-
     # Create the directory
     os.makedirs(dir_wpf, exist_ok=True)
 
