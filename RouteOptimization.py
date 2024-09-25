@@ -391,8 +391,12 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
         indexes_of_ini_points = list(range(points.shape[0]))
         random_points = sample(indexes_of_ini_points,
                                len(indexes_of_ini_points))  # Selects randomly the index of points to form the groups
+
         show_number_of_points = 0
         for i in random_points:
+            if len(S) == 1 and i == 0:
+                continue
+
             CA = 0
             total_distance = 0
             S[target].append([])
@@ -434,6 +438,14 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                     if is_line_through_convex_hull_sf:
                         break
                 if is_line_through_convex_hull_sf:
+                    continue
+                
+                # Find duplicate point if max_idx is in the idx_list
+                if max_idx in idx_list:
+                    continue
+                
+                # Ignore idx equal zero on first target
+                if max_idx == 0 and len(S) == 1:
                     continue
 
                 idx_list.append(max_idx)
@@ -1221,8 +1233,8 @@ def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, off
                     GTSP_CLUSTER_SECTION_str[count_cluster][0] = f'{count_cluster} '
                     count_idx = 1
                     for lS_spf in S_spf:
-                        copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][5]} " +
-                                        ' '.join(str(vertex[1] + offset) for vertex in lS_spf) + '\n')
+                        copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][5]} " + str(lS_spf[0][1] + offset) + " ")
+                        copsfile.write(' '.join(str(vertex[2] + offset) for vertex in lS_spf) + '\n')
                         
                         GTSP_CLUSTER_SECTION_str[count_cluster][count_idx] = f'{lS_spf[0][0]} '
                         count_idx += 1
