@@ -1253,11 +1253,20 @@ def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, off
 def execute_script(name_cops_file: str) -> None:
     print('Executing COPS ...')
     try:
-        # Execute the script using subprocess
-        process = subprocess.Popen([settings['python'], os.path.join(settings['COPS path'], 'tabu_search.py'),
-                                    f"--path={os.path.join(settings['COPS dataset'], name_cops_file)}"], stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+        
+        if platform.system() == 'Windows':
+            tabu_search_exec = "tabu_search.bat"
 
+        if platform.system() == 'Linux':
+            tabu_search_exec = "tabu_search.sh"
+        
+        # Execute the script using subprocess
+        process = subprocess.Popen([os.path.join(settings['COPS path'], tabu_search_exec), 
+                                    settings['python'], settings['COPS path'],
+                                    os.path.join(settings['COPS dataset'], name_cops_file)], 
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+        
         # Wait for the process to finish
         stdout, stderr = process.communicate()
 
@@ -1267,6 +1276,7 @@ def execute_script(name_cops_file: str) -> None:
             print(stderr.decode('utf-8'))
         else:
             print("Script executed successfully.")
+            print(stdout.decode('utf-8'))
     except Exception as e:
         print("An error occurred:", e)
 
@@ -2405,6 +2415,8 @@ def load_variables():
     n_resolution = int(settings['n resolution'])
     global points_per_unit
     points_per_unit = float(settings['points per unit'])
+
+    settings['save path'] = os.path.abspath(settings['save path'])
 
     save_path = settings['save path']
 
