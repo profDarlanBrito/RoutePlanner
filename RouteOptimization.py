@@ -260,7 +260,7 @@ def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty
             if os.path.exists(statistic_folder):
                 # exec_name = ''
                 if platform.system() == 'Windows':
-                    colmap_exec = colmap_folder_sc + 'COLMAP.bat'
+                    colmap_exec = os.path.join(colmap_folder_sc, 'COLMAP.bat')
                 if platform.system() == 'Linux':
                     colmap_exec = 'colmap'
 
@@ -1734,7 +1734,7 @@ def point_cloud(experiment: int) -> None:
     # Create the directory
     os.makedirs(workspace_folder)
 
-    with open(os.path.join(workspace_folder, '/distance.txt'), 'w') as distance_file:
+    with open(os.path.join(workspace_folder, 'distance.txt'), 'w') as distance_file:
         distance_file.write(f'distance: {str(travelled_distance_main)}\n')
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
@@ -1779,10 +1779,10 @@ def point_cloud(experiment: int) -> None:
             for j in range(i + 1, route.shape[0]):
                 travelled_distance_main += np.linalg.norm(route[i, :3] - route[j, :3])
 
-        with open(os.path.join(workspace_folder, '/distance.txt'), 'w') as distance_file:
+        with open(os.path.join(workspace_folder, 'distance.txt'), 'w') as distance_file:
             distance_file.write(str(travelled_distance_main))
 
-        with open(os.path.join(workspace_folder, '/object_name.txt'), 'w') as object_name_file:
+        with open(os.path.join(workspace_folder, 'object_name.txt'), 'w') as object_name_file:
             object_name_file.write(object_key)
 
         images_folder = str(os.path.join(settings['path'], image_directory_name))
@@ -1803,10 +1803,10 @@ def point_cloud(experiment: int) -> None:
         # Create the directory
         os.makedirs(spiral_workspace_folder)
 
-        with open(os.path.join(spiral_workspace_folder, '/distance.txt'), 'w') as distance_file:
+        with open(os.path.join(spiral_workspace_folder, 'distance.txt'), 'w') as distance_file:
             distance_file.write(str(spiral_target_distance[object_key]))
 
-        with open(os.path.join(spiral_workspace_folder, '/object_name.txt'), 'w') as object_name_file:
+        with open(os.path.join(spiral_workspace_folder, 'object_name.txt'), 'w') as object_name_file:
             object_name_file.write(object_key)
 
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
