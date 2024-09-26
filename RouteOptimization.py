@@ -1775,9 +1775,9 @@ def point_cloud(experiment: int) -> None:
         os.makedirs(workspace_folder)
 
         travelled_distance_main = 0
-        for i in range(route.shape[0]):
-            for j in range(i + 1, route.shape[0]):
-                travelled_distance_main += np.linalg.norm(route[i, :3] - route[j, :3])
+        route_points = route_by_group[object_key]
+        for i in range(1, len(route_by_group[object_key])):
+            travelled_distance_main += np.linalg.norm(route_points[i - 1][:3] - route_points[i][:3])
 
         with open(os.path.join(workspace_folder, 'distance.txt'), 'w') as distance_file:
             distance_file.write(str(travelled_distance_main))
