@@ -2161,8 +2161,17 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     experiment = get_experiment_number(reconstruction_path)
 
-    with open(os.path.join(settings['save path'], f'route_reward_file_{experiment}.txt'),'r') as reward_file:
-        route_reward = float(reward_file.readline().split(':')[1])
+    if last_dir.startswith('spiral'):
+        route_reward = 'none'
+
+    else:
+        results_cops_file = f"{settings['COPS problem']}{experiment}.csv"
+        with open(os.path.join(settings['COPS result'], results_cops_file),'r') as csv_reward_file:
+            csv_reader = csv.DictReader(csv_reward_file, delimiter=';')
+
+            line = next(csv_reader)
+            route_reward = line['profit']
+            route_reward = float(route_reward.replace(',', '.'))
 
     return {
         'reconstruction_path': last_dir,
