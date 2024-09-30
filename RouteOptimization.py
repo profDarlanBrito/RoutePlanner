@@ -2401,7 +2401,7 @@ def load_variables():
     settings = parse_settings_file('config.yaml')
 
     if len(sys.argv) >= 7:
-        settings['points per unit:'] = float(sys.argv[2])
+        settings['points per unit'] = float(sys.argv[2])
         settings['T_max'] = int(sys.argv[3])
         settings['CA_min'] = int(sys.argv[4])
         settings['CA_max'] = int(sys.argv[5])
