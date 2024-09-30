@@ -2391,11 +2391,12 @@ def execute_experiment() -> None:
 def load_variables():
     settings = parse_settings_file('config.yaml')
 
-    if len(sys.argv) >= 6:
-        settings['T_max'] = int(sys.argv[2])
-        settings['CA_min'] = int(sys.argv[3])
-        settings['CA_max'] = int(sys.argv[4])
-        settings['obj_file'] = sys.argv[5]
+    if len(sys.argv) >= 7:
+        settings['points per unit:'] = float(sys.argv[2])
+        settings['T_max'] = int(sys.argv[3])
+        settings['CA_min'] = int(sys.argv[4])
+        settings['CA_max'] = int(sys.argv[5])
+        settings['obj_file'] = sys.argv[6]
 
     global CA_max
     CA_max = float(settings['CA_max'])
