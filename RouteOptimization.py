@@ -1175,6 +1175,63 @@ def write_bin_problem_file(dir_wbpf: str, filename_wbpf: str, edge_weight_matrix
         pickle.dump(data, file)
 
 
+def write_OP_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, points_of_view_contribution: dict, targets_points_of_view: dict):
+    print('Starting writing problem file')
+    subgroup_count = 0
+    # Create the directory
+    os.makedirs(dir_wpf, exist_ok=True)
+
+    complete_file_name = dir_wpf + filename_wpf + '.cops'
+    # print(f'{complete_file_name=}')
+    GTSP_CLUSTER_SECTION_str = []
+    with open(complete_file_name, 'w') as copsfile:
+        for field_wpf in fieldnames:
+            if field_wpf == 'NAME: ':
+                copsfile.write(field_wpf + filename_wpf + settings['directory name'] + '\n')
+            elif field_wpf == 'TYPE: ':
+                copsfile.write(field_wpf + 'TSP\n')
+            elif field_wpf == 'COMMENT: ':
+                copsfile.write(field_wpf + 'Optimization for reconstruction\n')
+            elif field_wpf == 'DIMENSION: ':
+                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
+            elif field_wpf == 'TMAX: ':
+                copsfile.write(field_wpf + str(T_max) + '\n')
+            elif field_wpf == 'START_CLUSTER: ':
+                copsfile.write(field_wpf + '0\n')
+            elif field_wpf == 'END_CLUSTER: ':
+                copsfile.write(field_wpf + '0\n')
+            elif field_wpf == 'CLUSTERS: ':
+                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
+            elif field_wpf == 'SUBGROUPS: ':
+                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
+            elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
+                copsfile.write(field_wpf + 'EUC_3D' + '\n')
+            elif field_wpf == 'NODE_COORD_SECTION: ':
+                copsfile.write('NODE_COORD_SECTION: id_vertex x y z\n')
+                for i, point in enumerate(node_coord):
+                    copsfile.write(f'{i} {point[0]} {point[1]} {point[2]}\n')                
+            elif field_wpf == 'GTSP_SUBGROUP_SECTION: ':
+                copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
+                
+                id = 0
+                for _, contribution_list in points_of_view_contribution.items():
+                    for i, contribution in enumerate(contribution_list):
+                        copsfile.write(f"{id + i} {contribution} {id + i}\n")
+
+                    id += i + 1
+
+            elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
+                copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
+                id = 0
+                for _, contribution_list in points_of_view_contribution.items():
+                    for i in range(len(contribution_list)):
+                        copsfile.write(f"{id + i} {id + i}\n")
+
+                    id += i + 1
+
+    copsfile.close()
+
+
 def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, offset_table: dict,
                           number_of_targets: int, S_wpf: dict, subgroup_size_wpf: int):
     print('Starting writing problem file')
@@ -1249,8 +1306,20 @@ def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, off
     copsfile.close()
 
 
+def print_process(process):
+    # Wait for the process to finish
+    stdout, stderr = process.communicate()
+
+    # Check if there were any errors
+    if process.returncode != 0:
+        print("Error executing script:")
+        print(stderr.decode('utf-8'))
+    else:
+        print("Script executed successfully.")
+        print(stdout.decode('utf-8'))
+
+
 def execute_script(name_cops_file: str) -> None:
-    print('Executing COPS ...')
     try:
         
         if platform.system() == 'Windows':
@@ -1266,18 +1335,10 @@ def execute_script(name_cops_file: str) -> None:
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
         
-        # Wait for the process to finish
-        stdout, stderr = process.communicate()
-
-        # Check if there were any errors
-        if process.returncode != 0:
-            print("Error executing script:")
-            print(stderr.decode('utf-8'))
-        else:
-            print("Script executed successfully.")
-            print(stdout.decode('utf-8'))
+        return process
     except Exception as e:
         print("An error occurred:", e)
+        return None
 
 
 def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dict, experiment: int) -> tuple[
@@ -1626,6 +1687,7 @@ def convex_hull(experiment: int):
     
     S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
     name_cops_file = settings['COPS problem'] + str(experiment)
+    name_op_file = settings['OP problem'] + str(experiment)
 
     offset_table = {}
     for key, value in targets_points_of_view.items():
@@ -1648,7 +1710,20 @@ def convex_hull(experiment: int):
                        S,
                        subgroup_size)
     
-    execute_script(name_cops_file)
+    write_OP_file_3d(settings['COPS dataset'],
+                       name_op_file,
+                       conversion_table,
+                       points_of_view_contribution, 
+                       targets_points_of_view)
+    
+    process_cops = execute_script(name_cops_file)
+    process_op = execute_script(name_op_file)
+
+    print('Executing COPS ...')
+    print_process(process_cops)
+
+    print('Executing OP ...')
+    print_process(process_op)
 
     with open(os.path.join(settings['save path'], f'variables/convex_hull_{experiment}.var'), 'wb') as file:
         pickle.dump(S, file)
@@ -1745,7 +1820,10 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         interval = pickle.load(file)
 
     result_cops_path = os.path.join(settings['COPS result'], f"{settings['COPS problem']}{str(experiment)}.csv")
-    route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval, conversion_table)
+    result_op_path = os.path.join(settings['COPS result'], f"{settings['OP problem']}{str(experiment)}.csv")
+    
+    cops_route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval, conversion_table)
+    op_route_distace, op_route, op_route_by_group = read_route_cops(result_op_path, interval, conversion_table)
 
     parts_to_spiral = 100
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
@@ -1781,19 +1859,27 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         filename = settings['filename']
         vision_handle = copp.handles[settings['vision sensor names']]
 
+        route_of_object = cops_route_by_group[object_key]
         group_name = f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
         directory_name = settings['directory name'] + group_name
 
-        # copp.sim.setObjectOrientation(vision_handle, [0, np.pi / 2, np.pi / 2], copp.sim.handle_parent)
-        route_of_object = cops_route_by_group[object_key]
         quadcopter_control_direct_points(copp.sim, 
                                          copp.client, 
                                          vision_handle, 
                                          route_of_object, 
                                          filename,
                                          directory_name)
-
-        # copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
+        
+        route_of_object = op_route_by_group[object_key]
+        group_name = f'_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+        directory_name = settings['directory name'] + group_name
+        
+        quadcopter_control_direct_points(copp.sim, 
+                                         copp.client, 
+                                         vision_handle, 
+                                         route_of_object, 
+                                         filename,
+                                         directory_name)
 
         spiral_route = spiral_route_by_target[object_key]
         spiral_group_name = f'_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
@@ -1807,7 +1893,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
                                          spiral_directory_name)
 
     with open(os.path.join(settings['save path'], f'variables/view_point_{experiment}.var'), 'wb') as file:
-        pickle.dump(route_distace, file)
+        pickle.dump(cops_route_distace, file)
         pickle.dump(travelled_spiral_distance, file)
         pickle.dump(spiral_route_by_target, file)
         pickle.dump(cops_route_by_group, file)
@@ -1893,11 +1979,13 @@ def point_cloud(experiment: int) -> None:
     spiral_route_key = spiral_route_by_target.keys()
     for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
         # for route, count_group in zip(route_by_group, range(len(route_by_group))):
-        image_directory_name = (settings['directory name'] +
-                                f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
 
+        # Recosntrution COPS
         workspace_folder = os.path.join(settings['workspace folder'],
                                         f'exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
+        
+        image_directory_name = (settings['directory name'] +
+                                f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
 
         # remove folder if exist
         if os.path.exists(workspace_folder):
@@ -1922,6 +2010,37 @@ def point_cloud(experiment: int) -> None:
         MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
         remove_unused_files(workspace_folder)
 
+        # Recosntrution OP
+        op_workspace_folder = os.path.join(settings['workspace folder'],
+                                        f'op_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
+        
+        op_image_directory_name = (settings['directory name'] +
+                                f'_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
+
+        # remove folder if exist
+        if os.path.exists(op_workspace_folder):
+            shutil.rmtree(op_workspace_folder)
+
+        # Create the directory
+        os.makedirs(op_workspace_folder)
+
+        travelled_distance_main = 0
+        route_points = route_by_group[object_key]
+        for i in range(1, len(route_by_group[object_key])):
+            travelled_distance_main += np.linalg.norm(route_points[i - 1][:3] - route_points[i][:3])
+
+        with open(os.path.join(op_workspace_folder, 'distance.txt'), 'w') as distance_file:
+            distance_file.write(str(travelled_distance_main))
+
+        with open(os.path.join(op_workspace_folder, 'object_name.txt'), 'w') as object_name_file:
+            object_name_file.write(object_key)
+
+        images_folder = str(os.path.join(settings['path'], op_image_directory_name))
+        run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
+        MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
+        remove_unused_files(op_workspace_folder)
+
+        # Recosntrution Spiral
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                                f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
 
@@ -2293,7 +2412,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     experiment = get_experiment_number(reconstruction_path)
 
-    if last_dir.startswith('spiral'):
+    if last_dir.startswith('spiral') or last_dir.startswith('op'):
         route_reward = 'none'
 
     else:
@@ -2373,36 +2492,48 @@ def mesh_analysis():
             minute = pickle.load(f)
 
         for obj in obj_name:
-            workspace_folder_group = os.path.join(settings['workspace folder'],
-                                                  f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
-            spiral_workspace_folder_group = os.path.join(settings['workspace folder'],
-                                                         f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            workspace_folder_group = os.path.join(settings['workspace folder'], f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            op_workspace_folder_group = os.path.join(settings['workspace folder'], f'op_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            spiral_workspace_folder_group = os.path.join(settings['workspace folder'], f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
 
-            images_folder = os.path.join(settings['path'],
-                                         f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
-            images_folder_spiral = os.path.join(settings['path'],
-                                                f'scene_builds_spiral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder = os.path.join(settings['path'], f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder_op = os.path.join(settings['path'], f'scene_builds_op_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder_spiral = os.path.join(settings['path'], f'scene_builds_spiral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
 
             ply_path = f'mesh_obj/{obj}.ply'
             if os.path.isdir(workspace_folder_group):
 
                 dense_folder = os.path.join(workspace_folder_group, 'dense')
-                for i in os.listdir(dense_folder):
-                    reconstruction_path = os.path.join(dense_folder, i)
 
-                    list_image_path.append(images_folder)
-                    list_reconstruction_path.append(reconstruction_path)
-                    list_plt_path.append(ply_path)
+                if os.path.isdir(dense_folder):
+                    for i in os.listdir(dense_folder):
+                        reconstruction_path = os.path.join(dense_folder, i)
+
+                        list_image_path.append(images_folder)
+                        list_reconstruction_path.append(reconstruction_path)
+                        list_plt_path.append(ply_path)
+
+            if os.path.isdir(op_workspace_folder_group):
+
+                dense_folder = os.path.join(op_workspace_folder_group, 'dense')
+                if os.path.isdir(dense_folder):
+                    for i in os.listdir(dense_folder):
+                        reconstruction_path = os.path.join(dense_folder, i)
+
+                        list_image_path.append(images_folder_op)
+                        list_reconstruction_path.append(reconstruction_path)
+                        list_plt_path.append(ply_path)
 
             if os.path.isdir(spiral_workspace_folder_group):
 
                 dense_folder = os.path.join(spiral_workspace_folder_group, 'dense')
-                for i in os.listdir(dense_folder):
-                    reconstruction_path = os.path.join(dense_folder, i)
+                if os.path.isdir(dense_folder):
+                    for i in os.listdir(dense_folder):
+                        reconstruction_path = os.path.join(dense_folder, i)
 
-                    list_image_path.append(images_folder_spiral)
-                    list_reconstruction_path.append(reconstruction_path)
-                    list_plt_path.append(ply_path)
+                        list_image_path.append(images_folder_spiral)
+                        list_reconstruction_path.append(reconstruction_path)
+                        list_plt_path.append(ply_path)
 
     process_paths(list_image_path, list_reconstruction_path, list_plt_path)
 
