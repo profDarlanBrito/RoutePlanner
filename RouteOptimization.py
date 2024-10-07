@@ -439,11 +439,11 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                         break
                 if is_line_through_convex_hull_sf:
                     continue
-                
+
                 # Find duplicate point if max_idx is in the idx_list
                 if max_idx in idx_list:
                     continue
-                
+
                 # Ignore idx equal zero on first target
                 if max_idx == 0 and len(S) == 1:
                     continue
@@ -1253,20 +1253,20 @@ def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, off
 def execute_script(name_cops_file: str) -> None:
     print('Executing COPS ...')
     try:
-        
+
         if platform.system() == 'Windows':
             tabu_search_exec = "tabu_search.bat"
 
         if platform.system() == 'Linux':
             tabu_search_exec = "tabu_search.sh"
-        
+
         # Execute the script using subprocess
-        process = subprocess.Popen([os.path.join(settings['COPS path'], tabu_search_exec), 
+        process = subprocess.Popen([os.path.join(settings['COPS path'], tabu_search_exec),
                                     settings['python'], settings['COPS path'],
-                                    os.path.join(settings['COPS dataset'], name_cops_file)], 
+                                    os.path.join(settings['COPS dataset'], name_cops_file)],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
-        
+
         # Wait for the process to finish
         stdout, stderr = process.communicate()
 
@@ -1276,7 +1276,6 @@ def execute_script(name_cops_file: str) -> None:
             print(stderr.decode('utf-8'))
         else:
             print("Script executed successfully.")
-            print(stdout.decode('utf-8'))
     except Exception as e:
         print("An error occurred:", e)
 
@@ -1734,7 +1733,7 @@ def point_cloud(experiment: int) -> None:
     # Create the directory
     os.makedirs(workspace_folder)
 
-    with open(os.path.join(workspace_folder, 'distance.txt'), 'w') as distance_file:
+    with open(os.path.join(workspace_folder, '/distance.txt'), 'w') as distance_file:
         distance_file.write(f'distance: {str(travelled_distance_main)}\n')
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
