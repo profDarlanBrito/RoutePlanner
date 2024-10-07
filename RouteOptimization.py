@@ -1601,7 +1601,7 @@ def generate_true_spiral_points(radius: float, num_points: int) -> list[ndarray]
 
 
 def get_single_target_true_spiral_trajectory(centroid_points_gstst: ndarray, radius_gstst: float, num_points_gstst: float):
-    print('Generating esprial trajectory over one target')
+    print('Generating spiral trajectory over one target')
 
     points_gstst = generate_true_spiral_points(radius_gstst, num_points_gstst)
 
@@ -1613,7 +1613,7 @@ def get_single_target_true_spiral_trajectory(centroid_points_gstst: ndarray, rad
 
 
 def get_single_target_spiral_trajectory(centroid_points_gstst: ndarray, radius_gstst: float, parts_gstst: float):
-    print('Generating esprial trajectory over one target')
+    print('Generating spiral trajectory over one target')
     step = radius_gstst / parts_gstst
     points_gstst = generate_spiral_points(radius_gstst, step)
 
@@ -1763,12 +1763,35 @@ def compute_route_distance(route: list):
     return distance
 
 
+def calculate_position_orientation(find_point: list, tilt_angle_deg: float = -5) -> np.ndarray:
+    """
+    Auxiliary function to calculate the position and orientation based on the current position and camera angle.
+    
+    Parameters:
+    - find_point: List containing the coordinates (x, y, z) and the angle (theta) of the point.
+    - tilt_angle_deg: Camera tilt angle in degrees (default: -5).
+    
+    Returns:
+    - An array with the position and orientation of the point.
+    """
+    theta = np.deg2rad(find_point[3])
+    curr_pos = find_point[:3]
+
+    tilt_camera = np.deg2rad(tilt_angle_deg)
+
+    target_pos = np.copy(curr_pos)
+    target_pos[0] += np.cos(theta)
+    target_pos[1] += np.sin(theta)
+    target_pos[2] += np.tan(tilt_camera) * np.linalg.norm(curr_pos - target_pos)
+
+    ori = get_rotation_quat(curr_pos, target_pos)
+    return np.hstack((curr_pos, ori))
+
+
 def get_result_by_cluster(points_by_id: dict, cops_by_id: list, interval: dict):
-    n = len(interval)
     cluster = {}
     
     for point_id in cops_by_id:
-
         # ignore initial drone position
         if point_id == 0:
             continue
@@ -1779,21 +1802,9 @@ def get_result_by_cluster(points_by_id: dict, cops_by_id: list, interval: dict):
                     cluster[group_name] = []
 
                 find_point = points_by_id[point_id]
-                theta = np.deg2rad(find_point[3])
-                curr_pos = find_point[:3]
-
-                tilt_camera = np.deg2rad(-5)
-
-                target_pos = np.copy(curr_pos)
-                target_pos[0] += np.cos(theta)
-                target_pos[1] += np.sin(theta)
-                target_pos[2] += np.tan(tilt_camera) * np.linalg.norm(curr_pos - target_pos)
-
-                ori = get_rotation_quat(curr_pos, target_pos)
-                pos_ori = np.hstack((curr_pos, ori))
+                pos_ori = calculate_position_orientation(find_point)
 
                 cluster[group_name].append(pos_ori)
-
                 break
 
     return cluster
@@ -1808,6 +1819,38 @@ def read_route_cops(result_cops_path: str, interval: dict, conversion_table: lis
     route_distace = compute_route_distance(cops_route)
 
     return route_distace, cops_route, cops_route_by_group
+
+
+def get_random_points(interval: dict, conversion_table: list, targets_points_of_view: dict) -> dict:
+    print('Generating random trajectories')
+
+    target_select_point_view = {}
+    list_canditates = []
+    for min, max in interval.values():
+        if min == 0:
+            min = 1
+        list_canditates.append(np.arange(min, max + 1))
+
+    for (target, _), canditates in zip(targets_points_of_view.items(), list_canditates):
+        print('Generating random trajectory over one target')
+
+        length = len(canditates)
+        target_select_point_view[target] = []
+
+        p = np.abs(np.random.normal(0.6, 0.1))
+        p = 0.1 if p < 0.1 else p
+        p = 1.0 if p > 1 else p
+
+        pick = int(length * p)
+        points_views_index = np.sort(np.random.choice(canditates, pick, replace=False))
+
+        for index in points_views_index:
+            find_point = conversion_table[index]
+            pos_ori = calculate_position_orientation(find_point)
+
+            target_select_point_view[target].append(pos_ori)
+
+    return target_select_point_view
 
 
 def view_point(copp: CoppeliaInterface, experiment: int):
@@ -1828,6 +1871,8 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     parts_to_spiral = 100
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
         get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
+    
+    random_route_by_target = get_random_points(interval, conversion_table, targets_points_of_view)
     
     copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
     # vision_handle = copp.handles[settings['vision sensor names']]
@@ -1891,6 +1936,17 @@ def view_point(copp: CoppeliaInterface, experiment: int):
                                          spiral_route,
                                          'spiral_route',
                                          spiral_directory_name)
+        
+        random_route = random_route_by_target[object_key]
+        random_group_name = f'_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+        random_directory_name = settings['directory name'] + random_group_name
+        
+        quadcopter_control_direct_points(copp.sim,
+                                         copp.client,
+                                         vision_handle,
+                                         random_route,
+                                         'random_route',
+                                         random_directory_name)
 
     with open(os.path.join(settings['save path'], f'variables/view_point_{experiment}.var'), 'wb') as file:
         pickle.dump(cops_route_distace, file)
