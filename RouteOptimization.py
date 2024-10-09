@@ -439,11 +439,11 @@ def subgroup_formation(targets_border_sf: dict, points_of_view_contribution_sf: 
                         break
                 if is_line_through_convex_hull_sf:
                     continue
-                
+
                 # Find duplicate point if max_idx is in the idx_list
                 if max_idx in idx_list:
                     continue
-                
+
                 # Ignore idx equal zero on first target
                 if max_idx == 0 and len(S) == 1:
                     continue
@@ -1321,17 +1321,17 @@ def print_process(process):
 
 def execute_script(name_cops_file: str) -> None:
     try:
-        
+
         if platform.system() == 'Windows':
             tabu_search_exec = "tabu_search.bat"
 
         if platform.system() == 'Linux':
             tabu_search_exec = "tabu_search.sh"
-        
+
         # Execute the script using subprocess
-        process = subprocess.Popen([os.path.join(settings['COPS path'], tabu_search_exec), 
+        process = subprocess.Popen([os.path.join(settings['COPS path'], tabu_search_exec),
                                     settings['python'], settings['COPS path'],
-                                    os.path.join(settings['COPS dataset'], name_cops_file)], 
+                                    os.path.join(settings['COPS dataset'], name_cops_file)],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
         
