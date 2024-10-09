@@ -10,6 +10,8 @@ COPS dataset: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/
 COPS result: C:/Users/dnune/OneDrive/Documentos/VerLab/RoutePlanner/datasets/results/
 # COPS problem filename
 COPS problem: 3dreconstructionPathPlannerBuilds
+# OP problem filename
+OP problem: 3dreconstruction
 # Path to COPS script
 COPS path: C:/Users/dnune/OneDrive/Documentos/VerLab/COPS_l/
 #Extension to saved images

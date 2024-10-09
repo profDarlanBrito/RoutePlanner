@@ -981,11 +981,10 @@ def quadcopter_control_direct_points(sim, client, vision_handle: int,
 
     for point_qcdp in route_qc:
         pos = list(point_qcdp[:3])
-        orientation = list(np.deg2rad(point_qcdp[3:]))
-        orientation_angles = [0.0, 0.0, orientation[0]]
-        quadcopter_handle = sim.getObject('./base_vision')
-        sim.setObjectPosition(quadcopter_handle, pos, sim.handle_world)
-        sim.setObjectOrientation(quadcopter_handle, orientation_angles, sim.handle_world)
+        ori = list(point_qcdp[3:])
+
+        sim.setObjectPosition(vision_handle, pos, sim.handle_world)
+        sim.setObjectQuaternion(vision_handle, ori, sim.handle_world)
 
         total_time = sim.getSimulationTime() + settings['total simulation time']
         while sim.getSimulationTime() < total_time:
@@ -1176,6 +1175,63 @@ def write_bin_problem_file(dir_wbpf: str, filename_wbpf: str, edge_weight_matrix
         pickle.dump(data, file)
 
 
+def write_OP_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, points_of_view_contribution: dict, targets_points_of_view: dict):
+    print('Starting writing problem file')
+    subgroup_count = 0
+    # Create the directory
+    os.makedirs(dir_wpf, exist_ok=True)
+
+    complete_file_name = dir_wpf + filename_wpf + '.cops'
+    # print(f'{complete_file_name=}')
+    GTSP_CLUSTER_SECTION_str = []
+    with open(complete_file_name, 'w') as copsfile:
+        for field_wpf in fieldnames:
+            if field_wpf == 'NAME: ':
+                copsfile.write(field_wpf + filename_wpf + settings['directory name'] + '\n')
+            elif field_wpf == 'TYPE: ':
+                copsfile.write(field_wpf + 'TSP\n')
+            elif field_wpf == 'COMMENT: ':
+                copsfile.write(field_wpf + 'Optimization for reconstruction\n')
+            elif field_wpf == 'DIMENSION: ':
+                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
+            elif field_wpf == 'TMAX: ':
+                copsfile.write(field_wpf + str(T_max) + '\n')
+            elif field_wpf == 'START_CLUSTER: ':
+                copsfile.write(field_wpf + '0\n')
+            elif field_wpf == 'END_CLUSTER: ':
+                copsfile.write(field_wpf + '0\n')
+            elif field_wpf == 'CLUSTERS: ':
+                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
+            elif field_wpf == 'SUBGROUPS: ':
+                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
+            elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
+                copsfile.write(field_wpf + 'EUC_3D' + '\n')
+            elif field_wpf == 'NODE_COORD_SECTION: ':
+                copsfile.write('NODE_COORD_SECTION: id_vertex x y z\n')
+                for i, point in enumerate(node_coord):
+                    copsfile.write(f'{i} {point[0]} {point[1]} {point[2]}\n')                
+            elif field_wpf == 'GTSP_SUBGROUP_SECTION: ':
+                copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
+                
+                id = 0
+                for _, contribution_list in points_of_view_contribution.items():
+                    for i, contribution in enumerate(contribution_list):
+                        copsfile.write(f"{id + i} {contribution} {id + i}\n")
+
+                    id += i + 1
+
+            elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
+                copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
+                id = 0
+                for _, contribution_list in points_of_view_contribution.items():
+                    for i in range(len(contribution_list)):
+                        copsfile.write(f"{id + i} {id + i}\n")
+
+                    id += i + 1
+
+    copsfile.close()
+
+
 def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, offset_table: dict,
                           number_of_targets: int, S_wpf: dict, subgroup_size_wpf: int):
     print('Starting writing problem file')
@@ -1250,8 +1306,20 @@ def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, off
     copsfile.close()
 
 
+def print_process(process):
+    # Wait for the process to finish
+    stdout, stderr = process.communicate()
+
+    # Check if there were any errors
+    if process.returncode != 0:
+        print("Error executing script:")
+        print(stderr.decode('utf-8'))
+    else:
+        print("Script executed successfully.")
+        print(stdout.decode('utf-8'))
+
+
 def execute_script(name_cops_file: str) -> None:
-    print('Executing COPS ...')
     try:
 
         if platform.system() == 'Windows':
@@ -1266,18 +1334,11 @@ def execute_script(name_cops_file: str) -> None:
                                     os.path.join(settings['COPS dataset'], name_cops_file)],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
-
-        # Wait for the process to finish
-        stdout, stderr = process.communicate()
-
-        # Check if there were any errors
-        if process.returncode != 0:
-            print("Error executing script:")
-            print(stderr.decode('utf-8'))
-        else:
-            print("Script executed successfully.")
+        
+        return process
     except Exception as e:
         print("An error occurred:", e)
+        return None
 
 
 def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dict, experiment: int) -> tuple[
@@ -1408,9 +1469,58 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
             f"{image_name} {position[0]} {position[1]} {position[2]} {orientarion[3]} {orientarion[0]} {orientarion[1]} {orientarion[2]}\n")
 
 
+def get_rotation_quat(curr_pos, target_pos):
+    """
+    Calculates the quaternion representing the rotation needed to align the current position 
+    to face the target position.
+
+    The function computes a "look-at" vector from the current position to the target position, 
+    then calculates the corresponding rotation matrix. The matrix is converted into a quaternion 
+    to represent the 3D rotation.
+
+    Parameters:
+    ----------
+    curr_pos : array-like
+        The current position as a 3D vector (x, y, z).
+        
+    target_pos : array-like
+        The target position as a 3D vector (x, y, z).
+        
+    Returns:
+    --------
+    quaternion : np.ndarray
+        A 4-element array representing the rotation as a quaternion [x, y, z, w].
+        
+    Notes:
+    ------
+    - The "look-at" vector is normalized to get the direction from the current position 
+      to the target.
+    - The "up" vector is assumed to be [0, 0, 1], which is aligned with the Z-axis.
+    - The right and new up vectors are calculated via cross products to form an orthogonal
+      coordinate system, which is then used to create the rotation matrix.
+    - The `Rot.from_matrix()` function from `scipy.spatial.transform` is used to convert the 
+      rotation matrix into a quaternion.
+    """
+    look_at = np.array(target_pos) - np.array(curr_pos)
+    look_at = look_at / np.linalg.norm(look_at)  
+
+    up = np.array([0.0, 0.0, 1.0])
+    
+    right = np.cross(up, look_at)
+    right = right / np.linalg.norm(right)  
+
+    new_up = np.cross(look_at, right)
+
+    rotation_matrix = np.array([right, new_up, look_at]).T
+
+    rotation = Rot.from_matrix(rotation_matrix)
+
+    return rotation.as_quat()
+
+
 def generate_spiral_points(box_side_gsp, step):
     x, y = 0, 0
-    points = [[x, y]]
+    points = []
 
     directions = [(step, 0), (0, step), (-step, 0), (0, -step)]  # Right, Up, Left, Down
     direction_index = 0
@@ -1437,8 +1547,73 @@ def generate_spiral_points(box_side_gsp, step):
     return points
 
 
+def generate_true_spiral_points(radius: float, num_points: int) -> list[ndarray]:
+    """
+    Generates a 3D spiral with a specified number of points.
+
+    The spiral is generated in the XY plane, with each point adjusted to form a smooth curve
+    around an imaginary cylinder with the given radius. The height of each point is calculated
+    to form a helical curve that fits within a sphere of the specified radius.
+
+    Parameters:
+    ----------
+    radius : float
+        The radius of the spiral around the Z-axis.
+        
+    num_points : int
+        The number of points to generate along the spiral.
+        
+    Returns:
+    --------
+    points : list of np.ndarray
+        A list of arrays with coordinates (x, y, z) representing the points along
+        the spiral.
+        
+    Notes:
+    ------
+    - The height of each point 'z' is calculated according to the sphere equation
+      (x^2 + y^2 + z^2 = radius^2) to ensure the points are distributed in a spiral
+      within the sphere.
+    - The constant 'c' is used to adjust the shape of the spiral, while 'k' defines
+      the scaling factor based on 'c'.
+    """
+    c = 12
+    k = c * np.pi
+
+    radius *= 0.85
+
+    step = k ** 2 / (num_points + 1) 
+
+    r = lambda theta: radius * theta / k
+    height = lambda x, y: np.sqrt(radius ** 2 - x ** 2 - y ** 2)
+
+    points = []
+    for curr_step in np.arange(step, k ** 2, step):
+        theta = np.sqrt(curr_step)
+
+        x = r(theta) * np.cos(theta)
+        y = r(theta) * np.sin(theta)
+        z = height(x, y)
+
+        points.append(np.array([x, y, z]))
+
+    return points
+
+
+def get_single_target_true_spiral_trajectory(centroid_points_gstst: ndarray, radius_gstst: float, num_points_gstst: float):
+    print('Generating spiral trajectory over one target')
+
+    points_gstst = generate_true_spiral_points(radius_gstst, num_points_gstst)
+
+    points_gstst = [point + centroid_points_gstst for point in points_gstst]
+
+    directions_gstst = [get_rotation_quat(curr_pos, centroid_points_gstst) for curr_pos in points_gstst]
+    
+    return np.array(points_gstst), np.array(directions_gstst)
+
+
 def get_single_target_spiral_trajectory(centroid_points_gstst: ndarray, radius_gstst: float, parts_gstst: float):
-    print('Generating esprial trajectory over one target')
+    print('Generating spiral trajectory over one target')
     step = radius_gstst / parts_gstst
     points_gstst = generate_spiral_points(radius_gstst, step)
 
@@ -1455,14 +1630,15 @@ def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: in
     ndarray[Any, dtype[Any]], dict[Any, ndarray[Any, dtype[bool_]]], dict[Any, Any], int]:
     print('Generating spiral trajectories')
     # plotter_gst = pv.Plotter()
-    route_gst = np.zeros([1, 6])
+    route_gst = np.zeros([1, 7])
     route_by_target_gst = {}
     spiral_target_distance_gst = {}
     total_distance_gst = 0
     for target_gst, centroid_gst in centroids_gst.items():
-        radius_box_gst = 2 * radius_gst[target_gst]
-        centroid_gst[2] = centroid_gst[2] + scale_to_height_spiral * centroid_gst[2]
-        spiral_point, spiral_direction = get_single_target_spiral_trajectory(centroid_gst, radius_box_gst, parts_gst)
+        radius_box_gst = 3 * radius_gst[target_gst]
+        # centroid_gst[2] = centroid_gst[2] + scale_to_height_spiral * centroid_gst[2]
+        centroid_gst[2] /= 2
+        spiral_point, spiral_direction = get_single_target_true_spiral_trajectory(centroid_gst, radius_box_gst, parts_gst)
         spiral_target_distance_gst[target_gst] = 0
         for count_point in range(spiral_point.shape[0] - 1):
             spiral_target_distance_gst[target_gst] += np.linalg.norm(
@@ -1470,7 +1646,7 @@ def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: in
         route_by_target_gst[target_gst] = np.column_stack((spiral_point, spiral_direction))
         route_gst = np.row_stack((route_gst, route_by_target_gst[target_gst]))
         total_distance_gst += spiral_target_distance_gst[target_gst]
-    route_gst = np.row_stack((route_gst, np.zeros([1, 6])))
+    route_gst = np.row_stack((route_gst, np.zeros([1, 7])))
     # Create lines connecting each pair of adjacent points
     # lines = []
     # for i in range(route_gst.shape[0] - 1):
@@ -1511,6 +1687,7 @@ def convex_hull(experiment: int):
     
     S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
     name_cops_file = settings['COPS problem'] + str(experiment)
+    name_op_file = settings['OP problem'] + str(experiment)
 
     offset_table = {}
     for key, value in targets_points_of_view.items():
@@ -1533,7 +1710,20 @@ def convex_hull(experiment: int):
                        S,
                        subgroup_size)
     
-    execute_script(name_cops_file)
+    write_OP_file_3d(settings['COPS dataset'],
+                       name_op_file,
+                       conversion_table,
+                       points_of_view_contribution, 
+                       targets_points_of_view)
+    
+    process_cops = execute_script(name_cops_file)
+    process_op = execute_script(name_op_file)
+
+    print('Executing COPS ...')
+    print('Executing OP ...')
+
+    print_process(process_cops)
+    print_process(process_op)
 
     with open(os.path.join(settings['save path'], f'variables/convex_hull_{experiment}.var'), 'wb') as file:
         pickle.dump(S, file)
@@ -1565,7 +1755,7 @@ def get_result_cops_route(result_cops_path: str, points_by_id: dict):
 
 
 def compute_route_distance(route: list):
-    distance  = 0
+    distance = 0.0
 
     for i, p in enumerate(route[1:]):
         distance += np.linalg.norm(route[i][:3] - p[:3]) # p == route[i + 1]
@@ -1573,12 +1763,35 @@ def compute_route_distance(route: list):
     return distance
 
 
+def calculate_position_orientation(find_point: list, tilt_angle_deg: float = -5) -> np.ndarray:
+    """
+    Auxiliary function to calculate the position and orientation based on the current position and camera angle.
+    
+    Parameters:
+    - find_point: List containing the coordinates (x, y, z) and the angle (theta) of the point.
+    - tilt_angle_deg: Camera tilt angle in degrees (default: -5).
+    
+    Returns:
+    - An array with the position and orientation of the point.
+    """
+    theta = np.deg2rad(find_point[3])
+    curr_pos = find_point[:3]
+
+    tilt_camera = np.deg2rad(tilt_angle_deg)
+
+    target_pos = np.copy(curr_pos)
+    target_pos[0] += np.cos(theta)
+    target_pos[1] += np.sin(theta)
+    target_pos[2] += np.tan(tilt_camera) * np.linalg.norm(curr_pos - target_pos)
+
+    ori = get_rotation_quat(curr_pos, target_pos)
+    return np.hstack((curr_pos, ori))
+
+
 def get_result_by_cluster(points_by_id: dict, cops_by_id: list, interval: dict):
-    n = len(interval)
     cluster = {}
     
     for point_id in cops_by_id:
-
         # ignore initial drone position
         if point_id == 0:
             continue
@@ -1588,8 +1801,10 @@ def get_result_by_cluster(points_by_id: dict, cops_by_id: list, interval: dict):
                 if group_name not in cluster:
                     cluster[group_name] = []
 
-                cluster[group_name].append(points_by_id[point_id])
+                find_point = points_by_id[point_id]
+                pos_ori = calculate_position_orientation(find_point)
 
+                cluster[group_name].append(pos_ori)
                 break
 
     return cluster
@@ -1606,6 +1821,45 @@ def read_route_cops(result_cops_path: str, interval: dict, conversion_table: lis
     return route_distace, cops_route, cops_route_by_group
 
 
+def get_random_points(interval: dict, conversion_table: list, targets_points_of_view: dict) -> dict:
+    print('Generating random trajectories')
+
+    target_select_point_view = {}
+    list_canditates = []
+    for min, max in interval.values():
+        if min == 0:
+            min = 1
+        list_canditates.append(np.arange(min, max + 1))
+
+    for (target, _), canditates in zip(targets_points_of_view.items(), list_canditates):
+        print('Generating random trajectory over one target')
+
+        length = len(canditates)
+        target_select_point_view[target] = []
+
+        p = np.abs(np.random.normal(0.6, 0.1))
+        p = 0.1 if p < 0.1 else p
+        p = 1.0 if p > 1 else p
+
+        pick = int(length * p)
+        points_views_index = np.sort(np.random.choice(canditates, pick, replace=False))
+
+        for index in points_views_index:
+            find_point = conversion_table[index]
+            pos_ori = calculate_position_orientation(find_point)
+
+            target_select_point_view[target].append(pos_ori)
+
+    target_distance = {}
+    for target, route in target_select_point_view.items():
+        if target not in target_distance:
+            target_distance[target] = []
+        
+        target_distance[target] = compute_route_distance(route)
+
+    return target_select_point_view, target_distance
+
+
 def view_point(copp: CoppeliaInterface, experiment: int):
     with open(os.path.join(settings['save path'], f'variables/convex_hull_{experiment}.var'), 'rb') as file:
         S = pickle.load(file)
@@ -1616,11 +1870,16 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         interval = pickle.load(file)
 
     result_cops_path = os.path.join(settings['COPS result'], f"{settings['COPS problem']}{str(experiment)}.csv")
-    route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval, conversion_table)
+    result_op_path = os.path.join(settings['COPS result'], f"{settings['OP problem']}{str(experiment)}.csv")
+    
+    cops_route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval, conversion_table)
+    op_route_distace, op_route, op_route_by_group = read_route_cops(result_op_path, interval, conversion_table)
 
-    parts_to_spiral = 10  # np.fix(main_route.shape[0]/40)
+    parts_to_spiral = 100
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
         get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
+    
+    random_route_by_target, random_target_distance = get_random_points(interval, conversion_table, targets_points_of_view)
     
     copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
     # vision_handle = copp.handles[settings['vision sensor names']]
@@ -1652,15 +1911,27 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         filename = settings['filename']
         vision_handle = copp.handles[settings['vision sensor names']]
 
+        route_of_object = cops_route_by_group[object_key]
         group_name = f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
         directory_name = settings['directory name'] + group_name
 
-        copp.sim.setObjectOrientation(vision_handle, [0, np.pi / 2, np.pi / 2], copp.sim.handle_parent)
-        route_of_object = cops_route_by_group[object_key]
-        quadcopter_control_direct_points(copp.sim, copp.client, vision_handle, route_of_object, filename,
+        quadcopter_control_direct_points(copp.sim, 
+                                         copp.client, 
+                                         vision_handle, 
+                                         route_of_object, 
+                                         filename,
                                          directory_name)
-
-        copp.sim.setObjectOrientation(vision_handle, [-np.pi, np.pi / 3, -np.pi / 2], copp.sim.handle_parent)
+        
+        route_of_object = op_route_by_group[object_key]
+        group_name = f'_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+        directory_name = settings['directory name'] + group_name
+        
+        quadcopter_control_direct_points(copp.sim, 
+                                         copp.client, 
+                                         vision_handle, 
+                                         route_of_object, 
+                                         filename,
+                                         directory_name)
 
         spiral_route = spiral_route_by_target[object_key]
         spiral_group_name = f'_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
@@ -1672,13 +1943,25 @@ def view_point(copp: CoppeliaInterface, experiment: int):
                                          spiral_route,
                                          'spiral_route',
                                          spiral_directory_name)
+        
+        random_route = random_route_by_target[object_key]
+        random_group_name = f'_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+        random_directory_name = settings['directory name'] + random_group_name
+        
+        quadcopter_control_direct_points(copp.sim,
+                                         copp.client,
+                                         vision_handle,
+                                         random_route,
+                                         'random_route',
+                                         random_directory_name)
 
     with open(os.path.join(settings['save path'], f'variables/view_point_{experiment}.var'), 'wb') as file:
-        pickle.dump(route_distace, file)
+        pickle.dump(cops_route_distace, file)
         pickle.dump(travelled_spiral_distance, file)
         pickle.dump(spiral_route_by_target, file)
         pickle.dump(cops_route_by_group, file)
         pickle.dump(spiral_target_distance, file)
+        pickle.dump(random_target_distance, file)
         pickle.dump(day, file)
         pickle.dump(month, file)
         pickle.dump(hour, file)
@@ -1711,6 +1994,7 @@ def point_cloud(experiment: int) -> None:
         spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
         spiral_target_distance = pickle.load(f)
+        random_target_distance = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
         hour = pickle.load(f)
@@ -1733,7 +2017,7 @@ def point_cloud(experiment: int) -> None:
     # Create the directory
     os.makedirs(workspace_folder)
 
-    with open(os.path.join(workspace_folder, '/distance.txt'), 'w') as distance_file:
+    with open(os.path.join(workspace_folder, 'distance.txt'), 'w') as distance_file:
         distance_file.write(f'distance: {str(travelled_distance_main)}\n')
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
@@ -1760,11 +2044,13 @@ def point_cloud(experiment: int) -> None:
     spiral_route_key = spiral_route_by_target.keys()
     for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
         # for route, count_group in zip(route_by_group, range(len(route_by_group))):
-        image_directory_name = (settings['directory name'] +
-                                f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
 
+        # Recosntrution COPS
         workspace_folder = os.path.join(settings['workspace folder'],
                                         f'exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
+        
+        image_directory_name = (settings['directory name'] +
+                                f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
 
         # remove folder if exist
         if os.path.exists(workspace_folder):
@@ -1785,10 +2071,41 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         images_folder = str(os.path.join(settings['path'], image_directory_name))
-        run_colmap_program(colmap_folder, workspace_folder, images_folder)
-        MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
-        remove_unused_files(workspace_folder)
+        # run_colmap_program(colmap_folder, workspace_folder, images_folder)
+        # MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
+        # remove_unused_files(workspace_folder)
 
+        # Recosntrution OP
+        op_workspace_folder = os.path.join(settings['workspace folder'],
+                                        f'op_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
+        
+        op_image_directory_name = (settings['directory name'] +
+                                f'_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}')
+
+        # remove folder if exist
+        if os.path.exists(op_workspace_folder):
+            shutil.rmtree(op_workspace_folder)
+
+        # Create the directory
+        os.makedirs(op_workspace_folder)
+
+        travelled_distance_main = 0
+        route_points = route_by_group[object_key]
+        for i in range(1, len(route_by_group[object_key])):
+            travelled_distance_main += np.linalg.norm(route_points[i - 1][:3] - route_points[i][:3])
+
+        with open(os.path.join(op_workspace_folder, 'distance.txt'), 'w') as distance_file:
+            distance_file.write(str(travelled_distance_main))
+
+        with open(os.path.join(op_workspace_folder, 'object_name.txt'), 'w') as object_name_file:
+            object_name_file.write(object_key)
+
+        images_folder = str(os.path.join(settings['path'], op_image_directory_name))
+        # run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
+        # MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
+        # remove_unused_files(op_workspace_folder)
+
+        # Recosntrution Spiral
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                                f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
 
@@ -1809,9 +2126,34 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
-        run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
-        statistics_colmap(colmap_folder, spiral_workspace_folder)
-        remove_unused_files(spiral_workspace_folder)
+        # run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
+        # statistics_colmap(colmap_folder, spiral_workspace_folder)
+        # remove_unused_files(spiral_workspace_folder)
+
+        # Recosntrution Random
+        random_workspace_folder = os.path.join(settings['workspace folder'],
+                                               f'random_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
+
+        random_directory_name = settings[
+                                    'directory name'] + f'_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+
+        # remove folder if exist
+        if os.path.exists(random_workspace_folder):
+            shutil.rmtree(random_workspace_folder)
+
+        # Create the directory
+        os.makedirs(random_workspace_folder)
+
+        with open(os.path.join(random_workspace_folder, 'distance.txt'), 'w') as distance_file:
+            distance_file.write(str(random_target_distance[object_key]))
+
+        with open(os.path.join(random_workspace_folder, 'object_name.txt'), 'w') as object_name_file:
+            object_name_file.write(object_key)
+
+        random_images_folder = str(os.path.join(settings['path'], random_directory_name))
+        run_colmap_program(colmap_folder, random_workspace_folder, random_images_folder)
+        statistics_colmap(colmap_folder, random_workspace_folder)
+        remove_unused_files(random_workspace_folder)
 
 
 def read_camera_pos_files(file_path: str, ref_file_path: str) -> dict:
@@ -2160,7 +2502,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     experiment = get_experiment_number(reconstruction_path)
 
-    if last_dir.startswith('spiral'):
+    if last_dir.startswith('spiral') or last_dir.startswith('op') or last_dir.startswith('random'):
         route_reward = 'none'
 
     else:
@@ -2234,42 +2576,68 @@ def mesh_analysis():
             spiral_route_by_target = pickle.load(f)
             route_by_group = pickle.load(f)
             spiral_target_distance = pickle.load(f)
+            random_target_distance = pickle.load(f)
             day = pickle.load(f)
             month = pickle.load(f)
             hour = pickle.load(f)
             minute = pickle.load(f)
 
         for obj in obj_name:
-            workspace_folder_group = os.path.join(settings['workspace folder'],
-                                                  f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
-            spiral_workspace_folder_group = os.path.join(settings['workspace folder'],
-                                                         f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            workspace_folder_group = os.path.join(settings['workspace folder'], f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            op_workspace_folder_group = os.path.join(settings['workspace folder'], f'op_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            spiral_workspace_folder_group = os.path.join(settings['workspace folder'], f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            random_workspace_folder_group = os.path.join(settings['workspace folder'], f'random_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
 
-            images_folder = os.path.join(settings['path'],
-                                         f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
-            images_folder_spiral = os.path.join(settings['path'],
-                                                f'scene_builds_spiral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder = os.path.join(settings['path'], f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder_op = os.path.join(settings['path'], f'scene_builds_op_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder_spiral = os.path.join(settings['path'], f'scene_builds_spiral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder_random = os.path.join(settings['path'], f'scene_builds_random_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
 
             ply_path = f'mesh_obj/{obj}.ply'
             if os.path.isdir(workspace_folder_group):
 
                 dense_folder = os.path.join(workspace_folder_group, 'dense')
-                for i in os.listdir(dense_folder):
-                    reconstruction_path = os.path.join(dense_folder, i)
 
-                    list_image_path.append(images_folder)
-                    list_reconstruction_path.append(reconstruction_path)
-                    list_plt_path.append(ply_path)
+                if os.path.isdir(dense_folder):
+                    for i in os.listdir(dense_folder):
+                        reconstruction_path = os.path.join(dense_folder, i)
+
+                        list_image_path.append(images_folder)
+                        list_reconstruction_path.append(reconstruction_path)
+                        list_plt_path.append(ply_path)
+
+            if os.path.isdir(op_workspace_folder_group):
+
+                dense_folder = os.path.join(op_workspace_folder_group, 'dense')
+                if os.path.isdir(dense_folder):
+                    for i in os.listdir(dense_folder):
+                        reconstruction_path = os.path.join(dense_folder, i)
+
+                        list_image_path.append(images_folder_op)
+                        list_reconstruction_path.append(reconstruction_path)
+                        list_plt_path.append(ply_path)
 
             if os.path.isdir(spiral_workspace_folder_group):
 
                 dense_folder = os.path.join(spiral_workspace_folder_group, 'dense')
-                for i in os.listdir(dense_folder):
-                    reconstruction_path = os.path.join(dense_folder, i)
+                if os.path.isdir(dense_folder):
+                    for i in os.listdir(dense_folder):
+                        reconstruction_path = os.path.join(dense_folder, i)
 
-                    list_image_path.append(images_folder_spiral)
-                    list_reconstruction_path.append(reconstruction_path)
-                    list_plt_path.append(ply_path)
+                        list_image_path.append(images_folder_spiral)
+                        list_reconstruction_path.append(reconstruction_path)
+                        list_plt_path.append(ply_path)
+
+            if os.path.isdir(random_workspace_folder_group):
+
+                dense_folder = os.path.join(random_workspace_folder_group, 'dense')
+                if os.path.isdir(dense_folder):
+                    for i in os.listdir(dense_folder):
+                        reconstruction_path = os.path.join(dense_folder, i)
+
+                        list_image_path.append(images_folder_random)
+                        list_reconstruction_path.append(reconstruction_path)
+                        list_plt_path.append(ply_path)
 
     process_paths(list_image_path, list_reconstruction_path, list_plt_path)
 
