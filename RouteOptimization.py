@@ -1720,9 +1720,9 @@ def convex_hull(experiment: int):
     process_op = execute_script(name_op_file)
 
     print('Executing COPS ...')
-    print_process(process_cops)
-
     print('Executing OP ...')
+
+    print_process(process_cops)
     print_process(process_op)
 
     with open(os.path.join(settings['save path'], f'variables/convex_hull_{experiment}.var'), 'wb') as file:
@@ -1755,7 +1755,7 @@ def get_result_cops_route(result_cops_path: str, points_by_id: dict):
 
 
 def compute_route_distance(route: list):
-    distance  = 0
+    distance = 0.0
 
     for i, p in enumerate(route[1:]):
         distance += np.linalg.norm(route[i][:3] - p[:3]) # p == route[i + 1]
@@ -1850,7 +1850,14 @@ def get_random_points(interval: dict, conversion_table: list, targets_points_of_
 
             target_select_point_view[target].append(pos_ori)
 
-    return target_select_point_view
+    target_distance = {}
+    for target, route in target_select_point_view.items():
+        if target not in target_distance:
+            target_distance[target] = []
+        
+        target_distance[target] = compute_route_distance(route)
+
+    return target_select_point_view, target_distance
 
 
 def view_point(copp: CoppeliaInterface, experiment: int):
@@ -1872,7 +1879,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
         get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
     
-    random_route_by_target = get_random_points(interval, conversion_table, targets_points_of_view)
+    random_route_by_target, random_target_distance = get_random_points(interval, conversion_table, targets_points_of_view)
     
     copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
     # vision_handle = copp.handles[settings['vision sensor names']]
@@ -1954,6 +1961,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         pickle.dump(spiral_route_by_target, file)
         pickle.dump(cops_route_by_group, file)
         pickle.dump(spiral_target_distance, file)
+        pickle.dump(random_target_distance, file)
         pickle.dump(day, file)
         pickle.dump(month, file)
         pickle.dump(hour, file)
@@ -1986,6 +1994,7 @@ def point_cloud(experiment: int) -> None:
         spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
         spiral_target_distance = pickle.load(f)
+        random_target_distance = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
         hour = pickle.load(f)
@@ -2062,9 +2071,9 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         images_folder = str(os.path.join(settings['path'], image_directory_name))
-        run_colmap_program(colmap_folder, workspace_folder, images_folder)
-        MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
-        remove_unused_files(workspace_folder)
+        # run_colmap_program(colmap_folder, workspace_folder, images_folder)
+        # MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
+        # remove_unused_files(workspace_folder)
 
         # Recosntrution OP
         op_workspace_folder = os.path.join(settings['workspace folder'],
@@ -2092,9 +2101,9 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         images_folder = str(os.path.join(settings['path'], op_image_directory_name))
-        run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
-        MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
-        remove_unused_files(op_workspace_folder)
+        # run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
+        # MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
+        # remove_unused_files(op_workspace_folder)
 
         # Recosntrution Spiral
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
@@ -2117,9 +2126,34 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
-        run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
-        statistics_colmap(colmap_folder, spiral_workspace_folder)
-        remove_unused_files(spiral_workspace_folder)
+        # run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
+        # statistics_colmap(colmap_folder, spiral_workspace_folder)
+        # remove_unused_files(spiral_workspace_folder)
+
+        # Recosntrution Random
+        random_workspace_folder = os.path.join(settings['workspace folder'],
+                                               f'random_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
+
+        random_directory_name = settings[
+                                    'directory name'] + f'_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
+
+        # remove folder if exist
+        if os.path.exists(random_workspace_folder):
+            shutil.rmtree(random_workspace_folder)
+
+        # Create the directory
+        os.makedirs(random_workspace_folder)
+
+        with open(os.path.join(random_workspace_folder, 'distance.txt'), 'w') as distance_file:
+            distance_file.write(str(random_target_distance[object_key]))
+
+        with open(os.path.join(random_workspace_folder, 'object_name.txt'), 'w') as object_name_file:
+            object_name_file.write(object_key)
+
+        random_images_folder = str(os.path.join(settings['path'], random_directory_name))
+        run_colmap_program(colmap_folder, random_workspace_folder, random_images_folder)
+        statistics_colmap(colmap_folder, random_workspace_folder)
+        remove_unused_files(random_workspace_folder)
 
 
 def read_camera_pos_files(file_path: str, ref_file_path: str) -> dict:
@@ -2468,7 +2502,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     experiment = get_experiment_number(reconstruction_path)
 
-    if last_dir.startswith('spiral') or last_dir.startswith('op'):
+    if last_dir.startswith('spiral') or last_dir.startswith('op') or last_dir.startswith('random'):
         route_reward = 'none'
 
     else:
@@ -2542,6 +2576,7 @@ def mesh_analysis():
             spiral_route_by_target = pickle.load(f)
             route_by_group = pickle.load(f)
             spiral_target_distance = pickle.load(f)
+            random_target_distance = pickle.load(f)
             day = pickle.load(f)
             month = pickle.load(f)
             hour = pickle.load(f)
@@ -2551,10 +2586,12 @@ def mesh_analysis():
             workspace_folder_group = os.path.join(settings['workspace folder'], f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
             op_workspace_folder_group = os.path.join(settings['workspace folder'], f'op_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
             spiral_workspace_folder_group = os.path.join(settings['workspace folder'], f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            random_workspace_folder_group = os.path.join(settings['workspace folder'], f'random_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
 
             images_folder = os.path.join(settings['path'], f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
             images_folder_op = os.path.join(settings['path'], f'scene_builds_op_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
             images_folder_spiral = os.path.join(settings['path'], f'scene_builds_spiral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder_random = os.path.join(settings['path'], f'scene_builds_random_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
 
             ply_path = f'mesh_obj/{obj}.ply'
             if os.path.isdir(workspace_folder_group):
@@ -2588,6 +2625,17 @@ def mesh_analysis():
                         reconstruction_path = os.path.join(dense_folder, i)
 
                         list_image_path.append(images_folder_spiral)
+                        list_reconstruction_path.append(reconstruction_path)
+                        list_plt_path.append(ply_path)
+
+            if os.path.isdir(random_workspace_folder_group):
+
+                dense_folder = os.path.join(random_workspace_folder_group, 'dense')
+                if os.path.isdir(dense_folder):
+                    for i in os.listdir(dense_folder):
+                        reconstruction_path = os.path.join(dense_folder, i)
+
+                        list_image_path.append(images_folder_random)
                         list_reconstruction_path.append(reconstruction_path)
                         list_plt_path.append(ply_path)
 
