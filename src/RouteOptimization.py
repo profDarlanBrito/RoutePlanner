@@ -1,13 +1,10 @@
-import string
-
-from GeometryOperations import (draw_cylinder_with_hemisphere, compute_central_hemisphere_area, intersect_plane_sphere)
+from MathUtil.GeometryOperations import (draw_cylinder_with_hemisphere, compute_central_hemisphere_area, intersect_plane_sphere)
 from typing import Tuple, Dict, Any, List
 from numpy import ndarray, dtype, floating, float_, bool_
 from numpy._typing import _64Bit
 from scipy.spatial import ConvexHull, Delaunay
 from scipy.spatial.transform import Rotation as Rot
-from CoppeliaInterface import CoppeliaInterface
-from config import parse_settings_file
+from coppelia.CoppeliaInterface import CoppeliaInterface
 from random import sample
 import open3d as o3d
 from multiprocessing import Pool
@@ -26,6 +23,13 @@ import datetime
 import platform
 import multiprocessing
 
+from Colmap.pipeline import generate_mesh_poisson
+from Colmap.colmap import run_colmap_program, statistics_colmap
+from IO.io import write_OP_file_3d, write_problem_file_3d
+import config
+
+settings = config.Settings.get()
+
 # Variables loaded from config.yaml
 CA_max = -1  # Bigger number the route has more points
 max_route_radius = -1  # Bigger number the route increase the maximum points of view radius.
@@ -39,277 +43,6 @@ points_per_unit = -1
 scale_to_height_spiral = 1.5  # Scale multiplied by the object target centroid Z to compute the spiral trajectory Z
 search_size = 20  # Size of the random points that will be used to search the next position of the UAV.
 number_of_line_points = 10  # The number of the points that will be used to define a line that will be verified if is through the convex hull
-feature_extractor_file = 'config/feature_extractor.ini'
-exhaustive_file = 'config/exhaustive_matcher.ini'
-mapper_file = 'config/mapper.ini'
-image_undistorter_file = 'config/image_undistorter.ini'
-patch_match_stereo_file = 'config/patch_match_stereo.ini'
-stereo_fusion_file = 'config/stereo_fusion.ini'
-poisson_mesher_file = 'config/poisson_mesher.ini'
-model_aligner_file = 'config/model_aligner.ini'
-model_converter_file = 'config/model_converter.ini'
-
-
-def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder: str) -> None:
-    if platform.system() == 'Windows':
-        run_colmap(os.path.join(colmap_folder, 'COLMAP.bat'), workspace_folder, str(images_folder))
-
-    if platform.system() == 'Linux':
-        run_colmap('colmap', workspace_folder, images_folder)
-
-
-def write_config_file(config_file_name: str, workspace_folder: str, config_lines: list[str]):
-    config_path = os.path.join(workspace_folder, os.path.basename(config_file_name)).replace("\\", "/")
-    with open(config_path, 'w') as config_file:
-        config_file.writelines(config_lines)
-    return config_path
-
-
-def execute_colmap_command(colmap_exec: str, command: str, config_file_path: str):
-    process = subprocess.Popen([colmap_exec, command, '--project_path', config_file_path])
-    process.communicate()  # Wait for the process to finish
-
-
-def extract_features(colmap_exec, workspace_folder, image_folder):
-    # Extract features
-    with open(feature_extractor_file, 'r') as feature_config_file_read:
-        feature_extractor_config_str = feature_config_file_read.readlines()
-        feature_extractor_config_str[3] = f'database_path={workspace_folder}/database.db\n'
-        feature_extractor_config_str[4] = f'image_path={image_folder}\n'
-
-    feature_config_path = write_config_file(feature_extractor_file, workspace_folder, feature_extractor_config_str)
-    execute_colmap_command(colmap_exec, 'feature_extractor', feature_config_path)
-
-
-def perform_exhaustive_matching(colmap_exec, workspace_folder):
-    # Perform exhaustive matching
-    with open(exhaustive_file, 'r') as exhaustive_matcher_file_read:
-        exhaustive_config_str = exhaustive_matcher_file_read.readlines()
-        exhaustive_config_str[3] = f'database_path={workspace_folder}/database.db\n'
-
-    exhaustive_matcher_config_path = write_config_file(exhaustive_file, workspace_folder, exhaustive_config_str)
-    execute_colmap_command(colmap_exec, 'exhaustive_matcher', exhaustive_matcher_config_path)
-
-
-def run_mapper(colmap_exec, workspace_folder, image_folder, sparse_dir):
-    # Run the mapper
-    with open(mapper_file, 'r') as mapper_file_read:
-        mapper_config_str = mapper_file_read.readlines()
-        mapper_config_str[3] = f'database_path={workspace_folder}/database.db\n'
-        mapper_config_str[4] = f'image_path={image_folder}\n'
-        mapper_config_str[5] = f'output_path={sparse_dir}\n'
-
-    mapper_config_path = write_config_file(mapper_file, workspace_folder, mapper_config_str)
-    execute_colmap_command(colmap_exec, 'mapper', mapper_config_path)
-
-
-def align_scene(colmap_exec, workspace_folder, input_path, output_path, ref_images_file_path):
-    # Register camera centers
-    with open(model_aligner_file, 'r') as model_aligner_file_read:
-        model_aligner_config_str = model_aligner_file_read.readlines()
-        model_aligner_config_str[3] = f'input_path={input_path}\n'
-        model_aligner_config_str[4] = f'output_path={output_path}\n'
-        model_aligner_config_str[5] = f'ref_images_path={ref_images_file_path}\n'
-
-    model_aligner_config_path = write_config_file(model_aligner_file, workspace_folder, model_aligner_config_str)
-    execute_colmap_command(colmap_exec, 'model_aligner', model_aligner_config_path)
-
-
-def undistort_images(colmap_exec, workspace_folder, image_folder, sub_sparse_dir, sub_dense_dir):
-    # Undistort images
-    with open(image_undistorter_file, 'r') as image_undistorter_file_read:
-        image_config_str = image_undistorter_file_read.readlines()
-        image_config_str[0] = f'image_path={image_folder}\n'
-        image_config_str[1] = f'input_path={sub_sparse_dir}\n'
-        image_config_str[2] = f'output_path={sub_dense_dir}\n'
-
-    image_undistorter_config_path = write_config_file(image_undistorter_file, workspace_folder, image_config_str)
-    execute_colmap_command(colmap_exec, 'image_undistorter', image_undistorter_config_path)
-
-
-def perform_stereo_matching(colmap_exec, workspace_folder, sub_dense_dir):
-    # Perform stereo matching
-    with open(patch_match_stereo_file, 'r') as patch_match_stereo_file_read:
-        stereo_config_str = patch_match_stereo_file_read.readlines()
-        stereo_config_str[3] = f'workspace_path={sub_dense_dir}\n'
-
-    patch_match_stereo_config_path = write_config_file(patch_match_stereo_file, workspace_folder, stereo_config_str)
-    execute_colmap_command(colmap_exec, 'patch_match_stereo', patch_match_stereo_config_path)
-
-
-def perform_stereo_fusion(colmap_exec, workspace_folder, sub_dense_dir):
-    # Perform stereo fusion
-    with open(stereo_fusion_file, 'r') as stereo_fusion_file_read:
-        stereo_fusion_config_str = stereo_fusion_file_read.readlines()
-        stereo_fusion_config_str[3] = f'workspace_path={sub_dense_dir}\n'
-        stereo_fusion_config_str[6] = f'output_path={sub_dense_dir}/fused.ply\n'
-
-    stereo_fusion_config_path = write_config_file(stereo_fusion_file, workspace_folder, stereo_fusion_config_str)
-    execute_colmap_command(colmap_exec, 'stereo_fusion', stereo_fusion_config_path)
-
-
-def generate_mesh_poisson(colmap_exec, workspace_folder, sub_dense_dir):
-    # Generate mesh using Poisson meshing
-    with open(poisson_mesher_file, 'r') as poisson_mesher_file_read:
-        poisson_config_str = poisson_mesher_file_read.readlines()
-        poisson_config_str[3] = f'input_path={sub_dense_dir}/fused.ply\n'
-        poisson_config_str[4] = f'output_path={sub_dense_dir}/meshed-poisson.ply\n'
-
-    poisson_mesher_config_path = write_config_file(poisson_mesher_file, workspace_folder, poisson_config_str)
-    execute_colmap_command(colmap_exec, 'poisson_mesher', poisson_mesher_config_path)
-
-
-def convert_model(colmap_exec, workspace_folder, target_dir):
-    # Converte bin model to txt model
-    with open(model_converter_file, 'r') as model_converter_file_read:
-        model_converter_config_str = model_converter_file_read.readlines()
-        model_converter_config_str[4] = f'input_path={target_dir}\n'
-        model_converter_config_str[5] = f'output_path={target_dir}\n'
-
-    model_converter_config_path = write_config_file(model_converter_file,
-                                                    workspace_folder,
-                                                    model_converter_config_str)
-    execute_colmap_command(colmap_exec, 'model_converter', model_converter_config_path)
-
-
-def sparse_reconstruction(colmap_exec, workspace_folder, image_folder):
-    extract_features(colmap_exec, workspace_folder, image_folder)
-
-    perform_exhaustive_matching(colmap_exec, workspace_folder)
-
-    # Create sparse folder
-    sparse_dir = os.path.join(workspace_folder, 'sparse').replace("\\", "/")
-    os.mkdir(sparse_dir)
-
-    run_mapper(colmap_exec, workspace_folder, image_folder, sparse_dir)
-    return sparse_dir
-
-
-def align_scene_poses(colmap_exec, workspace_folder, image_folder, sparse_dir):
-    ref_images_file_path = os.path.join(image_folder, "ref_images.txt")
-    if os.path.isfile(ref_images_file_path):
-        # Create sparse aligned folder
-        sparse_aligned_dir = os.path.join(workspace_folder, 'sparse_aligned').replace("\\", "/")
-        os.mkdir(sparse_aligned_dir)
-
-        for folder in os.listdir(sparse_dir):
-            input_path = os.path.join(sparse_dir, folder).replace("\\", "/")
-            output_path = os.path.join(sparse_aligned_dir, folder).replace("\\", "/")
-            os.mkdir(output_path)
-
-            align_scene(colmap_exec, workspace_folder, input_path, output_path, ref_images_file_path)
-
-        sparse_dir = sparse_aligned_dir
-
-    return sparse_dir
-
-
-def dense_reconstruction(colmap_exec, workspace_folder, image_folder, sparse_dir):
-    if settings['dense model'] == 1:
-        # Create dense folder
-        dense_dir = os.path.join(workspace_folder, 'dense').replace("\\", "/")
-        os.mkdir(dense_dir)
-
-    for folder in os.listdir(sparse_dir):
-
-        if settings['dense model'] == 0:
-            break
-
-        sub_dense_dir = os.path.join(dense_dir, folder).replace("\\", "/")
-        sub_dense_sparse_dir = os.path.join(sub_dense_dir, 'sparse')
-        sub_sparse_dir = os.path.join(sparse_dir, folder).replace("\\", "/")
-        os.mkdir(sub_dense_dir)
-
-        undistort_images(colmap_exec, workspace_folder, image_folder, sub_sparse_dir, sub_dense_dir)
-
-        perform_stereo_matching(colmap_exec, workspace_folder, sub_dense_dir)
-
-        perform_stereo_fusion(colmap_exec, workspace_folder, sub_dense_dir)
-
-        generate_mesh_poisson(colmap_exec, workspace_folder, sub_dense_dir)
-
-        convert_model(colmap_exec, workspace_folder, sub_dense_sparse_dir)
-
-
-def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str) -> None:
-    """
-    Execute the COLMAP script on Windows
-    :param colmap_folder: Folder where is stored the COLMAP.bat file
-    :param workspace_folder: Folder where the COLMAP results will be stored
-    :param image_folder: Folder to images used for reconstruction. There is no name pattern to images
-    :return: Nothing
-    """
-    print('Executing colmap script ...')
-    try:
-        sparse_dir = sparse_reconstruction(colmap_exec, workspace_folder, image_folder)
-
-        dense_reconstruction(colmap_exec, workspace_folder, image_folder, sparse_dir)
-
-        print("Script executed successfully.")
-    except Exception as e:
-        print("An error occurred:", e)
-        raise RuntimeError('Colmap could not be executed correctly')
-
-
-def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty(0)) -> ndarray | None:
-    print('Creating colmap statistics.')
-    i = 0
-    try:
-        while True:
-            statistic_folder = os.path.join(workspace_folder_sc, f'sparse/{i}/')
-            if os.path.exists(statistic_folder):
-                # exec_name = ''
-                if platform.system() == 'Windows':
-                    colmap_exec = os.path.join(colmap_folder_sc, 'COLMAP.bat')
-                if platform.system() == 'Linux':
-                    colmap_exec = 'colmap'
-
-                with subprocess.Popen([colmap_exec, 'model_analyzer', '--path', statistic_folder], shell=False,
-                                      text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
-                    output, stderr = process.communicate(
-                        timeout=10)  # Capture stdout and stderr. The result is shown on stderr
-
-                # Check if there were any errors
-                if process.returncode != 0:
-                    print("Error executing script:")
-                    print(stderr)
-                else:
-                    if output is not None:
-                        print(output)
-                    if stderr is None:
-                        print('model_analyzer do not create any data')
-                        return
-                    else:
-                        print(stderr)
-                        # Read data from COLMAP output
-                        points_value_idx = stderr.find(':', stderr.find('Points')) + 1
-                        number_of_points = int(
-                            stderr[points_value_idx: stderr.find('\n', points_value_idx)])  # Number of points
-                        error_value_idx = stderr.find(':', stderr.find('Mean reprojection error')) + 1
-                        error_value = float(
-                            stderr[error_value_idx: stderr.find('p', error_value_idx)])  # Reconstruction error
-                        MNRE = error_value / number_of_points  # Compute de Mean Normalized Reconstruction Error
-
-                        # Save important data to file
-                        with open(statistic_folder + 'MNRE.txt', 'w') as statistic_file:
-                            statistic_file.write(f'MNRE: {MNRE}\n')
-                            statistic_file.write(f'Mean reprojection error: {error_value}\n')
-                            statistic_file.write(f'Points: {number_of_points}')
-
-                        with open(statistic_folder + 'stat.txt', 'w') as stat_file:
-                            stat_file.write(stderr)
-
-                        MNRE_array = np.concatenate((MNRE_array, [MNRE]))
-                    print("COLMAP data model analyzer executed successfully.")
-            else:
-                break
-            # statistic_file.close()
-            # stat_file.close()
-            i += 1
-        return MNRE_array
-    except Exception as e:
-        print("An error occurred:", e)
-        return None
 
 
 def is_point_inside(point, hull):
@@ -561,7 +294,6 @@ def initializations(copp_i) -> tuple[
     targets_hull_i = {}
     centroid_points_i = {}
     radius_i = {}
-    settings = parse_settings_file('config.yaml')
     for object_name_i in settings['object names']:
         copp_i.handles[object_name_i] = copp_i.sim.getObject(f"./{object_name_i}")
         if copp_i.handles[object_name_i] < 0:
@@ -1047,12 +779,6 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[A
     return edge_weight_matrix_cewm
 
 
-def ConvertArray2String(fileCA2S, array: ndarray):
-    np.set_printoptions(threshold=10000000000)
-    np.savetxt(fileCA2S, array, fmt='%.3f', delimiter=' ')
-    return fileCA2S
-
-
 def read_problem_file(filename: str) -> dict:
     read_fields = {}
     line_count = 0
@@ -1074,236 +800,6 @@ def read_problem_file(filename: str) -> dict:
     except Exception as e:
         print("An error occurred:", e)
     return read_fields
-
-
-# fieldnames = ['NAME: ', 'TYPE: ', 'COMMENT: ', 'DIMENSION: ', 'TMAX: ', 'START_CLUSTER: ', 'END_CLUSTER: ',
-#               'CLUSTERS: ', 'SUBGROUPS: ', 'DUBINS_RADIUS: ', 'EDGE_WEIGHT_TYPE: ', 'EDGE_WEIGHT_FORMAT: ',
-#               'EDGE_WEIGHT_SECTION', 'GTSP_SUBGROUP_SECTION: ', 'GTSP_CLUSTER_SECTION: ']
-
-fieldnames = ['NAME: ', 'TYPE: ', 'COMMENT: ', 'DIMENSION: ', 'TMAX: ', 'START_CLUSTER: ', 'END_CLUSTER: ',
-              'CLUSTERS: ', 'SUBGROUPS: ', 'EDGE_WEIGHT_TYPE: ',
-              'NODE_COORD_SECTION: ', 'GTSP_SUBGROUP_SECTION: ', 'GTSP_CLUSTER_SECTION: ']
-
-
-def copy_file(source_path, destination_path):
-    try:
-        # Copy the file from source_path to destination_path
-        shutil.copy(source_path, destination_path)
-        print(f"File copied successfully from {source_path} to {destination_path}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-
-def write_problem_file(dir_wpf: str, filename_wpf: str, edge_weight_matrix_wpf: ndarray, number_of_targets: int,
-                       S_wpf: dict, subgroup_size_wpf: int):
-    print('Starting writing problem file')
-    subgroup_count = 0
-    write_bin_problem_file(dir_wpf, filename_wpf, edge_weight_matrix_wpf)
-    # Create the directory
-    os.makedirs(dir_wpf, exist_ok=True)
-
-    complete_file_name = dir_wpf + filename_wpf + '.cops'
-    # print(f'{complete_file_name=}')
-    GTSP_CLUSTER_SECTION_str = []
-    with open(complete_file_name, 'w') as copsfile:
-        for field_wpf in fieldnames:
-            if field_wpf == 'NAME: ':
-                copsfile.write(field_wpf + filename_wpf + settings['directory name'] + '\n')
-            elif field_wpf == 'TYPE: ':
-                copsfile.write(field_wpf + 'TSP\n')
-            elif field_wpf == 'COMMENT: ':
-                copsfile.write(field_wpf + 'Optimization for reconstruction\n')
-            elif field_wpf == 'DIMENSION: ':
-                copsfile.write(field_wpf + str(edge_weight_matrix_wpf.shape[0]) + '\n')
-            elif field_wpf == 'TMAX: ':
-                copsfile.write(field_wpf + str(T_max) + '\n')
-            elif field_wpf == 'START_CLUSTER: ':
-                copsfile.write(field_wpf + '0\n')
-            elif field_wpf == 'END_CLUSTER: ':
-                copsfile.write(field_wpf + '0\n')
-            elif field_wpf == 'CLUSTERS: ':
-                copsfile.write(field_wpf + str(number_of_targets) + '\n')
-            elif field_wpf == 'SUBGROUPS: ':
-                copsfile.write(field_wpf + str(subgroup_size_wpf) + '\n')
-            elif field_wpf == 'DUBINS_RADIUS: ':
-                copsfile.write(field_wpf + '50' + '\n')
-            elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
-                copsfile.write(field_wpf + 'EXPLICIT' + '\n')
-            elif field_wpf == 'EDGE_WEIGHT_FORMAT: ':
-                copsfile.write(field_wpf + 'FULL_MATRIX' + '\n')
-            elif field_wpf == 'EDGE_WEIGHT_SECTION':
-                copsfile.close()
-                with open(complete_file_name, 'a') as copsfile:
-                    copsfile.write(field_wpf + '\n')
-                    ConvertArray2String(copsfile, edge_weight_matrix_wpf)
-            elif field_wpf == 'GTSP_SUBGROUP_SECTION: ':
-                with open(complete_file_name, 'a') as copsfile:
-                    copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
-                    count_cluster = 0
-                    GTSP_CLUSTER_SECTION_str = [[]] * len(settings['object names'])
-                    for target_wpf, S_spf in S_wpf.items():
-                        GTSP_CLUSTER_SECTION_str[count_cluster] = [[]] * (len(S_spf) + 1)
-                        GTSP_CLUSTER_SECTION_str[count_cluster][0] = f'{count_cluster} '
-                        count_idx = 1
-                        for lS_spf in S_spf:
-                            copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][5]} {lS_spf[0][6]} " +
-                                           ' '.join(str(vertex[7]) for vertex in lS_spf) + '\n')
-                            GTSP_CLUSTER_SECTION_str[count_cluster][count_idx] = f'{lS_spf[0][0]} '
-                            count_idx += 1
-                        count_cluster += 1
-            elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
-                with open(complete_file_name, 'a') as copsfile:
-                    copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
-                    for cluster_idxs in GTSP_CLUSTER_SECTION_str:
-                        copsfile.writelines(cluster_idxs)
-                        copsfile.write('\n')
-
-    copsfile.close()
-
-def write_bin_problem_file(dir_wbpf: str, filename_wbpf: str, edge_weight_matrix_wbpf: ndarray):#, number_of_targets: int,
-                       #S_wbpf: dict, subgroup_size_wbpf: int):
-    print('Writing binary file')
-
-    os.makedirs(dir_wbpf, exist_ok=True)
-
-    complete_file_name = dir_wbpf + filename_wbpf + '_b.cops'
-
-    data = ('NAME',filename_wbpf + settings['directory name'],'EDGE_WEIGHT_SECTION',edge_weight_matrix_wbpf)
-
-    # Write the data to a binary file
-    with open(complete_file_name, 'wb') as file:
-        pickle.dump(data, file)
-
-
-def write_OP_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, points_of_view_contribution: dict, targets_points_of_view: dict):
-    print('Starting writing problem file')
-    subgroup_count = 0
-    # Create the directory
-    os.makedirs(dir_wpf, exist_ok=True)
-
-    complete_file_name = dir_wpf + filename_wpf + '.cops'
-    # print(f'{complete_file_name=}')
-    GTSP_CLUSTER_SECTION_str = []
-    with open(complete_file_name, 'w') as copsfile:
-        for field_wpf in fieldnames:
-            if field_wpf == 'NAME: ':
-                copsfile.write(field_wpf + filename_wpf + settings['directory name'] + '\n')
-            elif field_wpf == 'TYPE: ':
-                copsfile.write(field_wpf + 'TSP\n')
-            elif field_wpf == 'COMMENT: ':
-                copsfile.write(field_wpf + 'Optimization for reconstruction\n')
-            elif field_wpf == 'DIMENSION: ':
-                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
-            elif field_wpf == 'TMAX: ':
-                copsfile.write(field_wpf + str(T_max) + '\n')
-            elif field_wpf == 'START_CLUSTER: ':
-                copsfile.write(field_wpf + '0\n')
-            elif field_wpf == 'END_CLUSTER: ':
-                copsfile.write(field_wpf + '0\n')
-            elif field_wpf == 'CLUSTERS: ':
-                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
-            elif field_wpf == 'SUBGROUPS: ':
-                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
-            elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
-                copsfile.write(field_wpf + 'EUC_3D' + '\n')
-            elif field_wpf == 'NODE_COORD_SECTION: ':
-                copsfile.write('NODE_COORD_SECTION: id_vertex x y z\n')
-                for i, point in enumerate(node_coord):
-                    copsfile.write(f'{i} {point[0]} {point[1]} {point[2]}\n')                
-            elif field_wpf == 'GTSP_SUBGROUP_SECTION: ':
-                copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
-                
-                id = 0
-                for _, contribution_list in points_of_view_contribution.items():
-                    for i, contribution in enumerate(contribution_list):
-                        copsfile.write(f"{id + i} {contribution} {id + i}\n")
-
-                    id += i + 1
-
-            elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
-                copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
-                id = 0
-                for _, contribution_list in points_of_view_contribution.items():
-                    for i in range(len(contribution_list)):
-                        copsfile.write(f"{id + i} {id + i}\n")
-
-                    id += i + 1
-
-    copsfile.close()
-
-
-def write_problem_file_3d(dir_wpf: str, filename_wpf: str, node_coord: list, offset_table: dict,
-                          number_of_targets: int, S_wpf: dict, subgroup_size_wpf: int):
-    print('Starting writing problem file')
-    subgroup_count = 0
-    # Create the directory
-    os.makedirs(dir_wpf, exist_ok=True)
-
-    complete_file_name = dir_wpf + filename_wpf + '.cops'
-    # print(f'{complete_file_name=}')
-    GTSP_CLUSTER_SECTION_str = []
-    with open(complete_file_name, 'w') as copsfile:
-        for field_wpf in fieldnames:
-            if field_wpf == 'NAME: ':
-                copsfile.write(field_wpf + filename_wpf + settings['directory name'] + '\n')
-            elif field_wpf == 'TYPE: ':
-                copsfile.write(field_wpf + 'TSP\n')
-            elif field_wpf == 'COMMENT: ':
-                copsfile.write(field_wpf + 'Optimization for reconstruction\n')
-            elif field_wpf == 'DIMENSION: ':
-                copsfile.write(field_wpf + str(len(node_coord)) + '\n')
-            elif field_wpf == 'TMAX: ':
-                copsfile.write(field_wpf + str(T_max) + '\n')
-            elif field_wpf == 'START_CLUSTER: ':
-                copsfile.write(field_wpf + '0\n')
-            elif field_wpf == 'END_CLUSTER: ':
-                copsfile.write(field_wpf + '0\n')
-            elif field_wpf == 'CLUSTERS: ':
-                copsfile.write(field_wpf + str(number_of_targets + 1) + '\n')
-            elif field_wpf == 'SUBGROUPS: ':
-                copsfile.write(field_wpf + str(subgroup_size_wpf) + '\n')
-            elif field_wpf == 'EDGE_WEIGHT_TYPE: ':
-                copsfile.write(field_wpf + 'EUC_3D' + '\n')
-            elif field_wpf == 'NODE_COORD_SECTION: ':
-                copsfile.write('NODE_COORD_SECTION: id_vertex x y z\n')
-                for i, point in enumerate(node_coord):
-                    copsfile.write(f'{i} {point[0]} {point[1]} {point[2]}\n')                
-            elif field_wpf == 'GTSP_SUBGROUP_SECTION: ':
-                copsfile.write(f"{field_wpf}cluster_id cluster_profit id-vertex-list\n")
-                count_cluster = 0
-                GTSP_CLUSTER_SECTION_str = [[]] * (len(settings['object names']) + 1)
-
-                offset = 0
-                for target_wpf, S_spf in S_wpf.items():
-                    
-                    if len(S_spf[0]) == 1 and S_spf[0][0][0] == 0:
-                        GTSP_CLUSTER_SECTION_str[count_cluster] = ['0 ', '0 '] 
-                        count_cluster += 1
-
-                        copsfile.write(f"{S_spf[0][0][0]} {S_spf[0][-1][5]} " +
-                                        ' '.join(str(vertex[1] + offset) for vertex in S_spf[0]) + '\n')
-                        
-                        S_spf = S_spf[1:]
-
-                    GTSP_CLUSTER_SECTION_str[count_cluster] = [[]] * (len(S_spf) + 1)
-                    GTSP_CLUSTER_SECTION_str[count_cluster][0] = f'{count_cluster} '
-                    count_idx = 1
-                    for lS_spf in S_spf:
-                        copsfile.write(f"{lS_spf[0][0]} {lS_spf[-1][5]} " + str(lS_spf[0][1] + offset) + " ")
-                        copsfile.write(' '.join(str(vertex[2] + offset) for vertex in lS_spf) + '\n')
-                        
-                        GTSP_CLUSTER_SECTION_str[count_cluster][count_idx] = f'{lS_spf[0][0]} '
-                        count_idx += 1
-                    count_cluster += 1
-
-                    offset += offset_table[target_wpf]
-            elif field_wpf == 'GTSP_CLUSTER_SECTION: ':
-                copsfile.write(f'{field_wpf} set_id id-cluster-list\n')
-                for cluster_idxs in GTSP_CLUSTER_SECTION_str:
-                    copsfile.writelines(cluster_idxs)
-                    copsfile.write('\n')
-
-    copsfile.close()
 
 
 def print_process(process):
@@ -1339,74 +835,6 @@ def execute_script(name_cops_file: str) -> None:
     except Exception as e:
         print("An error occurred:", e)
         return None
-
-
-def read_route_csv_file(file_path, S_rrcf: dict, targets_points_of_vew_rrcf: dict, experiment: int) -> tuple[
-    ndarray, float, list[ndarray]]:
-    route_rrcf = np.empty([0, 6])
-    route_by_group = [np.empty([0, 6])] * len(settings['object names'])
-    travelled_distance = 0
-    route_by_object = {}
-    try:
-        with open(file_path, newline='', encoding='utf-8') as csvfile:
-            csv_reader = csv.reader(csvfile, delimiter=';')
-            for row in csv_reader:
-                route_reward = row[5]
-                route_str = row[8]
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-    with open(os.path.join(settings['save path'], f'route_reward_file_{experiment}.txt'), 'w') as csvfile:
-        route_reward = route_reward.replace(',','.')
-        csvfile.write('route_reward: ' + route_reward)
-
-    chose_subgroups = ast.literal_eval(route_str.replace('  ', ','))
-    bigger_idx = 0
-    table_rrcf = []
-    for target_rrcf, points_rrcf in targets_points_of_vew_rrcf.items():
-        table_rrcf.append([target_rrcf, bigger_idx, bigger_idx + points_rrcf.shape[0]])
-        bigger_idx += points_rrcf.shape[0] + 1
-    count_group = 0
-    is_group_zero = True
-    is_group_zero_zero = True
-    group_name = '0'
-    for S_idx_rrcf in chose_subgroups:
-        for information_rrcf in table_rrcf:
-            # if information_rrcf[1] <= S_idx_rrcf <= information_rrcf[2]:
-            is_first_element = True
-            for group_rrcf in S_rrcf[information_rrcf[0]]:
-                # print(f'Group size: {len(group_rrcf)}')
-                for element in group_rrcf:
-                    if element[0] == S_idx_rrcf:
-                        # print(f'Size of selected group: {len(group_rrcf)}')
-                        pt_idx_prior = element[1]
-                        pt_idx_post = element[2]
-                        pt_prior_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_prior]
-                        pt_post_coordinates = targets_points_of_vew_rrcf[information_rrcf[0]][pt_idx_post]
-                        travelled_distance += np.linalg.norm(pt_post_coordinates[:3] - pt_prior_coordinates[:3])
-                        if is_first_element:
-                            route_rrcf = np.row_stack((route_rrcf, pt_prior_coordinates, pt_post_coordinates))
-                            is_first_element = False
-                            if is_group_zero_zero:
-                                is_group_zero_zero = False
-                            else:
-                                group_name = information_rrcf[0]
-                                route_by_group[count_group] = np.row_stack((route_by_group[count_group],
-                                                                            pt_prior_coordinates,
-                                                                            pt_post_coordinates))
-                        else:
-                            route_rrcf = np.row_stack((route_rrcf, pt_post_coordinates))
-                            route_by_group[count_group] = np.row_stack(
-                                (route_by_group[count_group], pt_post_coordinates))
-        # route_by_object[information_rrcf[0]] = route_by_group[count_group]
-        if is_group_zero:
-            is_group_zero = False
-        else:
-            route_by_object[group_name] = route_by_group[count_group]
-            count_group += 1
-    print(f'{travelled_distance=}')
-    route_rrcf = np.row_stack((route_rrcf, route_rrcf[0]))
-    return route_rrcf, travelled_distance, route_by_group, route_by_object
 
 
 def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_name_gi: str):
@@ -1664,7 +1092,7 @@ def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: in
 def convex_hull(experiment: int):
     print('Starting convex hull ...')
     global settings
-    settings = load_variables()
+    load_variables()
 
     if settings['use obj'] == 1:
         with open(os.path.join(settings['obj folder'], settings['obj_file']), "rb") as file:
@@ -2765,7 +2193,6 @@ def execute_experiment() -> None:
 
 
 def load_variables():
-    settings = parse_settings_file('config.yaml')
 
     if len(sys.argv) >= 7:
         settings['points per unit'] = float(sys.argv[2])
@@ -2807,13 +2234,11 @@ def load_variables():
     settings['COPS result'] = os.path.join(save_path, COPS_result)
     settings['workspace folder'] = os.path.join(save_path, workspace_folder)
 
-    return settings
-
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
 
-    settings = load_variables()
+    load_variables()
 
     save_path = settings['save path']
 

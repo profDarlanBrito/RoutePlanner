@@ -40,6 +40,16 @@ import os
 #             zy_joint_name = list_line[1].rstrip()
 
 
+class Settings:
+    _instance = None
+
+    @classmethod
+    def get(self):
+        if self._instance is None:
+            self._instance = parse_settings_file('config.yaml')
+        return self._instance
+
+
 def parse_settings_file(filename):
 
     if not os.path.exists(filename):
