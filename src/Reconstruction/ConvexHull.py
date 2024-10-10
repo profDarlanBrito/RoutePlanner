@@ -376,10 +376,10 @@ def print_process(process):
     # Check if there were any errors
     if process.returncode != 0:
         print("Error executing script:")
-        print(stderr.decode("utf-8"))
+        print(stderr.decode("utf-8", errors="ignore"))
     else:
         print("Script executed successfully.")
-        print(stdout.decode("utf-8"))
+        print(stdout.decode("utf-8", errors="ignore"))
 
 
 def load_variables():

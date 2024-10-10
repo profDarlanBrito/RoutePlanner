@@ -100,19 +100,22 @@ def execute_experiment() -> None:
     except RuntimeError as e:
         print("An error occurred:", e)
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
 
+def main():
     load_variables()
 
-    save_path = settings['save path']
+    save_path = settings["save path"]
 
     os.makedirs(save_path, exist_ok=True)
 
     # check if file not exits
-    progress_file = os.path.join(settings['save path'], '.progress')
+    progress_file = os.path.join(settings["save path"], ".progress")
     if not os.path.isfile(progress_file):
-        with open(progress_file, 'wb') as file:
+        with open(progress_file, "wb") as file:
             pickle.dump(0, file)
 
     execute_experiment()
+
+# Press the green button in the gutter to run the script.
+if __name__ == "__main__":
+    main()

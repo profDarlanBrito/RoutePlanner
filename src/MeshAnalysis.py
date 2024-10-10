@@ -323,6 +323,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     last_dir = get_last_directories(reconstruction_path, 3)
     print(last_dir)
 
+    reconstruction_path = os.path.relpath(reconstruction_path)
     distance_file_path = back_directories(reconstruction_path, 2)
     distance_file_path = os.path.join(distance_file_path, 'distance.txt')
 

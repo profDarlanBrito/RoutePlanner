@@ -122,7 +122,7 @@ def point_cloud(experiment: int) -> None:
     for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
         # for route, count_group in zip(route_by_group, range(len(route_by_group))):
 
-        # Recosntrution COPS
+        # Reconstruction COPS
         workspace_folder = os.path.join(settings['workspace folder'],
                                         f'exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
         
@@ -152,7 +152,7 @@ def point_cloud(experiment: int) -> None:
         MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
         remove_unused_files(workspace_folder)
 
-        # Recosntrution OP
+        # Reconstruction OP
         op_workspace_folder = os.path.join(settings['workspace folder'],
                                         f'op_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
         
@@ -182,7 +182,7 @@ def point_cloud(experiment: int) -> None:
         MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
         remove_unused_files(op_workspace_folder)
 
-        # Recosntrution Spiral
+        # Reconstruction Spiral
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
                                                f'spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
 
@@ -207,7 +207,7 @@ def point_cloud(experiment: int) -> None:
         statistics_colmap(colmap_folder, spiral_workspace_folder)
         remove_unused_files(spiral_workspace_folder)
 
-        # Recosntrution Random
+        # Reconstruction Random
         random_workspace_folder = os.path.join(settings['workspace folder'],
                                                f'random_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}')
 
