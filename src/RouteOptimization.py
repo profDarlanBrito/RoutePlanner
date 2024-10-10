@@ -4,7 +4,7 @@ import pickle
 import sys
 
 import Config
-from Reconstruction.ConvexHull import convex_hull
+from Reconstruction.ConvexHull import convex_hull, load_variables
 from CoppeliaInterface import CoppeliaInterface
 from MeshAnalysis import mesh_analysis
 from Reconstruction.PointCloud import generate_poisson_mesh, point_cloud
@@ -99,31 +99,6 @@ def execute_experiment() -> None:
 
     except RuntimeError as e:
         print("An error occurred:", e)
-
-
-def load_variables():
-
-    if len(sys.argv) >= 7:
-        settings['points per unit'] = float(sys.argv[2])
-        settings['T_max'] = int(sys.argv[3])
-        settings['CA_min'] = int(sys.argv[4])
-        settings['CA_max'] = int(sys.argv[5])
-        settings['obj_file'] = sys.argv[6]
-
-    settings['save path'] = os.path.abspath(settings['save path'])
-
-    save_path = settings['save path']
-
-    path = settings['path']
-    COPS_dataset = settings['COPS dataset']
-    COPS_result = settings['COPS result']
-    workspace_folder = settings['workspace folder']
-
-    settings['path'] = os.path.join(save_path, path)
-    settings['COPS dataset'] = os.path.join(save_path, COPS_dataset)
-    settings['COPS result'] = os.path.join(save_path, COPS_result)
-    settings['workspace folder'] = os.path.join(save_path, workspace_folder)
-
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':

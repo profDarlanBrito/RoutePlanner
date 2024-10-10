@@ -2,6 +2,7 @@ import os
 import pickle
 import platform
 import subprocess
+import sys
 from random import sample
 from typing import Any
 
@@ -13,12 +14,16 @@ from scipy.spatial import ConvexHull
 
 import Config
 from CoppeliaInterface import CoppeliaInterface, initializations
-from GeometryOperations import (compute_central_hemisphere_area,
-                                draw_cylinder_with_hemisphere,
-                                euler_angles_from_normal, find_normal_vector,
-                                get_geometric_objects_cell,
-                                get_side_hemisphere_area,
-                                is_line_through_convex_hull, points_along_line)
+from GeometryOperations import (
+    compute_central_hemisphere_area,
+    draw_cylinder_with_hemisphere,
+    euler_angles_from_normal,
+    find_normal_vector,
+    get_geometric_objects_cell,
+    get_side_hemisphere_area,
+    is_line_through_convex_hull,
+    points_along_line,
+)
 from IO import write_OP_file_3d, write_problem_file_3d
 
 settings = Config.Settings.get()
@@ -36,7 +41,7 @@ number_of_line_points = 10  # The number of the points that will be used to defi
 
 
 def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[Any, ndarray]) -> ndarray:
-    print('Starting computing distance matrix')
+    print("Starting computing distance matrix")
 
     i = 0
     j = 0
@@ -50,7 +55,8 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[A
             for _, points_end_cewm in targets_points_of_view_cewm.items():
                 for pt2 in points_end_cewm:
                     edge_weight_matrix_cewm[i, j] = np.linalg.norm(pt1[:3] - pt2[:3]) + np.linalg.norm(
-                        np.deg2rad(pt1[3:]) - np.deg2rad(pt2[3:]))
+                        np.deg2rad(pt1[3:]) - np.deg2rad(pt2[3:])
+                    )
                     j += 1
             i += 1
             j = 0
@@ -84,7 +90,7 @@ def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[A
     # i -= 1
     # j -= 1
     # edge_weight_matrix_cewm = edge_weight_matrix_cewm[:i, :j]
-    print(f'size of edge matrix: {edge_weight_matrix_cewm.shape[0]} x {edge_weight_matrix_cewm.shape[0]}')
+    print(f"size of edge matrix: {edge_weight_matrix_cewm.shape[0]} x {edge_weight_matrix_cewm.shape[0]}")
     return edge_weight_matrix_cewm
 
 
@@ -376,8 +382,33 @@ def print_process(process):
         print(stdout.decode("utf-8"))
 
 
+def load_variables():
+
+    if len(sys.argv) >= 7:
+        settings["points per unit"] = float(sys.argv[2])
+        settings["T_max"] = int(sys.argv[3])
+        settings["CA_min"] = int(sys.argv[4])
+        settings["CA_max"] = int(sys.argv[5])
+        settings["obj_file"] = sys.argv[6]
+
+    settings["save path"] = os.path.abspath(settings["save path"])
+
+    save_path = settings["save path"]
+
+    path = settings["path"]
+    COPS_dataset = settings["COPS dataset"]
+    COPS_result = settings["COPS result"]
+    workspace_folder = settings["workspace folder"]
+
+    settings["path"] = os.path.join(save_path, path)
+    settings["COPS dataset"] = os.path.join(save_path, COPS_dataset)
+    settings["COPS result"] = os.path.join(save_path, COPS_result)
+    settings["workspace folder"] = os.path.join(save_path, workspace_folder)
+
+
 def convex_hull(experiment: int):
     print("Starting convex hull ...")
+    load_variables()
 
     if settings["use obj"] == 1:
         with open(os.path.join(settings["obj folder"], settings["obj_file"]), "rb") as file:
