@@ -4,11 +4,11 @@ import pickle
 import sys
 
 import Config
-from ConvexHull import convex_hull
+from Reconstruction.ConvexHull import convex_hull
 from CoppeliaInterface import CoppeliaInterface
 from MeshAnalysis import mesh_analysis
-from PointCloud import generate_poisson_mesh, point_cloud
-from ViewPoint import view_point
+from Reconstruction.PointCloud import generate_poisson_mesh, point_cloud
+from Reconstruction.ViewPoint import view_point
 
 settings = Config.Settings.get()
 

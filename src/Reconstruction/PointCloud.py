@@ -148,9 +148,9 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         images_folder = str(os.path.join(settings['path'], image_directory_name))
-        # run_colmap_program(colmap_folder, workspace_folder, images_folder)
-        # MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
-        # remove_unused_files(workspace_folder)
+        run_colmap_program(colmap_folder, workspace_folder, images_folder)
+        MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
+        remove_unused_files(workspace_folder)
 
         # Recosntrution OP
         op_workspace_folder = os.path.join(settings['workspace folder'],
@@ -178,9 +178,9 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         images_folder = str(os.path.join(settings['path'], op_image_directory_name))
-        # run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
-        # MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
-        # remove_unused_files(op_workspace_folder)
+        run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
+        MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
+        remove_unused_files(op_workspace_folder)
 
         # Recosntrution Spiral
         spiral_workspace_folder = os.path.join(settings['workspace folder'],
@@ -203,9 +203,9 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         spiral_images_folder = str(os.path.join(settings['path'], spiral_directory_name))
-        # run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
-        # statistics_colmap(colmap_folder, spiral_workspace_folder)
-        # remove_unused_files(spiral_workspace_folder)
+        run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
+        statistics_colmap(colmap_folder, spiral_workspace_folder)
+        remove_unused_files(spiral_workspace_folder)
 
         # Recosntrution Random
         random_workspace_folder = os.path.join(settings['workspace folder'],
