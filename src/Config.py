@@ -1,6 +1,7 @@
 # Module used to read the configuration file
-import yaml
 import os
+
+import yaml
 
 # with open('config.cfg') as f:
 #     for line in f.readlines():

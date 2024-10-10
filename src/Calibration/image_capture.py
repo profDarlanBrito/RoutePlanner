@@ -1,8 +1,10 @@
-from scipy.spatial.transform import Rotation as Rot
-from coppeliasim_zmqremoteapi_client import *
-import numpy as np
-import cv2 as cv
 import os
+
+import cv2 as cv
+import numpy as np
+from coppeliasim_zmqremoteapi_client import RemoteAPIClient
+
+from GeometryOperations import get_rotation_quat
 
 
 def generate_points(num_points, bounding_box):
@@ -50,31 +52,6 @@ def get_image(sim, sequence: int, vision_handle: int, directory_name: str):
     img = cv.flip(cv.cvtColor(img, cv.COLOR_BGR2RGB), 0)
 
     cv.imwrite(image_path, img)
-
-
-def get_rotation_quat(curr_pos, target_pos):
-    # Vetor de direção a partir da posição atual em direção ao alvo
-    look_at = np.array(target_pos) - np.array(curr_pos)
-    look_at = look_at / np.linalg.norm(look_at)  # Normalizar o vetor
-
-    # Vetor "up" (para cima) padrão
-    up = np.array([0.0, 0.0, 1.0])
-
-    # Eixo X é o produto vetorial entre 'up' e 'look_at'
-    right = np.cross(up, look_at)
-    right = right / np.linalg.norm(right)  # Normalizar o vetor
-
-    # Eixo Y é o produto vetorial entre 'look_at' e 'right'
-    new_up = np.cross(look_at, right)
-
-    # Construir a matriz de rotação a partir dos novos vetores de base
-    rotation_matrix = np.array([right, new_up, look_at]).T
-
-    # Converter a matriz de rotação para um quaternion
-    rotation = Rot.from_matrix(rotation_matrix)
-
-    # Retornar o quaternion no formato [x, y, z, w]
-    return rotation.as_quat()
 
 
 num_images = 50

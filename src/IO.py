@@ -1,14 +1,15 @@
 import ast
 import csv
-from numpy import ndarray
-import shutil
 import os
-import config
 import pickle
+import shutil
 
-from util import *
+import numpy as np
+from numpy import ndarray
 
-settings = config.Settings.get()
+import Config
+
+settings = Config.Settings.get()
 
 fieldnames = [
     "NAME: ",
@@ -25,6 +26,12 @@ fieldnames = [
     "GTSP_SUBGROUP_SECTION: ",
     "GTSP_CLUSTER_SECTION: ",
 ]
+
+
+def ConvertArray2String(fileCA2S, array: ndarray):
+    np.set_printoptions(threshold=10000000000)
+    np.savetxt(fileCA2S, array, fmt="%.3f", delimiter=" ")
+    return fileCA2S
 
 
 def copy_file(source_path, destination_path):

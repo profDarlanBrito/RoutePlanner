@@ -1,12 +1,13 @@
-from Colmap.pipeline import *
-import config
-
-from numpy import ndarray
 import os
 import platform
-import numpy as np
 
-settings = config.Settings.get()
+import numpy as np
+from numpy import ndarray
+
+import Config
+from Colmap.pipeline import *
+
+settings = Config.Settings.get()
 
 
 def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder: str) -> None:

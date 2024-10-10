@@ -1,18 +1,19 @@
-import datetime
-from Coppelia.CoppeliaInterface import CoppeliaInterface
-from typing import Any
-from numpy import ndarray, dtype, bool_
-import numpy as np
-import cv2 as cv
 import ast
 import csv
-import config
-import pickle
+import datetime
 import os
+import pickle
+from typing import Any
 
-from MathUtil.GeometryOperations import euler_angles_from_normal, get_rotation_quat
+import cv2 as cv
+import numpy as np
+from numpy import bool_, dtype, ndarray
 
-settings = config.Settings.get()
+import Config
+from CoppeliaInterface import CoppeliaInterface
+from GeometryOperations import euler_angles_from_normal, get_rotation_quat
+
+settings = Config.Settings.get()
 
 
 def get_result_cops_route(result_cops_path: str, points_by_id: dict):

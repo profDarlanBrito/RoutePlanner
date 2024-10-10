@@ -4,22 +4,24 @@
 # More instructions can be read in the link
 # https://github.com/CoppeliaRobotics/zmqRemoteApi/tree/master/clients/python
 
-from coppeliasim_zmqremoteapi_client import *
+import csv
 from typing import Any
-from numpy import ndarray, dtype, floating, float_
-from numpy._typing import _64Bit
-from scipy.spatial import Delaunay
+
 import cv2 as cv
 import numpy as np
-import csv
-import config
+from coppeliasim_zmqremoteapi_client import RemoteAPIClient
+from numpy import dtype, float_, floating, ndarray
+from numpy._typing import _64Bit
+from scipy.spatial import Delaunay
 
+import Config
 
-settings = config.Settings.get()
+settings = Config.Settings.get()
 
-from config import parse_settings_file
-from MathUtil.GeometryOperations import centroid_poly
 import os.path
+
+from Config import parse_settings_file
+from GeometryOperations import centroid_poly
 
 
 def initializations(

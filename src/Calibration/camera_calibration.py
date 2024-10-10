@@ -1,6 +1,7 @@
+import glob
+
 import cv2
 import numpy as np
-import glob
 
 # Define o número de quadrados internos no alvo de calibração (tabuleiro de xadrez)
 nx = 9  # Número de quadrados na horizontal (7 linhas de cantos)

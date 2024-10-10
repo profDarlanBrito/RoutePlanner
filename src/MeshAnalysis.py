@@ -1,25 +1,27 @@
 import csv
-from MathUtil.GeometryOperations import horn
-import config
 import os
 import pickle
+from multiprocessing import Pool
+
 import numpy as np
 import open3d as o3d
-from scipy.spatial.transform import Rotation as Rot
-from multiprocessing import Pool
 from numpy import ndarray
+from scipy.spatial.transform import Rotation as Rot
 
+import Config
+from GeometryOperations import horn
 
-settings = config.Settings.get()
+settings = Config.Settings.get()
+
 
 def read_camera_pos_files(file_path: str, ref_file_path: str) -> dict:
     """Read the camera position files and return a dictionary with the camera positions"""
 
-    # Ler o arquivo e extrair apenas os centros das câmeras
+    # Read the file and extract only the camera centers
     camera_centers = {}
 
     with open(file_path, "r") as f:
-        # Ignorar as primeiras quatro linhas
+        # Skip the first four lines
         for _ in range(4):
             f.readline()
 
@@ -30,16 +32,16 @@ def read_camera_pos_files(file_path: str, ref_file_path: str) -> dict:
             qw, qx, qy, qz = map(float, line_split[1:5])
             tx, ty, tz = map(float, line_split[5:8])
 
-            # Converter quaternion para matriz de rotação
+            # Convert quaternion to rotation matrix
             rotation = Rot.from_quat([qx, qy, qz, qw])
             R = rotation.as_matrix()
 
-            # Calcular o centro da câmera
+            # Calculate the camera center
             t = np.array([tx, ty, tz])
             camera_center = -R.T @ t
             camera_centers[image_name] = [camera_center]
 
-            # Ler a linha vazia e a próxima linha com dados
+            # Read the empty line and the next data line
             f.readline()
             line = f.readline()
 
@@ -188,7 +190,6 @@ def metrics(source_points: ndarray, target_points: ndarray) -> dict:
         "mae": mae,
         "rmse": rmse
     }
-
 
 
 def calculate_metrics_distance(source_pcd, target_pcd):

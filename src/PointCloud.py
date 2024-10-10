@@ -1,14 +1,15 @@
-import platform
-import shutil
-import config
 import os
 import pickle
+import platform
+import shutil
+
 import numpy as np
 
+import Config
 from Colmap.colmap import run_colmap_program, statistics_colmap
 from Colmap.pipeline import generate_mesh_poisson
 
-settings = config.Settings.get()
+settings = Config.Settings.get()
 
 def generate_poisson_mesh() -> None:
     if platform.system() == 'Windows':

@@ -1,23 +1,16 @@
-from scipy.spatial.transform import Rotation
-from numpy import ndarray
-from sympy import symbols, Eq, solve
-from sympy.geometry import Circle, Point3D, Plane
-from sympy.matrices import Matrix
-from sympy.solvers.solveset import linsolve
-from scipy.spatial.transform import Rotation as Rot
-from spherical_geometry.polygon import SphericalPolygon
+import math
 from typing import Any
-from numpy import ndarray, dtype, floating
-from scipy.spatial import ConvexHull, Delaunay
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
-import math
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f"Hi, {name}")  # Press Ctrl+F8 to toggle the breakpoint.
+from numpy import dtype, floating, ndarray
+from scipy.spatial import ConvexHull, Delaunay
+from scipy.spatial.transform import Rotation
+from scipy.spatial.transform import Rotation as Rot
+from spherical_geometry.polygon import SphericalPolygon
+from sympy import Eq, solve, symbols
+from sympy.geometry import Plane, Point3D
 
 
 def plot_circle(radius: float, resolution: int, ax=None):

@@ -1,32 +1,27 @@
-from Coppelia.CoppeliaInterface import CoppeliaInterface
-from scipy.spatial import ConvexHull
-from typing import Any
-from numpy._typing import _64Bit
-from numpy import ndarray, dtype, floating, float_
-from random import sample
-import pyvista as pv
-import numpy as np
+import os
+import pickle
 import platform
 import subprocess
-import config
-import pickle
-import os
+from random import sample
+from typing import Any
 
+import numpy as np
+import pyvista as pv
+from numpy import dtype, float_, floating, ndarray
+from numpy._typing import _64Bit
+from scipy.spatial import ConvexHull
 
-from IO.io import write_OP_file_3d, write_problem_file_3d
-from Coppelia.CoppeliaInterface import initializations
-from MathUtil.GeometryOperations import (
-    draw_cylinder_with_hemisphere,
-    get_geometric_objects_cell,
-    find_normal_vector,
-    euler_angles_from_normal,
-    compute_central_hemisphere_area,
-    get_side_hemisphere_area,
-    points_along_line,
-    is_line_through_convex_hull,
-)
+import Config
+from CoppeliaInterface import CoppeliaInterface, initializations
+from GeometryOperations import (compute_central_hemisphere_area,
+                                draw_cylinder_with_hemisphere,
+                                euler_angles_from_normal, find_normal_vector,
+                                get_geometric_objects_cell,
+                                get_side_hemisphere_area,
+                                is_line_through_convex_hull, points_along_line)
+from IO import write_OP_file_3d, write_problem_file_3d
 
-settings = config.Settings.get()
+settings = Config.Settings.get()
 height_proportion = float(settings["height proportion"])
 n_resolution = int(settings["n resolution"])
 max_route_radius = float(settings["max route radius"])
