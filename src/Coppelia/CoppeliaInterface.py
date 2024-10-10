@@ -4,50 +4,113 @@
 # More instructions can be read in the link
 # https://github.com/CoppeliaRobotics/zmqRemoteApi/tree/master/clients/python
 
+from coppeliasim_zmqremoteapi_client import *
+from typing import Any
+from numpy import ndarray, dtype, floating, float_
+from numpy._typing import _64Bit
+from scipy.spatial import Delaunay
 import cv2 as cv
 import numpy as np
-from coppeliasim_zmqremoteapi_client import *
 import csv
 import config
+
+
+settings = config.Settings.get()
+
 from config import parse_settings_file
+from MathUtil.GeometryOperations import centroid_poly
 import os.path
+
+
+def initializations(
+    copp_i,
+) -> tuple[
+    dict[Any, ndarray[Any, dtype[floating[_64Bit] | float_]] | ndarray[Any, dtype[Any]]],
+    dict[Any, Delaunay],
+    dict[Any, tuple[ndarray[Any, dtype[Any]], float]],
+    dict[Any, tuple[ndarray[Any, dtype[Any]], float]],
+]:
+    """
+    Function to get the points from CoppeliaSim. The points of each object cannot be at the same plane, at least one
+    must be a different plane. On CoppeliaSim you must add discs around the object to form a convex hull these points
+    must call Disc[0], Disc[1], ... , Disc[n]. These points must be son of a plane named O[0], O[1], ... , O[n]. These
+    objects in CoppeliaSim scene must have the property Object is model on window Scene Object Properties checked. To
+    access these properties, you can only double-click on an object.
+    :return positions: Dictionary with all positions of the viewpoints in each target object
+    :return target_hull_i: Dictionary with the convex hull computed by Delaunay for each target object
+    :return centroid_points_i: Dictionary with the centroid of the convex hull for each target object
+    :return radius_i: Dictionary with the radius of the convex hull
+    """
+    positions = {}
+    j = 0
+    targets_hull_i = {}
+    centroid_points_i = {}
+    radius_i = {}
+    for object_name_i in settings["object names"]:
+        copp_i.handles[object_name_i] = copp_i.sim.getObject(f"./{object_name_i}")
+        if copp_i.handles[object_name_i] < 0:
+            break
+        positions[object_name_i] = np.empty([0, 3])
+        i = 0
+        # Read the points of objects.
+        # The object in CoppeliaSim must have primitive forms, discs with positions of external points.
+        # Disc names must be Disc[0], Disc[1], ..., Disc[n]
+        while True:
+            points_names = f"./{object_name_i}/Disc"
+            handle = copp_i.sim.getObject(points_names, {"index": i, "noError": True})
+            if handle < 0:
+                break
+            positions[object_name_i] = np.row_stack(
+                (positions[object_name_i], copp_i.sim.getObjectPosition(handle, copp_i.sim.handle_world))
+            )
+            i += 1
+
+        targets_hull_i[object_name_i] = Delaunay(
+            positions[object_name_i]
+        )  # Compute the convex hull of the target objects
+        centroid_points_i[object_name_i], radius_i[object_name_i] = centroid_poly(
+            positions[object_name_i]
+        )  # Compute the centroid of objects
+        j = j + 1
+
+    return positions, targets_hull_i, centroid_points_i, radius_i
 
 
 class CoppeliaInterface:
     """
-        Class used to make the interface between the CoppeliaSim and the program on Python.
+    Class used to make the interface between the CoppeliaSim and the program on Python.
 
-        Attributes
-        __________
-            quadcopter_handle: Handle to an object used to control the quadcopter.
-            The name of the object is in the config.cfg file.
-            quadcopter_pos: Array with the 3D position of the green ball used to control the quadcopter.
-            vision_handle: Handle to an object used to control the vision sensor and get the images.
-            The name of the object is in the config.cfg file.
-            xy_joint_handle: Handle to an object used to control the joint that moves the calibration target.
-            The name of the object is in the config.cfg file.
-            xy_joint_handle: Handle to an object used to control the joint that moves the calibration target.
-            The name of the object is in the config.cfg file.
-            client: The client used com communicate with the ZMQ interface.
-            sim: The object used to communicate with the CoppeliaSim scene.
+    Attributes
+    __________
+        quadcopter_handle: Handle to an object used to control the quadcopter.
+        The name of the object is in the config.cfg file.
+        quadcopter_pos: Array with the 3D position of the green ball used to control the quadcopter.
+        vision_handle: Handle to an object used to control the vision sensor and get the images.
+        The name of the object is in the config.cfg file.
+        xy_joint_handle: Handle to an object used to control the joint that moves the calibration target.
+        The name of the object is in the config.cfg file.
+        xy_joint_handle: Handle to an object used to control the joint that moves the calibration target.
+        The name of the object is in the config.cfg file.
+        client: The client used com communicate with the ZMQ interface.
+        sim: The object used to communicate with the CoppeliaSim scene.
 
-        Methods
-        _______
-            __init__(): Initialize the class variables.
-            quadcopter_control(self, pos: list): move the quadcopter to the position pos
-            get_image(self, sequence: list): Get the image form vision sensor on CoppeliaSim and saves the image on
-            hard drive.
-            init_control(self, quadcopter_name: str, quadcopter_vision_name: str = None): Initialize the variables used
-            in quadcopter control
-            __del__(): Class destructor
+    Methods
+    _______
+        __init__(): Initialize the class variables.
+        quadcopter_control(self, pos: list): move the quadcopter to the position pos
+        get_image(self, sequence: list): Get the image form vision sensor on CoppeliaSim and saves the image on
+        hard drive.
+        init_control(self, quadcopter_name: str, quadcopter_vision_name: str = None): Initialize the variables used
+        in quadcopter control
+        __del__(): Class destructor
     """
 
     def __init__(self, settings_in: dict = None):
         """
-            Initialize the class variables.
+        Initialize the class variables.
         """
         if settings_in is None:
-            self.settings = parse_settings_file('config.yaml')
+            self.settings = parse_settings_file("config.yaml")
         else:
             self.settings = settings_in
         self.quadcopter_handle = None
@@ -56,7 +119,7 @@ class CoppeliaInterface:
         self.xy_joint_handle = None
         self.zy_joint_handle = None
         self.client = RemoteAPIClient()
-        self.sim = self.client.getObject('sim')
+        self.sim = self.client.getObject("sim")
         if self.sim.getSimulationState() != self.sim.simulation_stopped:
             self.sim.stopSimulation()
         while self.sim.getSimulationState() != self.sim.simulation_stopped:
@@ -78,17 +141,14 @@ class CoppeliaInterface:
         :return: A boolean indicating if the quadcopter reach the target position.
         """
         self.sim.setObjectPosition(quad_target_handle, self.sim.handle_world, pos)
-        self.sim.setObjectOrientation(quad_target_handle, self.sim.handle_world,
-                                      orientation)
-        t_stab = self.sim.getSimulationTime() + self.settings['time to stabilize']
+        self.sim.setObjectOrientation(quad_target_handle, self.sim.handle_world, orientation)
+        t_stab = self.sim.getSimulationTime() + self.settings["time to stabilize"]
         tmp_diff_pos = 50
         tmp_diff_ori = 100
         stabilized = False
         while self.sim.getSimulationTime() < t_stab:
-            diff_pos = np.subtract(pos,
-                                   self.sim.getObjectPosition(quad_base_handle, self.sim.handle_world))
-            diff_ori = np.subtract(orientation,
-                                   self.sim.getObjectOrientation(quad_base_handle, self.sim.handle_world))
+            diff_pos = np.subtract(pos, self.sim.getObjectPosition(quad_base_handle, self.sim.handle_world))
+            diff_ori = np.subtract(orientation, self.sim.getObjectOrientation(quad_base_handle, self.sim.handle_world))
             norm_diff_pos = np.linalg.norm(diff_pos)
             norm_diff_ori = np.linalg.norm(diff_ori)
             if abs(norm_diff_pos - tmp_diff_pos) < 0.0001 and abs(norm_diff_ori - tmp_diff_ori) < 0.001:
@@ -98,7 +158,7 @@ class CoppeliaInterface:
             tmp_diff_ori = norm_diff_ori
             self.client.step()
         if not stabilized:
-            print('Time to stabilize the quadcopter position and orientation with given precision was short.')
+            print("Time to stabilize the quadcopter position and orientation with given precision was short.")
 
     def get_image(self, sequence: list, file_name: str, vision_handle: int):
         """
@@ -113,8 +173,8 @@ class CoppeliaInterface:
         img = np.frombuffer(img, dtype=np.uint8).reshape(resolution[1], resolution[0], 3)
         img = cv.rotate(img, cv.ROTATE_180)
         for c in sequence:
-            filename = file_name + str(c) + '.' + self.settings['extension']
-            cv.imwrite(self.settings['path'] + filename, img)
+            filename = file_name + str(c) + "." + self.settings["extension"]
+            cv.imwrite(self.settings["path"] + filename, img)
 
     def init_control(self, handle_names: list):
         """
@@ -126,10 +186,9 @@ class CoppeliaInterface:
             if handle_name not in self.handles:
                 self.handles[handle_name] = self.sim.getObject(handle_name)
 
-    def save_reconstruction_images(self,
-                                   reconstruction_file_name: str,
-                                   position_file_name: str,
-                                   vision_sensor_name: str):
+    def save_reconstruction_images(
+        self, reconstruction_file_name: str, position_file_name: str, vision_sensor_name: str
+    ):
         """
         Method used to save reconstruction images
         :param reconstruction_file_name:
@@ -137,12 +196,13 @@ class CoppeliaInterface:
         :return:
         """
         self.init_control(
-            [self.settings['quadcopter name'], self.settings['vision sensor name'], self.settings['quadcopter base']])
+            [self.settings["quadcopter name"], self.settings["vision sensor name"], self.settings["quadcopter base"]]
+        )
         count_image = 0
         position = []
         orientation = []
         if os.path.isfile(position_file_name):
-            with open(position_file_name, 'r') as file:
+            with open(position_file_name, "r") as file:
                 csvreader = csv.reader(file)
                 cont_row = 0
                 for row in csvreader:
@@ -155,18 +215,20 @@ class CoppeliaInterface:
                         orientation_angles = row[3:]
                     cont_row += 1
         else:
-            print('Position csv file not found. Adjust the config.yaml file.')
+            print("Position csv file not found. Adjust the config.yaml file.")
             quit(-1)
         t = self.sim.getSimulationTime()
         for pos, orient in zip(position, orientation):
             for i in range(1, 5):
                 self.client.step()
 
-            self.quadcopter_control(pos,
-                                    orient,
-                                    self.handles[self.settings['quadcopter name']],
-                                    self.handles[self.settings['quadcopter base']])
-            self.get_image([count_image], reconstruction_file_name, self.handles[self.settings['vision sensor name']])
+            self.quadcopter_control(
+                pos,
+                orient,
+                self.handles[self.settings["quadcopter name"]],
+                self.handles[self.settings["quadcopter base"]],
+            )
+            self.get_image([count_image], reconstruction_file_name, self.handles[self.settings["vision sensor name"]])
             count_image += 1
         print("Adjust the sequence to the maximum of {} images".format(str(count_image)))
 
@@ -178,12 +240,13 @@ class CoppeliaInterface:
         :return:
         """
         self.init_control(
-            [self.settings['quadcopter name'], self.settings['vision sensor name'], self.settings['quadcopter base']])
+            [self.settings["quadcopter name"], self.settings["vision sensor name"], self.settings["quadcopter base"]]
+        )
         count_image = 0
         position = []
         orientation = []
         if os.path.isfile(position_file_name):
-            with open(position_file_name, 'r') as file:
+            with open(position_file_name, "r") as file:
                 csvreader = csv.reader(file)
                 cont_row = 0
                 for row in csvreader:
@@ -196,25 +259,24 @@ class CoppeliaInterface:
                         orientation_angles = row[3:]
                     cont_row += 1
         else:
-            print('Position csv file not found. Adjust the config.yaml file.')
+            print("Position csv file not found. Adjust the config.yaml file.")
             quit(-1)
         t = self.sim.getSimulationTime()
         for pos, orient in zip(position, orientation):
             for i in range(1, 5):
                 self.client.step()
 
-            self.quadcopter_control(pos,
-                                    orient,
-                                    self.handles[self.settings['quadcopter name']],
-                                    self.handles[self.settings['quadcopter base']])
-            self.get_image([count_image], file_name, self.handles[self.settings['vision sensor name']])
+            self.quadcopter_control(
+                pos,
+                orient,
+                self.handles[self.settings["quadcopter name"]],
+                self.handles[self.settings["quadcopter base"]],
+            )
+            self.get_image([count_image], file_name, self.handles[self.settings["vision sensor name"]])
             count_image += 1
         print("Adjust the sequence to the maximum of {} images".format(str(count_image)))
 
-    def save_calibration_images(self,
-                                file_name: str,
-                                position_file_name: str,
-                                joint_positons_file: str):
+    def save_calibration_images(self, file_name: str, position_file_name: str, joint_positons_file: str):
         """
         Method used to save reconstruction images
         :param file_name:
@@ -222,18 +284,21 @@ class CoppeliaInterface:
         :return:
         """
         self.init_control(
-            [self.settings['quadcopter name'],
-             self.settings['vision sensor name'],
-             self.settings['quadcopter base'],
-             self.settings['target joint xy'],
-             self.settings['target joint zy']])
+            [
+                self.settings["quadcopter name"],
+                self.settings["vision sensor name"],
+                self.settings["quadcopter base"],
+                self.settings["target joint xy"],
+                self.settings["target joint zy"],
+            ]
+        )
         count_image = 0
         position = []
         orientation = []
         positionxy = []
         positionzy = []
         if os.path.isfile(position_file_name):
-            with open(position_file_name, 'r') as file:
+            with open(position_file_name, "r") as file:
                 csvreader = csv.reader(file)
                 cont_row = 0
                 for row in csvreader:
@@ -246,10 +311,10 @@ class CoppeliaInterface:
                         orientation_angles = row[3:]
                     cont_row += 1
         else:
-            print('Positions to quadcopter csv file not found. Adjust the config.yaml file.')
+            print("Positions to quadcopter csv file not found. Adjust the config.yaml file.")
             quit(-1)
         if os.path.isfile(joint_positons_file):
-            with open(joint_positons_file, 'r') as file:
+            with open(joint_positons_file, "r") as file:
                 csvreader = csv.reader(file)
                 cont_row = 0
                 for row in csvreader:
@@ -261,23 +326,27 @@ class CoppeliaInterface:
                         angle_name = row
                     cont_row += 1
         else:
-            print('Position csv file not found. Adjust the config.yaml file.')
+            print("Position csv file not found. Adjust the config.yaml file.")
             quit(-1)
         count_joint_positions = 0
         for pos, orient in zip(position, orientation):
             for i in range(1, 5):
                 self.client.step()
             if count_joint_positions < len(positionxy):
-                self.sim.setJointTargetPosition(self.handles[self.settings['target joint xy']],
-                                                positionxy[count_joint_positions])
-                self.sim.setJointTargetPosition(self.handles[self.settings['target joint zy']],
-                                                positionzy[count_joint_positions])
+                self.sim.setJointTargetPosition(
+                    self.handles[self.settings["target joint xy"]], positionxy[count_joint_positions]
+                )
+                self.sim.setJointTargetPosition(
+                    self.handles[self.settings["target joint zy"]], positionzy[count_joint_positions]
+                )
             count_joint_positions += 1
-            self.quadcopter_control(pos,
-                                    orient,
-                                    self.handles[self.settings['quadcopter name']],
-                                    self.handles[self.settings['quadcopter base']])
-            self.get_image([count_image], file_name, self.handles[self.settings['vision sensor name']])
+            self.quadcopter_control(
+                pos,
+                orient,
+                self.handles[self.settings["quadcopter name"]],
+                self.handles[self.settings["quadcopter base"]],
+            )
+            self.get_image([count_image], file_name, self.handles[self.settings["vision sensor name"]])
             count_image += 1
         print("Adjust the sequence to the maximum of {} images".format(str(count_image)))
 
@@ -286,12 +355,12 @@ class CoppeliaInterface:
         The method used initialize the control and get the images from vision sensor. The simulation time is configured on config.cfg.
         :return:
         """
-        self.init_control([self.settings['quadcopter name'], self.settings['vision sensor names']])
+        self.init_control([self.settings["quadcopter name"], self.settings["vision sensor names"]])
         count_image = 0
         position = []
         orientation = []
-        if os.path.isfile(self.settings['positions file name']):
-            with open(self.settings['positions file name'], 'r') as file:
+        if os.path.isfile(self.settings["positions file name"]):
+            with open(self.settings["positions file name"], "r") as file:
                 csvreader = csv.reader(file)
                 cont_row = 0
                 for row in csvreader:
@@ -304,14 +373,14 @@ class CoppeliaInterface:
                         orientation_angles = row[3:]
                     cont_row += 1
         else:
-            print('Position csv file not found. Adjust the config.yaml file.')
+            print("Position csv file not found. Adjust the config.yaml file.")
             quit(-1)
         t = self.sim.getSimulationTime()
         total_time = t
         for pos, orient in zip(position, orientation):
             for i in range(1, 5):
                 self.client.step()
-            self.get_image([count_image], 'reconstruct_', self.handles[self.settings['vision sensor names']])
+            self.get_image([count_image], "reconstruct_", self.handles[self.settings["vision sensor names"]])
             # self.sim.setJointTargetVelocity(self.xy_joint_handle, 0.03)
             # self.sim.setJointTargetVelocity(self.zy_joint_handle, 0.03)
             count_image = count_image + 1
@@ -322,22 +391,23 @@ class CoppeliaInterface:
             diff_or = diff_or
             for i in range(0, 1):
                 tmp_pos = self.quadcopter_pos + diff_pos
-                print('Increment')
+                print("Increment")
                 tmp_ori = self.quadcopter_orientation + diff_or
                 print(tmp_ori)
                 self.quadcopter_control(tmp_pos, tmp_ori)
-            self.get_image([count_image], 'reconstruct_')
+            self.get_image([count_image], "reconstruct_")
         print("Adjust the sequence to the maximum of {} images".format(str(count_image)))
         t = self.sim.getSimulationTime()
         while True:
-            while (not self.sim.getSimulationTime() > t + self.settings[
-                'time to stabilize'] or  # config.time_to_stabilize or
-                   self.sim.getSimulationTime() > t + self.settings[
-                       'total simulation time']):  # config.total_simulation_time):
+            while (
+                not self.sim.getSimulationTime() > t + self.settings["time to stabilize"]  # config.time_to_stabilize or
+                or self.sim.getSimulationTime() > t + self.settings["total simulation time"]
+            ):  # config.total_simulation_time):
                 self.client.step()
-            if self.sim.getSimulationTime() > total_time + self.settings[
-                'total simulation time']:  # config.total_simulation_time:
-                print('Time to stabilize is short')
+            if (
+                self.sim.getSimulationTime() > total_time + self.settings["total simulation time"]
+            ):  # config.total_simulation_time:
+                print("Time to stabilize is short")
                 break
             t = self.sim.getSimulationTime()
 
@@ -350,11 +420,11 @@ class CoppeliaInterface:
         cv.destroyAllWindows()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     copp = CoppeliaInterface()
-    position_file_name = 'positions.csv' #input('Enter the name to the file with positions: ')
-    images_file_name = 'reconstruct' #input('Enter the name to the file to save images: ')
-    joint_positions_file = 'positions_joints.csv' #input('Enter the name of the joint positions file: ')
+    position_file_name = "positions.csv"  # input('Enter the name to the file with positions: ')
+    images_file_name = "reconstruct"  # input('Enter the name to the file to save images: ')
+    joint_positions_file = "positions_joints.csv"  # input('Enter the name of the joint positions file: ')
     copp.main()
     # copp.save_calibration_images(images_file_name,
     #                              position_file_name,

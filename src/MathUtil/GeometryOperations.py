@@ -1,15 +1,18 @@
 from scipy.spatial.transform import Rotation
 from numpy import ndarray
-import matplotlib.pyplot as plt
-import numpy as np
-import pyvista as pv
 from sympy import symbols, Eq, solve
 from sympy.geometry import Circle, Point3D, Plane
 from sympy.matrices import Matrix
 from sympy.solvers.solveset import linsolve
-from scipy.spatial.transform import Rotation as R
-import math
+from scipy.spatial.transform import Rotation as Rot
 from spherical_geometry.polygon import SphericalPolygon
+from typing import Any
+from numpy import ndarray, dtype, floating
+from scipy.spatial import ConvexHull, Delaunay
+import matplotlib.pyplot as plt
+import numpy as np
+import pyvista as pv
+import math
 
 
 def print_hi(name):
@@ -1067,6 +1070,234 @@ def intersect_plane_sphere(plane_normal, plane_point, sphere_center, sphere_radi
         intersection_points.append(sphere_center - intersection_distance * plane_normal)
 
     return intersection_points
+
+
+def centroid_poly(poly: np.ndarray) -> tuple[ndarray[Any, dtype[floating[Any]]], float]:
+    """
+    Compute the centroid point for a Delaunay convex hull
+    :param poly: Delaunay convex hull
+    :return tmp_center: Geometric center position of the target object
+    """
+    T = Delaunay(poly).simplices
+    n = T.shape[0]
+    W = np.zeros(n)
+    C = np.zeros(3)
+
+    for m in range(n):
+        sp = poly[T[m, :], :]
+        sp += np.random.normal(0, 1e-10, sp.shape)
+        W[m] = ConvexHull(sp).volume
+        C += W[m] * np.mean(sp, axis=0)
+
+    tmp_center = C / np.sum(W)
+    max_distance = 0.0
+    for m in range(n):
+        sp = poly[T[m, :], :2]
+        for spl in sp:
+            distance = np.linalg.norm(spl - tmp_center[:2])
+            if distance > max_distance:
+                max_distance = distance
+
+    return tmp_center, max_distance
+
+
+def euler_angles_from_normal(normal_vector):
+    """
+    Computes Euler angles (in degrees) based on a normal vector of direction.
+
+    Args:
+    - normal_vector: A numpy array representing the normal vector of direction.
+
+    Returns:
+    - Euler angles (in degrees) as a tuple (roll, pitch, yaw).
+    """
+    # Normalize the normal vector
+    normal_vector = normal_vector / np.linalg.norm(normal_vector)
+
+    # Calculate yaw angle
+    yaw = np.arctan2(normal_vector[1], normal_vector[0]) * 180 / np.pi
+
+    # Calculate pitch angle
+    pitch = np.arcsin(-normal_vector[2]) * 180 / np.pi
+
+    # Calculate roll angle
+    roll = np.arctan2(normal_vector[2], np.sqrt(normal_vector[0] ** 2 + normal_vector[1] ** 2)) * 180 / np.pi
+
+    return yaw, pitch, roll
+
+
+def point_between_planes(point, planes: ndarray):
+    x, y, z = point
+    count_true = 0
+    for i in range(planes.shape[0]):
+        for j in range(i + 1, planes.shape[0]):
+            A1, B1, C1, D1 = planes[i]
+            A2, B2, C2, D2 = planes[j]
+            if A1 * x + B1 * y + C1 * z + D1 < 0 and A2 * x + B2 * y + C2 * z + D2 > 0:
+                count_true += 1
+            if A1 * x + B1 * y + C1 * z + D1 > 0 and A2 * x + B2 * y + C2 * z + D2 < 0:
+                count_true += 1
+    if count_true >= 2:
+        return True
+    else:
+        return False
+
+
+def get_side_hemisphere_area(count_plane_gsha: int,
+                             meshes_gsha: dict,
+                             frustum_planes: list,
+                             central_hemisphere_gsha: int,
+                             n_resolution: int) -> float:
+    tmpidxs = 49 * [[]]
+    number_of_elements = 0
+    tmpidxs[number_of_elements] = central_hemisphere_gsha
+    number_of_elements += 1
+    for count_idx in range(1, 3):
+        tmpidxs[number_of_elements] = (central_hemisphere_gsha + count_idx) % n_resolution + (
+                central_hemisphere_gsha // n_resolution) * n_resolution
+        number_of_elements += 1
+        tmpidxs[number_of_elements] = (central_hemisphere_gsha - count_idx) % n_resolution + (
+                central_hemisphere_gsha // n_resolution) * n_resolution
+        number_of_elements += 1
+    list_idx = tmpidxs.copy()
+    total_elements = number_of_elements
+    if central_hemisphere_gsha > n_resolution:
+        for l in range(total_elements):
+            list_idx[number_of_elements] = list_idx[l] - n_resolution
+            number_of_elements += 1
+    tmpidxs = list_idx.copy()
+    total_elements = number_of_elements
+    if central_hemisphere_gsha < count_plane_gsha - n_resolution:
+        for l in range(total_elements):
+            list_idx[number_of_elements] = list_idx[l] + n_resolution
+            number_of_elements += 1
+
+    list_idx = list_idx[:number_of_elements]
+    area = 0
+    for hemisphere_idx in list_idx[1:]:
+        ct_pt = np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center'])
+        is_in = False
+        intersection_points = []
+        for plane_gsha in frustum_planes:
+            distance = (abs(np.dot(plane_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_gsha[
+                3]) / np.sqrt(plane_gsha[0] ** 2 + plane_gsha[1] ** 2 + plane_gsha[2] ** 2))
+            if distance < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
+                x = (-plane_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_gsha[1] -
+                     meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_gsha[2]) / plane_gsha[0]
+                point_pi = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
+                                     meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
+                intersection_points = intersect_plane_sphere(np.array(plane_gsha[:3]),
+                                                             point_pi,
+                                                             np.array(
+                                                                 meshes_gsha['hemispheres'][hemisphere_idx]['center']),
+                                                             meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
+                is_in = True
+                break
+        alpha = 1
+        if not is_in:
+            if not point_between_planes(ct_pt, np.array(frustum_planes)):
+                area += 2 * alpha * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
+            else:
+                area += 0
+        else:
+            if point_between_planes(ct_pt, np.array(frustum_planes)):
+                area += alpha * 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] * np.linalg.norm(
+                    intersection_points[0] - intersection_points[1])
+            else:
+                area += alpha * (2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] *
+                                 np.linalg.norm(intersection_points[0] - intersection_points[1]) +
+                                 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
+    return area
+
+
+def points_along_line(start_point, end_point, num_points):
+    """
+    Returns points in a line on 3D space
+    :param start_point: Start point of the line
+    :param end_point:  End point of the line
+    :param num_points: Number of points between start and end point
+    :return points: The points in the line
+    """
+    # Generate num_points equally spaced between start_point and end_point
+    x = np.linspace(start_point[0], end_point[0], num_points)
+    y = np.linspace(start_point[1], end_point[1], num_points)
+    z = np.linspace(start_point[2], end_point[2], num_points)
+    points = np.column_stack((x, y, z))
+    return points
+
+
+def is_point_inside(point, hull):
+    """
+    Verify is a point is inside a Delaunay convex hull
+    :param point: Point to be evaluated
+    :param hull: The convex hull computed by Delaunay function of Scipy
+    :return point_in_hull: Boolean denoting if point is inside the hull True=Yes, False=No
+    """
+    # Check if the given point is within the convex hull
+    point_in_hull = hull.find_simplex(point) >= 0
+    return point_in_hull
+
+def is_line_through_convex_hull(hull, line):
+    """
+    Verify if a line pass by a Delaunay convex hull
+    :param hull: he convex hull computed by Delaunay function of Scipy
+    :param line: Points on a line
+    :return: Boolean denoting if line goes through the hull True=Yes, False=No
+    """
+    for point in line:
+        if is_point_inside(point, hull):
+            return True
+    return False
+
+
+def get_rotation_quat(curr_pos, target_pos):
+    """
+    Calculates the quaternion representing the rotation needed to align the current position 
+    to face the target position.
+
+    The function computes a "look-at" vector from the current position to the target position, 
+    then calculates the corresponding rotation matrix. The matrix is converted into a quaternion 
+    to represent the 3D rotation.
+
+    Parameters:
+    ----------
+    curr_pos : array-like
+        The current position as a 3D vector (x, y, z).
+        
+    target_pos : array-like
+        The target position as a 3D vector (x, y, z).
+        
+    Returns:
+    --------
+    quaternion : np.ndarray
+        A 4-element array representing the rotation as a quaternion [x, y, z, w].
+        
+    Notes:
+    ------
+    - The "look-at" vector is normalized to get the direction from the current position 
+      to the target.
+    - The "up" vector is assumed to be [0, 0, 1], which is aligned with the Z-axis.
+    - The right and new up vectors are calculated via cross products to form an orthogonal
+      coordinate system, which is then used to create the rotation matrix.
+    - The `Rot.from_matrix()` function from `scipy.spatial.transform` is used to convert the 
+      rotation matrix into a quaternion.
+    """
+    look_at = np.array(target_pos) - np.array(curr_pos)
+    look_at = look_at / np.linalg.norm(look_at)  
+
+    up = np.array([0.0, 0.0, 1.0])
+    
+    right = np.cross(up, look_at)
+    right = right / np.linalg.norm(right)  
+
+    new_up = np.cross(look_at, right)
+
+    rotation_matrix = np.array([right, new_up, look_at]).T
+
+    rotation = Rot.from_matrix(rotation_matrix)
+
+    return rotation.as_quat()
+
 
 
 # Press the green button in the gutter to run the script.
