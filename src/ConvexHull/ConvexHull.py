@@ -40,6 +40,59 @@ search_size = 20  # Size of the random points that will be used to search the ne
 number_of_line_points = 10  # The number of the points that will be used to define a line that will be verified if is through the convex hull
 
 
+def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[Any, ndarray]) -> ndarray:
+    print('Starting computing distance matrix')
+
+    i = 0
+    j = 0
+    total_length = 0
+    for _, points_start_cewm in targets_points_of_view_cewm.items():
+        total_length += points_start_cewm.shape[0]
+
+    edge_weight_matrix_cewm = np.zeros([total_length, total_length])
+    for _, points_start_cewm in targets_points_of_view_cewm.items():
+        for pt1 in points_start_cewm:
+            for _, points_end_cewm in targets_points_of_view_cewm.items():
+                for pt2 in points_end_cewm:
+                    edge_weight_matrix_cewm[i, j] = np.linalg.norm(pt1[:3] - pt2[:3]) + np.linalg.norm(
+                        np.deg2rad(pt1[3:]) - np.deg2rad(pt2[3:]))
+                    j += 1
+            i += 1
+            j = 0
+
+    # edge_weight_matrix_cewm = np.zeros([length_start,length_start])
+    #
+    # for target_cewm, S_cewm_start in S_cewm.items():
+    #     # if i == 0 and j == 0:
+    #     #     edge_weight_matrix_cewm = np.zeros([2 * ((len(S_cewm_start) - 1) * len(settings['object names'])) - 1,
+    #     #                                         2 * ((len(S_cewm_start) - 1) * len(settings['object names'])) - 1])
+    #     for Si_cewm_start in S_cewm_start:
+    #         j = 0
+    #         # count_target_i = 0
+    #         if Si_cewm_start[-1][6] > length_start + len(S_cewm_start) or Si_cewm_start[-1][7] > length_start + len(S_cewm_start):
+    #             print('There are something wrong')
+    #         length_end = 0
+    #         idx1 = Si_cewm_start[-1][1]  # - count_target*targets_points_of_view_cewm[target_cewm].shape[0]
+    #         conversion_table = 7000 * [[]]
+    #         for target_cewm_i, S_cewm_end in S_cewm.items():
+    #             for Si_cewm_end in S_cewm_end:
+    #                 idx2 = Si_cewm_end[0][1]  # - count_target_i*targets_points_of_view_cewm[target_cewm_i].shape[0]
+    #                 pt1 = targets_points_of_view_cewm[target_cewm][idx1]
+    #                 pt2 = targets_points_of_view_cewm[target_cewm_i][idx2]
+    #                 if i != j:
+    #                     edge_weight_matrix_cewm[Si_cewm_start[-1][6], Si_cewm_end[0][7]] = np.linalg.norm(pt1 - pt2)
+    #                 conversion_table[j] = [Si_cewm_end[0][0], j]
+    #                 j += 1
+    #             length_end += len(S_cewm_end)
+    #         i += 1
+    #     length_start += len(S_cewm_start)
+    # i -= 1
+    # j -= 1
+    # edge_weight_matrix_cewm = edge_weight_matrix_cewm[:i, :j]
+    print(f'size of edge matrix: {edge_weight_matrix_cewm.shape[0]} x {edge_weight_matrix_cewm.shape[0]}')
+    return edge_weight_matrix_cewm
+
+
 def draw_cylinders_hemispheres(centroid_points_pf: dict, radius_pf: dict, target_points_pf: dict) -> tuple[
     dict[Any, ndarray[Any, dtype[Any]] | ndarray[Any, dtype[floating[_64Bit] | float_]]],
     dict[Any, list[float] | list[Any]],

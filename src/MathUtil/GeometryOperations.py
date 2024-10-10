@@ -1299,6 +1299,46 @@ def get_rotation_quat(curr_pos, target_pos):
     return rotation.as_quat()
 
 
+def horn(P: ndarray, Q: ndarray) -> ndarray:
+    """Calculate the transformation matrix using Horn's method"""
+    if P.shape != Q.shape:
+        raise RuntimeError("Matrices P and Q must be of the same dimensionality")
+
+    # Calculate the centroids of the points
+    centroid_P = np.mean(P, axis=0)
+    centroid_Q = np.mean(Q, axis=0)
+
+    # Subtract centroids from the points
+    P_centered = P - centroid_P
+    Q_centered = Q - centroid_Q
+
+    # Compute the covariance matrix
+    H = np.dot(P_centered.T, Q_centered)
+
+    # Perform Singular Value Decomposition
+    U, S, Vt = np.linalg.svd(H)
+
+    # Compute the rotation matrix
+    R = np.dot(Vt.T, U.T)
+
+    # Ensure a proper rotation (det(R) == 1)
+    if np.linalg.det(R) < 0:
+        Vt[2, :] *= -1
+        R = np.dot(Vt.T, U.T)
+
+    # Compute the scale factor
+    scale = np.sum(S) / np.sum(P_centered ** 2)
+
+    # Compute the translation
+    t = centroid_Q - scale * np.dot(R, centroid_P)
+
+    # Create the homogeneous transformation matrix
+    T = np.identity(4)
+    T[:3, :3] = scale * R
+    T[:3, 3] = t
+
+    return T
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == "__main__":

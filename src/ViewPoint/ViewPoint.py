@@ -10,7 +10,7 @@ import config
 import pickle
 import os
 
-from MathUtil.GeometryOperations import get_rotation_quat
+from MathUtil.GeometryOperations import euler_angles_from_normal, get_rotation_quat
 
 settings = config.Settings.get()
 
@@ -165,6 +165,49 @@ def get_single_target_true_spiral_trajectory(centroid_points_gstst: ndarray, rad
     return np.array(points_gstst), np.array(directions_gstst)
 
 
+def generate_spiral_points(box_side_gsp, step):
+    x, y = 0, 0
+    points = []
+
+    directions = [(step, 0), (0, step), (-step, 0), (0, -step)]  # Right, Up, Left, Down
+    direction_index = 0
+    steps = 1
+    step_count = 0
+
+    while True:
+        dx, dy = directions[direction_index % 4]
+        x += dx
+        y += dy
+        points.append([x, y])
+        step_count += 1
+
+        if step_count == steps:
+            direction_index += 1
+            step_count = 0
+            if direction_index % 2 == 0:
+                steps += 1
+
+        if not abs(x) < box_side_gsp / 2 or not abs(y) < box_side_gsp / 2:
+            points.pop()
+            break
+
+    return points
+
+
+def get_single_target_spiral_trajectory(centroid_points_gstst: ndarray, radius_gstst: float, parts_gstst: float):
+    print('Generating spiral trajectory over one target')
+    step = radius_gstst / parts_gstst
+    points_gstst = generate_spiral_points(radius_gstst, step)
+
+    points_gstst = np.array([np.hstack((np.array(p), 0)) for p in points_gstst])
+    directions_gstst = np.zeros([1, 3])
+    for p in points_gstst[1:]:
+        directions_gstst = np.row_stack((directions_gstst, euler_angles_from_normal(-p)))
+    points_gstst = points_gstst + centroid_points_gstst
+
+    return points_gstst, directions_gstst
+
+
 def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: int) -> tuple[
     ndarray[Any, dtype[Any]], dict[Any, ndarray[Any, dtype[bool_]]], dict[Any, Any], int]:
     print('Generating spiral trajectories')
@@ -297,6 +340,89 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     with open(ref_image_path, "a") as file:
         file.write(
             f"{image_name} {position[0]} {position[1]} {position[2]} {orientarion[3]} {orientarion[0]} {orientarion[1]} {orientarion[2]}\n")
+
+
+def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_qc: dict):
+    """
+    This method is used to move the quadcopter in the CoppeliaSim scene to the position pos.
+    :param route_qc:
+    :param client:
+    :param sim:
+    :param quad_base_handle: The handle to get the quadcopter current position
+    :param quad_target_handle:  The handle to the target of the quadcopter. This handle is used to position give the
+    position that the quadcopter must be after control.
+    :return: A boolean indicating if the quadcopter reach the target position.
+    """
+    for target, position_orientation in route_qc.items():
+        for i in range(position_orientation.shape[0]):
+            cone_name = './' + target + f'/Cone'
+            handle = sim.getObject(cone_name, {'index': i, 'noError': True})
+            if handle < 0:
+                break
+            cone_pos = list(position_orientation[i, :3])
+            sim.setObjectPosition(handle, cone_pos)
+        for each_position in position_orientation:
+            pos = list(each_position[:3])
+            next_point_handle = sim.getObject('./new_target')
+            sim.setObjectPosition(next_point_handle, pos)
+            orientation = list(np.deg2rad(each_position[3:]))
+            orientation_angles = [0.0, 0.0, orientation[0]]
+            # sim.setObjectOrientation(quad_target_handle, [0.0, 0.0, orientation[0]], sim.handle_world)
+            # while sim.getSimulationTime() < t_stab:
+            #     print(sim.getObjectOrientation(quad_base_handle, sim.handle_world))
+            #     client.step()
+            #     continue
+            # orientation_angles = sim.yawPitchRollToAlphaBetaGamma(orientation[0], orientation[2], orientation[1])
+            # pos = sim.getObjectPosition(quad_base_handle, sim.handle_world)
+            # camera_handle = sim.getObject('./O[0]/Cone[19]')
+            # sim.setObjectOrientation(camera_handle, orientation_angles)
+            # sim.setObjectPosition(camera_handle, pos)
+            # client.step()
+            # sim.setObjectOrientation(quad_target_handle, sim.handle_world, orientation_angles)
+            total_time = sim.getSimulationTime() + settings['total simulation time']
+            stabilized = False
+            while sim.getSimulationTime() < total_time:
+                diff_pos = np.subtract(pos, sim.getObjectPosition(quad_base_handle, sim.handle_world))
+                norm_diff_pos = np.linalg.norm(diff_pos)
+                if norm_diff_pos > 0.5:
+                    delta_pos = 0.1 * diff_pos
+                    new_pos = list(sim.getObjectPosition(quad_base_handle, sim.handle_world) + delta_pos)
+                else:
+                    new_pos = pos
+
+                sim.setObjectPosition(quad_target_handle, new_pos)
+                diff_ori = np.subtract(orientation_angles,
+                                       sim.getObjectOrientation(quad_base_handle, sim.handle_world))
+                norm_diff_ori = np.linalg.norm(diff_ori)
+
+                if norm_diff_ori > 0.08:
+                    delta_ori = 0.3 * diff_ori
+                    new_ori = list(sim.getObjectOrientation(quad_base_handle, sim.handle_world) + delta_ori)
+                else:
+                    new_ori = orientation_angles
+                sim.setObjectOrientation(quad_target_handle, new_ori)
+                t_stab = sim.getSimulationTime() + settings['time to stabilize']
+                while sim.getSimulationTime() < t_stab:
+                    diff_pos = np.subtract(new_pos,
+                                           sim.getObjectPosition(quad_base_handle, sim.handle_world))
+                    diff_ori = np.subtract(new_ori,
+                                           sim.getObjectOrientation(quad_base_handle, sim.handle_world))
+                    norm_diff_pos = np.linalg.norm(diff_pos)
+                    norm_diff_ori = np.linalg.norm(diff_ori)
+                    if norm_diff_pos < 0.1 and norm_diff_ori < 0.05:
+                        stabilized = True
+                        break
+                    client.step()
+                diff_pos = np.subtract(pos, sim.getObjectPosition(quad_base_handle, sim.handle_world))
+                diff_ori = np.subtract(orientation_angles, sim.getObjectOrientation(quad_base_handle, sim.handle_world))
+                norm_diff_pos = np.linalg.norm(diff_pos)
+                norm_diff_ori = np.linalg.norm(diff_ori)
+                if norm_diff_pos < 0.1 and norm_diff_ori < 0.05:
+                    stabilized = True
+                    break
+                client.step()
+            if not stabilized:
+                print('Time short')
 
 
 def quadcopter_control_direct_points(sim, client, vision_handle: int,
