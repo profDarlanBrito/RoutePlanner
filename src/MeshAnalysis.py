@@ -159,13 +159,7 @@ def metrics(source_points: ndarray, target_points: ndarray) -> dict:
     rmse = 0
 
     if len(target_points) == 0 or n == 0:
-        return {
-            "source_points": n,
-            "min": min,
-            "max": max,
-            "mae": -np.inf,
-            "rmse": -np.inf
-        }
+        return {"source_points": n, "min": min, "max": max, "mae": -np.inf, "rmse": -np.inf}
 
     for point in source_points:
         dist = np.linalg.norm(target_points - point, axis=1)
@@ -178,18 +172,12 @@ def metrics(source_points: ndarray, target_points: ndarray) -> dict:
             max = curr_min
 
         mae += curr_min
-        rmse += curr_min ** 2
+        rmse += curr_min**2
 
     mae /= n
     rmse = np.sqrt(rmse / n)
 
-    return {
-        "source_points": n,
-        "min": min,
-        "max": max,
-        "mae": mae,
-        "rmse": rmse
-    }
+    return {"source_points": n, "min": min, "max": max, "mae": mae, "rmse": rmse}
 
 
 def calculate_metrics_distance(source_pcd, target_pcd):
@@ -211,7 +199,7 @@ def get_last_directories(path, count):
     """Return the last directories of a path"""
     path_parts = path.split(os.sep)
 
-    if path_parts[-1] == '':
+    if path_parts[-1] == "":
         path_parts.pop()
 
     last_three_dirs = os.path.join(*path_parts[-count:])
@@ -223,15 +211,15 @@ def back_directories(path, count):
     """Navigate back through the last directories of a path"""
     path_parts = path.split(os.sep)
 
-    if path_parts[-1] == '':
+    if path_parts[-1] == "":
         path_parts.pop()
 
     n = len(path_parts)
 
-    if path_parts[0] == '':
+    if path_parts[0] == "":
         path_parts[0] = os.sep
 
-    last_three_dirs = os.path.join(*path_parts[:n - count])
+    last_three_dirs = os.path.join(*path_parts[: n - count])
 
     return last_three_dirs
 
@@ -240,18 +228,18 @@ def get_experiment_number(reconstruction_path: str):
     path = back_directories(reconstruction_path, 2)
     path = get_last_directories(path, 1)
 
-    split_name = path.split('_')
+    split_name = path.split("_")
 
-    if split_name[0] == 'spiral':
+    if split_name[0] == "spiral":
         return split_name[2]
-    
+
     return split_name[1]
 
 
 def save_to_csv(data, filename):
     """Save the data to a CSV file"""
     keys = data[0].keys()
-    with open(filename, 'w', newline='') as output_file:
+    with open(filename, "w", newline="") as output_file:
         dict_writer = csv.DictWriter(output_file, fieldnames=keys)
         dict_writer.writeheader()
 
@@ -315,8 +303,8 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     new_mesh_path = os.path.dirname(mesh_plt_path)
 
-    o3d.io.write_point_cloud(os.path.join(new_mesh_path, 'point-cloud-crop.ply'), target_pcd)
-    o3d.io.write_triangle_mesh(os.path.join(new_mesh_path, 'meshed-poisson-crop.ply'), cropped_mesh)
+    o3d.io.write_point_cloud(os.path.join(new_mesh_path, "point-cloud-crop.ply"), target_pcd)
+    o3d.io.write_triangle_mesh(os.path.join(new_mesh_path, "meshed-poisson-crop.ply"), cropped_mesh)
 
     print("Start calculate hausdorff_distance")
     metrics_dist = calculate_metrics_distance(source_pcd, target_pcd)
@@ -325,35 +313,35 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     reconstruction_path = os.path.relpath(reconstruction_path)
     distance_file_path = back_directories(reconstruction_path, 2)
-    distance_file_path = os.path.join(distance_file_path, 'distance.txt')
+    distance_file_path = os.path.join(distance_file_path, "distance.txt")
 
-    with open(distance_file_path, 'r') as file:
+    with open(distance_file_path, "r") as file:
         dist = float(file.readline().strip())
 
     experiment = get_experiment_number(reconstruction_path)
 
-    if last_dir.startswith('spiral') or last_dir.startswith('op') or last_dir.startswith('random'):
-        route_reward = 'none'
+    if last_dir.startswith("spiral") or last_dir.startswith("op") or last_dir.startswith("random"):
+        route_reward = "none"
 
     else:
         results_cops_file = f"{settings['COPS problem']}{experiment}.csv"
-        with open(os.path.join(settings['COPS result'], results_cops_file),'r') as csv_reward_file:
-            csv_reader = csv.DictReader(csv_reward_file, delimiter=';')
+        with open(os.path.join(settings["COPS result"], results_cops_file), "r") as csv_reward_file:
+            csv_reader = csv.DictReader(csv_reward_file, delimiter=";")
 
             line = next(csv_reader)
-            route_reward = line['profit']
-            route_reward = float(route_reward.replace(',', '.'))
+            route_reward = line["profit"]
+            route_reward = float(route_reward.replace(",", "."))
 
     return {
-        'reconstruction_path': last_dir,
-        'ply': os.path.basename(plt_path),
-        'source_points': metrics_dist[0]['source_points'],
-        'distance': dist,
-        'min': np.min((metrics_dist[0]['min'], metrics_dist[1]['min'])),
-        'max': np.max((metrics_dist[0]['max'], metrics_dist[1]['max'])),
-        'mae': metrics_dist[0]['mae'] + metrics_dist[1]['mae'],
-        'rmse': metrics_dist[0]['rmse'] + metrics_dist[1]['rmse'],
-        'route_reward': route_reward,
+        "reconstruction_path": last_dir,
+        "ply": os.path.basename(plt_path),
+        "source_points": metrics_dist[0]["source_points"],
+        "distance": dist,
+        "min": np.min((metrics_dist[0]["min"], metrics_dist[1]["min"])),
+        "max": np.max((metrics_dist[0]["max"], metrics_dist[1]["max"])),
+        "mae": metrics_dist[0]["mae"] + metrics_dist[1]["mae"],
+        "rmse": metrics_dist[0]["rmse"] + metrics_dist[1]["rmse"],
+        "route_reward": route_reward,
     }
 
 
@@ -363,22 +351,22 @@ def process_paths(list_image_path, list_reconstruction_path, list_plt_path):
     for image_path, reconstruction_path, plt_path in zip(list_image_path, list_reconstruction_path, list_plt_path):
         data.append(process_reconstruction(image_path, reconstruction_path, plt_path))
 
-    save_to_csv(data, os.path.join(settings['save path'], 'metrics.csv'))
+    save_to_csv(data, os.path.join(settings["save path"], "metrics.csv"))
 
 
 def mesh_analysis():
-    print('Initiating mesh analysis')
+    print("Initiating mesh analysis")
 
     obj_name = set()
-    workspace_folder = settings['workspace folder']
+    workspace_folder = settings["workspace folder"]
     for folder in os.listdir(workspace_folder):
-        object_name_file = os.path.join(settings['workspace folder'], folder)
-        object_name_file = os.path.join(object_name_file, 'object_name.txt')
+        object_name_file = os.path.join(settings["workspace folder"], folder)
+        object_name_file = os.path.join(object_name_file, "object_name.txt")
 
         if not os.path.isfile(object_name_file):
             continue
 
-        with open(object_name_file, 'r') as file:
+        with open(object_name_file, "r") as file:
             obj = file.readline().strip()
             obj_name.add(obj)
 
@@ -386,9 +374,9 @@ def mesh_analysis():
     list_reconstruction_path = []
     list_plt_path = []
 
-    experiment = settings['number of trials']
+    experiment = settings["number of trials"]
     for exp in range(experiment):
-        with open(os.path.join(settings['save path'], f'variables/view_point_{exp}.var'), 'rb') as f:
+        with open(os.path.join(settings["save path"], f"variables/view_point_{exp}.var"), "rb") as f:
             travelled_distance_main = pickle.load(f)
             travelled_spiral_distance = pickle.load(f)
             spiral_route_by_target = pickle.load(f)
@@ -401,20 +389,36 @@ def mesh_analysis():
             minute = pickle.load(f)
 
         for obj in obj_name:
-            workspace_folder_group = os.path.join(settings['workspace folder'], f'exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
-            op_workspace_folder_group = os.path.join(settings['workspace folder'], f'op_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
-            spiral_workspace_folder_group = os.path.join(settings['workspace folder'], f'spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
-            random_workspace_folder_group = os.path.join(settings['workspace folder'], f'random_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}')
+            workspace_folder_group = os.path.join(
+                settings["workspace folder"], f"exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}"
+            )
+            op_workspace_folder_group = os.path.join(
+                settings["workspace folder"], f"op_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}"
+            )
+            spiral_workspace_folder_group = os.path.join(
+                settings["workspace folder"], f"spiral_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}"
+            )
+            random_workspace_folder_group = os.path.join(
+                settings["workspace folder"], f"random_exp_{exp}_{day}_{month}_{hour}_{minute}_group_{obj}"
+            )
 
-            images_folder = os.path.join(settings['path'], f'scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
-            images_folder_op = os.path.join(settings['path'], f'scene_builds_op_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
-            images_folder_spiral = os.path.join(settings['path'], f'scene_builds_spiral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
-            images_folder_random = os.path.join(settings['path'], f'scene_builds_random_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}')
+            images_folder = os.path.join(
+                settings["path"], f"scene_builds_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}"
+            )
+            images_folder_op = os.path.join(
+                settings["path"], f"scene_builds_op_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}"
+            )
+            images_folder_spiral = os.path.join(
+                settings["path"], f"scene_builds_spiral_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}"
+            )
+            images_folder_random = os.path.join(
+                settings["path"], f"scene_builds_random_exp_{exp}_group_{obj}_{day}_{month}_{hour}_{minute}"
+            )
 
-            ply_path = f'mesh_obj/{obj}.ply'
+            ply_path = f"mesh_obj/{obj}.ply"
             if os.path.isdir(workspace_folder_group):
 
-                dense_folder = os.path.join(workspace_folder_group, 'dense')
+                dense_folder = os.path.join(workspace_folder_group, "dense")
 
                 if os.path.isdir(dense_folder):
                     for i in os.listdir(dense_folder):
@@ -426,7 +430,7 @@ def mesh_analysis():
 
             if os.path.isdir(op_workspace_folder_group):
 
-                dense_folder = os.path.join(op_workspace_folder_group, 'dense')
+                dense_folder = os.path.join(op_workspace_folder_group, "dense")
                 if os.path.isdir(dense_folder):
                     for i in os.listdir(dense_folder):
                         reconstruction_path = os.path.join(dense_folder, i)
@@ -437,7 +441,7 @@ def mesh_analysis():
 
             if os.path.isdir(spiral_workspace_folder_group):
 
-                dense_folder = os.path.join(spiral_workspace_folder_group, 'dense')
+                dense_folder = os.path.join(spiral_workspace_folder_group, "dense")
                 if os.path.isdir(dense_folder):
                     for i in os.listdir(dense_folder):
                         reconstruction_path = os.path.join(dense_folder, i)
@@ -448,7 +452,7 @@ def mesh_analysis():
 
             if os.path.isdir(random_workspace_folder_group):
 
-                dense_folder = os.path.join(random_workspace_folder_group, 'dense')
+                dense_folder = os.path.join(random_workspace_folder_group, "dense")
                 if os.path.isdir(dense_folder):
                     for i in os.listdir(dense_folder):
                         reconstruction_path = os.path.join(dense_folder, i)

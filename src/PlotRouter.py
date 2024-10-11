@@ -7,7 +7,7 @@ import pyvista as pv
 
 
 def get_cops_data(cops_path: str):
-    with open(cops_path, 'r') as file:
+    with open(cops_path, "r") as file:
         for line in file:
             line_split = line.split(": ")
             key = line_split[0]
@@ -23,7 +23,7 @@ def get_cops_data(cops_path: str):
                 subgroups = int(content.strip())
 
             if key == "NODE_COORD_SECTION":
-        
+
                 key_points = {}
                 for _ in range(dimension):
                     line = file.readline()
@@ -46,16 +46,12 @@ def get_cops_data(cops_path: str):
                     id_cluster_list = list(map(int, id_cluster_list[:-1]))
                     key_cluster[int(set_id)] = id_cluster_list
 
-    return {
-        "points": key_points,
-        "subgroups": key_subgroup,
-        "clusters": key_cluster
-    }
+    return {"points": key_points, "subgroups": key_subgroup, "clusters": key_cluster}
 
 
 def get_result_cops_route(result_cops_path: str, key_points: dict):
-    with open(result_cops_path, 'r') as csv_file:
-        reader = csv.reader(csv_file, delimiter=';')
+    with open(result_cops_path, "r") as csv_file:
+        reader = csv.reader(csv_file, delimiter=";")
         _ = next(reader)  # header
         line = next(reader)  # first line content
         line = line[7].replace("  ", ", ")
@@ -91,7 +87,7 @@ radius = [radius[k] for k in keys]
 cylinders = [(radius, 2 * point[2], *point) for radius, point in zip(radius, centroids)]
 
 cops_data = get_cops_data(cops_file_path)
-route_points = get_result_cops_route(results_cops_file_path, cops_data['points'])
+route_points = get_result_cops_route(results_cops_file_path, cops_data["points"])
 
 # Create a plotter
 plotter = pv.Plotter()
@@ -129,7 +125,7 @@ primary_colors = [
 
 # for cluster_id, subgroup_ids in cops_data['clusters'].items():
 #     color = primary_colors[cluster_id % len(primary_colors)]  # Cycle through primary colors
-    
+
 #     for point_id in cops_data['subgroups'][2][1]:
 #         point = cops_data['points'][point_id]
 #         sphere = pv.Sphere(radius=0.1, center=point)

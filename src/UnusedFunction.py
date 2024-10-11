@@ -14,7 +14,7 @@ def find_route(S_fr: dict):
     :param S_fr: Dictionary with subgroups
     :return route: Subgroups that forms a route
     """
-    print('Starting finding a route ...')
+    print("Starting finding a route ...")
     route = {}
     for target, s_fr in S_fr.items():
         CA_fr_max = -1
@@ -51,14 +51,14 @@ def save_points(route_sp: dict, targets_points_of_view_sr: dict):
     :param targets_points_of_view_sr: Points of view to be converted in a route
     :return: Nothing
     """
-    print('Starting saving ...')
+    print("Starting saving ...")
     route_points = np.empty([0, 6])
     for target, data_s in route_sp.items():
         for data in data_s:
             point_start = targets_points_of_view_sr[target][data[0]]
             point_end = targets_points_of_view_sr[target][data[1]]
             route_points = np.row_stack((route_points, point_end))
-    np.savetxt('positions.csv', route_points, delimiter=',')
+    np.savetxt("positions.csv", route_points, delimiter=",")
 
 
 def get_points_route(vector_points_gpr: dict, route_gpr: dict):
@@ -73,19 +73,19 @@ def get_points_route(vector_points_gpr: dict, route_gpr: dict):
 
 
 def plot_route(centroid_points_pf: dict, radius_pf: dict, target_points_pf: dict, vector_points_pr: dict):
-    print('Starting showing data')
+    print("Starting showing data")
     # Create a plotter
     plotter = pv.Plotter()
     vector_points_pf = {}
-    str_color = ['red', 'green', 'black']
+    str_color = ["red", "green", "black"]
     count_color = 0
     for target in centroid_points_pf.keys():
         cy_direction = np.array([0, 0, 1])
         n_resolution = 36
-        cy_hight = float(settings['height proportion']) * np.max(target_points_pf[target][:, 2])
+        cy_hight = float(settings["height proportion"]) * np.max(target_points_pf[target][:, 2])
         r_mesh = radius_pf[target]
         h = np.cos(np.pi / n_resolution) * r_mesh
-        l = np.sqrt(np.abs(4 * h ** 2 - 4 * r_mesh ** 2))
+        l = np.sqrt(np.abs(4 * h**2 - 4 * r_mesh**2))
 
         # Find the radius of the spheres
         z_resolution = int(np.ceil(cy_hight / l))
@@ -120,10 +120,10 @@ def read_problem_file(filename: str) -> dict:
     read_fields = {}
     line_count = 0
     try:
-        with open(filename, 'r') as file:
+        with open(filename, "r") as file:
             for line in file:
                 # Split the line using ":" as the delimiter
-                parts = line.strip().split(':')
+                parts = line.strip().split(":")
                 # Ensure there are two parts after splitting
                 if len(parts) == 2:
                     if parts[1].isdigit():
@@ -131,7 +131,7 @@ def read_problem_file(filename: str) -> dict:
                     else:
                         read_fields[parts[0]] = parts[1]
                 else:
-                    read_fields[f'{line_count}'] = parts[0]
+                    read_fields[f"{line_count}"] = parts[0]
     except FileNotFoundError:
         print("File not found:", filename)
     except Exception as e:

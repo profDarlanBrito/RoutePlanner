@@ -33,7 +33,7 @@ def generate_points(num_points, bounding_box):
 
 def generate_camera_positions(num_positions):
     current = generate_points(num_positions, ((0.5, 1.5), (-1, 1), (0.01, 1)))
-    target = generate_points(num_positions, ((0.1, 0.1), (-0.3, 0.3), (0.0, 0.2))) 
+    target = generate_points(num_positions, ((0.1, 0.1), (-0.3, 0.3), (0.0, 0.2)))
 
     pos = [p.tolist() for p in current]
     ori = [get_rotation_quat(curr_pos, target_pos).tolist() for curr_pos, target_pos in zip(current, target)]
@@ -45,7 +45,7 @@ def get_image(sim, sequence: int, vision_handle: int, directory_name: str):
     img, resolution = sim.getVisionSensorImg(vision_handle)
     img = np.frombuffer(img, dtype=np.uint8).reshape(resolution[1], resolution[0], 3)
 
-    image_name = f'ca_img_{sequence}.png'
+    image_name = f"ca_img_{sequence}.png"
 
     image_path = os.path.join(directory_name, image_name)
 
@@ -58,11 +58,11 @@ num_images = 50
 count_image = 0
 
 client = RemoteAPIClient()
-sim = client.getObject('sim')
+sim = client.getObject("sim")
 sim.startSimulation()
-sensor_handle = sim.getObject('./Vision_sensor')
+sensor_handle = sim.getObject("./Vision_sensor")
 
-dir_name = 'calibration_images/'
+dir_name = "calibration_images/"
 os.makedirs(dir_name, exist_ok=True)
 
 

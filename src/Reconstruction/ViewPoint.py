@@ -17,8 +17,8 @@ settings = Config.Settings.get()
 
 
 def get_result_cops_route(result_cops_path: str, points_by_id: dict):
-    with open(result_cops_path, 'r') as csv_file:
-        reader = csv.reader(csv_file, delimiter=';')
+    with open(result_cops_path, "r") as csv_file:
+        reader = csv.reader(csv_file, delimiter=";")
         _ = next(reader)  # header
         line = next(reader)  # first line content
         line = line[7].replace("  ", ", ")
@@ -26,7 +26,7 @@ def get_result_cops_route(result_cops_path: str, points_by_id: dict):
 
     route = [points_by_id[cops_route[0][0]]]
     route_id = [cops_route[0][0]]
-    
+
     for _, key_id in cops_route:
         route.append(points_by_id[key_id])
         route_id.append(key_id)
@@ -37,11 +37,11 @@ def get_result_cops_route(result_cops_path: str, points_by_id: dict):
 def calculate_position_orientation(find_point: list, tilt_angle_deg: float = -5) -> np.ndarray:
     """
     Auxiliary function to calculate the position and orientation based on the current position and camera angle.
-    
+
     Parameters:
     - find_point: List containing the coordinates (x, y, z) and the angle (theta) of the point.
     - tilt_angle_deg: Camera tilt angle in degrees (default: -5).
-    
+
     Returns:
     - An array with the position and orientation of the point.
     """
@@ -61,12 +61,12 @@ def calculate_position_orientation(find_point: list, tilt_angle_deg: float = -5)
 
 def get_result_by_cluster(points_by_id: dict, cops_by_id: list, interval: dict):
     cluster = {}
-    
+
     for point_id in cops_by_id:
         # ignore initial drone position
         if point_id == 0:
             continue
-        
+
         for group_name, (min, max) in interval.items():
             if min <= point_id <= max:
                 if group_name not in cluster:
@@ -85,7 +85,7 @@ def compute_route_distance(route: list):
     distance = 0.0
 
     for i, p in enumerate(route[1:]):
-        distance += np.linalg.norm(route[i][:3] - p[:3]) # p == route[i + 1]
+        distance += np.linalg.norm(route[i][:3] - p[:3])  # p == route[i + 1]
 
     return distance
 
@@ -113,16 +113,16 @@ def generate_true_spiral_points(radius: float, num_points: int) -> list[ndarray]
     ----------
     radius : float
         The radius of the spiral around the Z-axis.
-        
+
     num_points : int
         The number of points to generate along the spiral.
-        
+
     Returns:
     --------
     points : list of np.ndarray
         A list of arrays with coordinates (x, y, z) representing the points along
         the spiral.
-        
+
     Notes:
     ------
     - The height of each point 'z' is calculated according to the sphere equation
@@ -136,13 +136,13 @@ def generate_true_spiral_points(radius: float, num_points: int) -> list[ndarray]
 
     radius *= 0.85
 
-    step = k ** 2 / (num_points + 1) 
+    step = k**2 / (num_points + 1)
 
     r = lambda theta: radius * theta / k
-    height = lambda x, y: np.sqrt(radius ** 2 - x ** 2 - y ** 2)
+    height = lambda x, y: np.sqrt(radius**2 - x**2 - y**2)
 
     points = []
-    for curr_step in np.arange(step, k ** 2, step):
+    for curr_step in np.arange(step, k**2, step):
         theta = np.sqrt(curr_step)
 
         x = r(theta) * np.cos(theta)
@@ -154,15 +154,17 @@ def generate_true_spiral_points(radius: float, num_points: int) -> list[ndarray]
     return points
 
 
-def get_single_target_true_spiral_trajectory(centroid_points_gstst: ndarray, radius_gstst: float, num_points_gstst: float):
-    print('Generating spiral trajectory over one target')
+def get_single_target_true_spiral_trajectory(
+    centroid_points_gstst: ndarray, radius_gstst: float, num_points_gstst: float
+):
+    print("Generating spiral trajectory over one target")
 
     points_gstst = generate_true_spiral_points(radius_gstst, num_points_gstst)
 
     points_gstst = [point + centroid_points_gstst for point in points_gstst]
 
     directions_gstst = [get_rotation_quat(curr_pos, centroid_points_gstst) for curr_pos in points_gstst]
-    
+
     return np.array(points_gstst), np.array(directions_gstst)
 
 
@@ -196,7 +198,7 @@ def generate_spiral_points(box_side_gsp, step):
 
 
 def get_single_target_spiral_trajectory(centroid_points_gstst: ndarray, radius_gstst: float, parts_gstst: float):
-    print('Generating spiral trajectory over one target')
+    print("Generating spiral trajectory over one target")
     step = radius_gstst / parts_gstst
     points_gstst = generate_spiral_points(radius_gstst, step)
 
@@ -209,9 +211,10 @@ def get_single_target_spiral_trajectory(centroid_points_gstst: ndarray, radius_g
     return points_gstst, directions_gstst
 
 
-def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: int) -> tuple[
-    ndarray[Any, dtype[Any]], dict[Any, ndarray[Any, dtype[bool_]]], dict[Any, Any], int]:
-    print('Generating spiral trajectories')
+def get_spiral_trajectories(
+    centroids_gst: dict, radius_gst: dict, parts_gst: int
+) -> tuple[ndarray[Any, dtype[Any]], dict[Any, ndarray[Any, dtype[bool_]]], dict[Any, Any], int]:
+    print("Generating spiral trajectories")
     # plotter_gst = pv.Plotter()
     route_gst = np.zeros([1, 7])
     route_by_target_gst = {}
@@ -221,11 +224,14 @@ def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: in
         radius_box_gst = 3 * radius_gst[target_gst]
         # centroid_gst[2] = centroid_gst[2] + scale_to_height_spiral * centroid_gst[2]
         centroid_gst[2] /= 2
-        spiral_point, spiral_direction = get_single_target_true_spiral_trajectory(centroid_gst, radius_box_gst, parts_gst)
+        spiral_point, spiral_direction = get_single_target_true_spiral_trajectory(
+            centroid_gst, radius_box_gst, parts_gst
+        )
         spiral_target_distance_gst[target_gst] = 0
         for count_point in range(spiral_point.shape[0] - 1):
             spiral_target_distance_gst[target_gst] += np.linalg.norm(
-                spiral_point[count_point, :3] - spiral_point[count_point + 1, :3])
+                spiral_point[count_point, :3] - spiral_point[count_point + 1, :3]
+            )
         route_by_target_gst[target_gst] = np.column_stack((spiral_point, spiral_direction))
         route_gst = np.row_stack((route_gst, route_by_target_gst[target_gst]))
         total_distance_gst += spiral_target_distance_gst[target_gst]
@@ -245,7 +251,7 @@ def get_spiral_trajectories(centroids_gst: dict, radius_gst: dict, parts_gst: in
 
 
 def get_random_points(interval: dict, conversion_table: list, targets_points_of_view: dict) -> dict:
-    print('Generating random trajectories')
+    print("Generating random trajectories")
 
     target_select_point_view = {}
     list_canditates = []
@@ -255,7 +261,7 @@ def get_random_points(interval: dict, conversion_table: list, targets_points_of_
         list_canditates.append(np.arange(min, max + 1))
 
     for (target, _), canditates in zip(targets_points_of_view.items(), list_canditates):
-        print('Generating random trajectory over one target')
+        print("Generating random trajectory over one target")
 
         length = len(canditates)
         target_select_point_view[target] = []
@@ -277,7 +283,7 @@ def get_random_points(interval: dict, conversion_table: list, targets_points_of_
     for target, route in target_select_point_view.items():
         if target not in target_distance:
             target_distance[target] = []
-        
+
         target_distance[target] = compute_route_distance(route)
 
     return target_select_point_view, target_distance
@@ -305,7 +311,7 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     directory_name = directory_name_gi
 
     # Specify the path where you want to create the directory
-    path = settings['path']  # You can specify any desired path here
+    path = settings["path"]  # You can specify any desired path here
 
     # Construct the full path
     full_path = os.path.join(path, directory_name)
@@ -325,8 +331,21 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
     hour = str(current_datetime.hour)
     minute = str(current_datetime.minute)
 
-    image_name = (file_name + '_' + day + '_' + month + '_' + hour + '_' + minute + '_' + str(sequence) + '.' +
-                  settings['extension'])
+    image_name = (
+        file_name
+        + "_"
+        + day
+        + "_"
+        + month
+        + "_"
+        + hour
+        + "_"
+        + minute
+        + "_"
+        + str(sequence)
+        + "."
+        + settings["extension"]
+    )
     filename = os.path.join(full_path, image_name)
 
     ref_image_path = os.path.join(full_path, "ref_images.txt")
@@ -340,7 +359,8 @@ def get_image(sim, sequence: int, file_name: str, vision_handle: int, directory_
 
     with open(ref_image_path, "a") as file:
         file.write(
-            f"{image_name} {position[0]} {position[1]} {position[2]} {orientarion[3]} {orientarion[0]} {orientarion[1]} {orientarion[2]}\n")
+            f"{image_name} {position[0]} {position[1]} {position[2]} {orientarion[3]} {orientarion[0]} {orientarion[1]} {orientarion[2]}\n"
+        )
 
 
 def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_qc: dict):
@@ -356,15 +376,15 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
     """
     for target, position_orientation in route_qc.items():
         for i in range(position_orientation.shape[0]):
-            cone_name = './' + target + f'/Cone'
-            handle = sim.getObject(cone_name, {'index': i, 'noError': True})
+            cone_name = "./" + target + f"/Cone"
+            handle = sim.getObject(cone_name, {"index": i, "noError": True})
             if handle < 0:
                 break
             cone_pos = list(position_orientation[i, :3])
             sim.setObjectPosition(handle, cone_pos)
         for each_position in position_orientation:
             pos = list(each_position[:3])
-            next_point_handle = sim.getObject('./new_target')
+            next_point_handle = sim.getObject("./new_target")
             sim.setObjectPosition(next_point_handle, pos)
             orientation = list(np.deg2rad(each_position[3:]))
             orientation_angles = [0.0, 0.0, orientation[0]]
@@ -380,7 +400,7 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
             # sim.setObjectPosition(camera_handle, pos)
             # client.step()
             # sim.setObjectOrientation(quad_target_handle, sim.handle_world, orientation_angles)
-            total_time = sim.getSimulationTime() + settings['total simulation time']
+            total_time = sim.getSimulationTime() + settings["total simulation time"]
             stabilized = False
             while sim.getSimulationTime() < total_time:
                 diff_pos = np.subtract(pos, sim.getObjectPosition(quad_base_handle, sim.handle_world))
@@ -392,8 +412,7 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
                     new_pos = pos
 
                 sim.setObjectPosition(quad_target_handle, new_pos)
-                diff_ori = np.subtract(orientation_angles,
-                                       sim.getObjectOrientation(quad_base_handle, sim.handle_world))
+                diff_ori = np.subtract(orientation_angles, sim.getObjectOrientation(quad_base_handle, sim.handle_world))
                 norm_diff_ori = np.linalg.norm(diff_ori)
 
                 if norm_diff_ori > 0.08:
@@ -402,12 +421,10 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
                 else:
                     new_ori = orientation_angles
                 sim.setObjectOrientation(quad_target_handle, new_ori)
-                t_stab = sim.getSimulationTime() + settings['time to stabilize']
+                t_stab = sim.getSimulationTime() + settings["time to stabilize"]
                 while sim.getSimulationTime() < t_stab:
-                    diff_pos = np.subtract(new_pos,
-                                           sim.getObjectPosition(quad_base_handle, sim.handle_world))
-                    diff_ori = np.subtract(new_ori,
-                                           sim.getObjectOrientation(quad_base_handle, sim.handle_world))
+                    diff_pos = np.subtract(new_pos, sim.getObjectPosition(quad_base_handle, sim.handle_world))
+                    diff_ori = np.subtract(new_ori, sim.getObjectOrientation(quad_base_handle, sim.handle_world))
                     norm_diff_pos = np.linalg.norm(diff_pos)
                     norm_diff_ori = np.linalg.norm(diff_ori)
                     if norm_diff_pos < 0.1 and norm_diff_ori < 0.05:
@@ -423,11 +440,12 @@ def quadcopter_control(sim, client, quad_target_handle, quad_base_handle, route_
                     break
                 client.step()
             if not stabilized:
-                print('Time short')
+                print("Time short")
 
 
-def quadcopter_control_direct_points(sim, client, vision_handle: int,
-                                     route_qc: ndarray, filename_qcdp: str, directory_name_qcdp: str):
+def quadcopter_control_direct_points(
+    sim, client, vision_handle: int, route_qc: ndarray, filename_qcdp: str, directory_name_qcdp: str
+):
     """
     This method is used to move the quadcopter in the CoppeliaSim scene to the position pos.
     :param route_qc:
@@ -447,7 +465,7 @@ def quadcopter_control_direct_points(sim, client, vision_handle: int,
         sim.setObjectPosition(vision_handle, pos, sim.handle_world)
         sim.setObjectQuaternion(vision_handle, ori, sim.handle_world)
 
-        total_time = sim.getSimulationTime() + settings['total simulation time']
+        total_time = sim.getSimulationTime() + settings["total simulation time"]
         while sim.getSimulationTime() < total_time:
             client.step()
 
@@ -456,7 +474,7 @@ def quadcopter_control_direct_points(sim, client, vision_handle: int,
 
 
 def view_point(copp: CoppeliaInterface, experiment: int):
-    with open(os.path.join(settings['save path'], f'variables/convex_hull_{experiment}.var'), 'rb') as file:
+    with open(os.path.join(settings["save path"], f"variables/convex_hull_{experiment}.var"), "rb") as file:
         S = pickle.load(file)
         targets_points_of_view = pickle.load(file)
         centroid_points = pickle.load(file)
@@ -464,19 +482,22 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         conversion_table = pickle.load(file)
         interval = pickle.load(file)
 
-    result_cops_path = os.path.join(settings['COPS result'], f"{settings['COPS problem']}{str(experiment)}.csv")
-    result_op_path = os.path.join(settings['COPS result'], f"{settings['OP problem']}{str(experiment)}.csv")
-    
+    result_cops_path = os.path.join(settings["COPS result"], f"{settings['COPS problem']}{str(experiment)}.csv")
+    result_op_path = os.path.join(settings["COPS result"], f"{settings['OP problem']}{str(experiment)}.csv")
+
     cops_route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval, conversion_table)
     op_route_distace, op_route, op_route_by_group = read_route_cops(result_op_path, interval, conversion_table)
 
     parts_to_spiral = 100
-    spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = (
-        get_spiral_trajectories(centroid_points, radius, parts_to_spiral))
-    
-    random_route_by_target, random_target_distance = get_random_points(interval, conversion_table, targets_points_of_view)
-    
-    copp.handles[settings['vision sensor names']] = copp.sim.getObject(settings['vision sensor names'])
+    spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = get_spiral_trajectories(
+        centroid_points, radius, parts_to_spiral
+    )
+
+    random_route_by_target, random_target_distance = get_random_points(
+        interval, conversion_table, targets_points_of_view
+    )
+
+    copp.handles[settings["vision sensor names"]] = copp.sim.getObject(settings["vision sensor names"])
     # vision_handle = copp.handles[settings['vision sensor names']]
     # filename = settings['filename']
 
@@ -503,54 +524,42 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     spiral_route_key = spiral_route_by_target.keys()
     for route, object_key, count_group in zip(cops_route_by_group, spiral_route_key, range(len(cops_route_by_group))):
         # for route, count_group in zip(route_by_group, range(len(route_by_group))):
-        filename = settings['filename']
-        vision_handle = copp.handles[settings['vision sensor names']]
+        filename = settings["filename"]
+        vision_handle = copp.handles[settings["vision sensor names"]]
 
         route_of_object = cops_route_by_group[object_key]
-        group_name = f'_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
-        directory_name = settings['directory name'] + group_name
+        group_name = f"_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+        directory_name = settings["directory name"] + group_name
 
-        quadcopter_control_direct_points(copp.sim, 
-                                         copp.client, 
-                                         vision_handle, 
-                                         route_of_object, 
-                                         filename,
-                                         directory_name)
-        
+        quadcopter_control_direct_points(
+            copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
+        )
+
         route_of_object = op_route_by_group[object_key]
-        group_name = f'_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
-        directory_name = settings['directory name'] + group_name
-        
-        quadcopter_control_direct_points(copp.sim, 
-                                         copp.client, 
-                                         vision_handle, 
-                                         route_of_object, 
-                                         filename,
-                                         directory_name)
+        group_name = f"_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+        directory_name = settings["directory name"] + group_name
+
+        quadcopter_control_direct_points(
+            copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
+        )
 
         spiral_route = spiral_route_by_target[object_key]
-        spiral_group_name = f'_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
-        spiral_directory_name = settings['directory name'] + spiral_group_name
-        
-        quadcopter_control_direct_points(copp.sim,
-                                         copp.client,
-                                         vision_handle,
-                                         spiral_route,
-                                         'spiral_route',
-                                         spiral_directory_name)
-        
-        random_route = random_route_by_target[object_key]
-        random_group_name = f'_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}'
-        random_directory_name = settings['directory name'] + random_group_name
-        
-        quadcopter_control_direct_points(copp.sim,
-                                         copp.client,
-                                         vision_handle,
-                                         random_route,
-                                         'random_route',
-                                         random_directory_name)
+        spiral_group_name = f"_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+        spiral_directory_name = settings["directory name"] + spiral_group_name
 
-    with open(os.path.join(settings['save path'], f'variables/view_point_{experiment}.var'), 'wb') as file:
+        quadcopter_control_direct_points(
+            copp.sim, copp.client, vision_handle, spiral_route, "spiral_route", spiral_directory_name
+        )
+
+        random_route = random_route_by_target[object_key]
+        random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+        random_directory_name = settings["directory name"] + random_group_name
+
+        quadcopter_control_direct_points(
+            copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
+        )
+
+    with open(os.path.join(settings["save path"], f"variables/view_point_{experiment}.var"), "wb") as file:
         pickle.dump(cops_route_distace, file)
         pickle.dump(travelled_spiral_distance, file)
         pickle.dump(spiral_route_by_target, file)

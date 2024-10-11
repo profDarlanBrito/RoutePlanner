@@ -10,7 +10,6 @@ from numpy import ndarray
 import Config
 
 settings = Config.Settings.get()
-
 fieldnames = [
     "NAME: ",
     "TYPE: ",

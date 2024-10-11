@@ -5,6 +5,7 @@
 # https://github.com/CoppeliaRobotics/zmqRemoteApi/tree/master/clients/python
 
 import csv
+import os
 from typing import Any
 
 import cv2 as cv
@@ -15,13 +16,10 @@ from numpy._typing import _64Bit
 from scipy.spatial import Delaunay
 
 import Config
-
-settings = Config.Settings.get()
-
-import os.path
-
 from Config import parse_settings_file
 from GeometryOperations import centroid_poly
+
+settings = Config.Settings.get()
 
 
 def initializations(

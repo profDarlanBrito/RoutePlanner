@@ -213,12 +213,12 @@ def compute_area_normal_hemisphere(c0: ndarray, p0: ndarray, n: ndarray, s_norma
         return 0.0
 
     rho: float = (c0 - p0) @ n / np.linalg.norm(n)
-    r_2: float = R ** 2 - rho ** 2
+    r_2: float = R**2 - rho**2
 
     if rho >= 0:
         return 2 * np.pi * np.sqrt(r_2) * (R - rho) if r_2 > 0 else 0.0
     else:
-        return 2 * np.pi * R ** 2
+        return 2 * np.pi * R**2
 
 
 def get_plane_frustum(frustum: pv.PolyData) -> list[tuple[ndarray, ndarray]]:
@@ -258,8 +258,7 @@ def get_close_intersection_points(intersection, camera_position, value):
 
 
 def get_point_intersection_plane_with_sphere(
-        pi_sphere: ndarray, pi_frustum: ndarray, position_sphere: ndarray, camera_position: ndarray,
-        radius_sphere: float
+    pi_sphere: ndarray, pi_frustum: ndarray, position_sphere: ndarray, camera_position: ndarray, radius_sphere: float
 ) -> list[ndarray]:
     """
     Args:
@@ -271,7 +270,7 @@ def get_point_intersection_plane_with_sphere(
     Returns:
         _type_: _description_
     """
-    print('get_point_intersection_plane_with_sphere')
+    print("get_point_intersection_plane_with_sphere")
     parametric_equation = get_line_of_intersection_two_planes(pi_sphere, pi_frustum)
 
     intersection_points = []
@@ -295,7 +294,7 @@ def great_circle_distance(point1, point2, radius):
 
     # Calculate angular distance between the points
     dot_product = x1 * x2 + y1 * y2 + z1 * z2
-    magnitude_product = math.sqrt(x1 ** 2 + y1 ** 2 + z1 ** 2) * math.sqrt(x2 ** 2 + y2 ** 2 + z2 ** 2)
+    magnitude_product = math.sqrt(x1**2 + y1**2 + z1**2) * math.sqrt(x2**2 + y2**2 + z2**2)
     angle = math.acos(dot_product / magnitude_product)
 
     # Calculate arc length (distance) on the sphere
@@ -315,8 +314,9 @@ def triangle_area(point1: ndarray, point2: ndarray, point3: ndarray, radius_ta: 
     return area
 
 
-def calculate_spherical_side_area(sphere_mesh: pv.PolyData, intersection_points: list[ndarray], plane_eq: list,
-                                  radius_cssa: float=None) -> float:
+def calculate_spherical_side_area(
+    sphere_mesh: pv.PolyData, intersection_points: list[ndarray], plane_eq: list, radius_cssa: float = None
+) -> float:
     """
     Calculates the area of the portion of a sphere that lies on one side of a plane.
 
@@ -369,7 +369,7 @@ def get_viewed_area():
 
     # Calculate the length of the lateral surface of an inscribed cylinder
     h = np.cos(np.pi / n_resolution) * r_mesh
-    l = np.sqrt(np.abs(4 * h ** 2 - 4 * r_mesh ** 2))
+    l = np.sqrt(np.abs(4 * h**2 - 4 * r_mesh**2))
 
     # Find the radius of the spheres
     z_resolution = int(np.ceil(cy_hight / l))
@@ -597,7 +597,7 @@ def get_intersection_points_line_sphere(line_parametric_eq, sphere_eq):
     x_sphere, y_sphere, z_sphere, r = sphere_eq
 
     # Substitute the parametric equations of the line into the equation of the sphere
-    sphere_eq_subs = Eq((x_expr - x_sphere) ** 2 + (y_expr - y_sphere) ** 2 + (z_expr - z_sphere) ** 2, r ** 2)
+    sphere_eq_subs = Eq((x_expr - x_sphere) ** 2 + (y_expr - y_sphere) ** 2 + (z_expr - z_sphere) ** 2, r**2)
 
     # Solve for t to find the point(s) of intersection
     solutions = solve(sphere_eq_subs, t)
@@ -666,8 +666,9 @@ def get_intersection_points_line_sphere_no_sym(line_points, sphere_eq):
     dot_product = np.dot(direction_vector, vector_to_center)
 
     # Calculate the discriminant
-    discriminant = dot_product ** 2 - np.dot(direction_vector, direction_vector) * \
-                    (np.dot(vector_to_center, vector_to_center) - r ** 2)
+    discriminant = dot_product**2 - np.dot(direction_vector, direction_vector) * (
+        np.dot(vector_to_center, vector_to_center) - r**2
+    )
 
     # Check if the discriminant is negative, indicating no intersection
     if discriminant < 0:
@@ -682,7 +683,6 @@ def get_intersection_points_line_sphere_no_sym(line_points, sphere_eq):
     intersection_point2 = np.array([x1 + t2 * (x2 - x1), y1 + t2 * (y2 - y1), z1 + t2 * (z2 - z1)])
 
     return np.array([intersection_point1, intersection_point2])
-
 
 
 def spherical_distance(p1, p2):
@@ -755,7 +755,7 @@ def plane_with_circle_intersection(plane_eq, circle_eq):
     cx, cy, cz, r = circle_eq
 
     plane = a * x + b * y + c * z + d
-    sphere = (x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 - r ** 2
+    sphere = (x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 - r**2
 
     solution = solve((plane, sphere), (x, y, z))
 
@@ -766,21 +766,28 @@ def get_viewed_area_from():
     print("Starting viewed area computing")
 
 
-def draw_cylinder_with_hemisphere(plotter, cy_direction: ndarray, cy_height: float, n_resolution: int, cy_radius: float,
-                                  cy_center: ndarray, low_cylinder_limit=0.0):
+def draw_cylinder_with_hemisphere(
+    plotter,
+    cy_direction: ndarray,
+    cy_height: float,
+    n_resolution: int,
+    cy_radius: float,
+    cy_center: ndarray,
+    low_cylinder_limit=0.0,
+):
     print("Drawing cylinder with hemispheres")
     meshes = {}
     # Calculate the length of the lateral surface of an inscribed cylinder
     h = np.cos(np.pi / n_resolution) * cy_radius
-    l = np.sqrt(np.abs(4 * h ** 2 - 4 * cy_radius ** 2))
+    l = np.sqrt(np.abs(4 * h**2 - 4 * cy_radius**2))
 
     # Find the radius of the spheres
     z_resolution = int(np.ceil(cy_height / l))
     h = cy_height / z_resolution
     spheres_radius = np.max([l, h]) / 2
 
-    if (cy_center[2] - (cy_height/2)) < low_cylinder_limit:
-        cy_center[2] = low_cylinder_limit + (cy_height/2)
+    if (cy_center[2] - (cy_height / 2)) < low_cylinder_limit:
+        cy_center[2] = low_cylinder_limit + (cy_height / 2)
 
     cylinder = pv.CylinderStructured(
         center=cy_center,
@@ -854,17 +861,22 @@ def cartesian_to_lat_lon(x, y, z):
     """
     Converts Cartesian coordinates to latitude and longitude.
     """
-    r = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+    r = np.sqrt(x**2 + y**2 + z**2)
     lat = np.arcsin(z / r)
     lon = np.arctan2(y, x)
     return np.degrees(lat), np.degrees(lon)
 
 
-def compute_central_hemisphere_area(hemisphere_direction: ndarray, hemisphere_center: ndarray, radius_mesh: float,
-                                    camera_radius: float,
-                                    plotter=None, camera_view_angle_ccha: float = 60.0,
-                                    near_clip_ccha: float = 1e-4,
-                                    far_clip_ccha: float = 10.0) -> tuple[float, bool, list, ndarray]:
+def compute_central_hemisphere_area(
+    hemisphere_direction: ndarray,
+    hemisphere_center: ndarray,
+    radius_mesh: float,
+    camera_radius: float,
+    plotter=None,
+    camera_view_angle_ccha: float = 60.0,
+    near_clip_ccha: float = 1e-4,
+    far_clip_ccha: float = 10.0,
+) -> tuple[float, bool, list, ndarray]:
     # print("Computing central hemisphere area")
 
     camera_position = hemisphere_center + camera_radius * hemisphere_direction
@@ -946,7 +958,7 @@ def compute_central_hemisphere_area(hemisphere_direction: ndarray, hemisphere_ce
     if len(intersection_points) < 3:
         # print("There is no intersection between sphere and camera frustum")
         alpha = 1 / (1 + np.linalg.norm(camera_position - hemisphere_center))
-        spherical_area = 2 * alpha * np.pi * radius_mesh ** 2
+        spherical_area = 2 * alpha * np.pi * radius_mesh**2
         return spherical_area, True, plane_eq, camera_position
 
     for h in range(4):
@@ -959,11 +971,9 @@ def compute_central_hemisphere_area(hemisphere_direction: ndarray, hemisphere_ce
     return spherical_area, False, plane_eq, camera_position
 
 
-def compute_side_hemisphere_area(hemisphere_direction: ndarray,
-                                 hemisphere_center: ndarray,
-                                 radius_mesh: float,
-                                 camera_radius: float,
-                                 plotter=None) -> float | bool:
+def compute_side_hemisphere_area(
+    hemisphere_direction: ndarray, hemisphere_center: ndarray, radius_mesh: float, camera_radius: float, plotter=None
+) -> float | bool:
     print("Computing central hemisphere area")
 
     camera_position = hemisphere_center + camera_radius * hemisphere_direction
@@ -1058,7 +1068,7 @@ def intersect_plane_sphere(plane_normal, plane_point, sphere_center, sphere_radi
         intersection_points.append(sphere_center - distance * plane_normal)
     else:
         # Sphere intersects the plane
-        intersection_distance = np.sqrt(sphere_radius ** 2 - distance ** 2)
+        intersection_distance = np.sqrt(sphere_radius**2 - distance**2)
         intersection_points.append(sphere_center + intersection_distance * plane_normal)
         intersection_points.append(sphere_center - intersection_distance * plane_normal)
 
@@ -1136,21 +1146,21 @@ def point_between_planes(point, planes: ndarray):
         return False
 
 
-def get_side_hemisphere_area(count_plane_gsha: int,
-                             meshes_gsha: dict,
-                             frustum_planes: list,
-                             central_hemisphere_gsha: int,
-                             n_resolution: int) -> float:
+def get_side_hemisphere_area(
+    count_plane_gsha: int, meshes_gsha: dict, frustum_planes: list, central_hemisphere_gsha: int, n_resolution: int
+) -> float:
     tmpidxs = 49 * [[]]
     number_of_elements = 0
     tmpidxs[number_of_elements] = central_hemisphere_gsha
     number_of_elements += 1
     for count_idx in range(1, 3):
         tmpidxs[number_of_elements] = (central_hemisphere_gsha + count_idx) % n_resolution + (
-                central_hemisphere_gsha // n_resolution) * n_resolution
+            central_hemisphere_gsha // n_resolution
+        ) * n_resolution
         number_of_elements += 1
         tmpidxs[number_of_elements] = (central_hemisphere_gsha - count_idx) % n_resolution + (
-                central_hemisphere_gsha // n_resolution) * n_resolution
+            central_hemisphere_gsha // n_resolution
+        ) * n_resolution
         number_of_elements += 1
     list_idx = tmpidxs.copy()
     total_elements = number_of_elements
@@ -1168,38 +1178,57 @@ def get_side_hemisphere_area(count_plane_gsha: int,
     list_idx = list_idx[:number_of_elements]
     area = 0
     for hemisphere_idx in list_idx[1:]:
-        ct_pt = np.array(meshes_gsha['hemispheres'][hemisphere_idx]['center'])
+        ct_pt = np.array(meshes_gsha["hemispheres"][hemisphere_idx]["center"])
         is_in = False
         intersection_points = []
         for plane_gsha in frustum_planes:
-            distance = (abs(np.dot(plane_gsha[:3], meshes_gsha['hemispheres'][hemisphere_idx]['center']) + plane_gsha[
-                3]) / np.sqrt(plane_gsha[0] ** 2 + plane_gsha[1] ** 2 + plane_gsha[2] ** 2))
-            if distance < meshes_gsha['hemispheres'][hemisphere_idx]['radius']:
-                x = (-plane_gsha[3] - meshes_gsha['hemispheres'][hemisphere_idx]['center'][1] * plane_gsha[1] -
-                     meshes_gsha['hemispheres'][hemisphere_idx]['center'][2] * plane_gsha[2]) / plane_gsha[0]
-                point_pi = np.array([x, meshes_gsha['hemispheres'][hemisphere_idx]['center'][1],
-                                     meshes_gsha['hemispheres'][hemisphere_idx]['center'][2]])
-                intersection_points = intersect_plane_sphere(np.array(plane_gsha[:3]),
-                                                             point_pi,
-                                                             np.array(
-                                                                 meshes_gsha['hemispheres'][hemisphere_idx]['center']),
-                                                             meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
+            distance = abs(
+                np.dot(plane_gsha[:3], meshes_gsha["hemispheres"][hemisphere_idx]["center"]) + plane_gsha[3]
+            ) / np.sqrt(plane_gsha[0] ** 2 + plane_gsha[1] ** 2 + plane_gsha[2] ** 2)
+            if distance < meshes_gsha["hemispheres"][hemisphere_idx]["radius"]:
+                x = (
+                    -plane_gsha[3]
+                    - meshes_gsha["hemispheres"][hemisphere_idx]["center"][1] * plane_gsha[1]
+                    - meshes_gsha["hemispheres"][hemisphere_idx]["center"][2] * plane_gsha[2]
+                ) / plane_gsha[0]
+                point_pi = np.array(
+                    [
+                        x,
+                        meshes_gsha["hemispheres"][hemisphere_idx]["center"][1],
+                        meshes_gsha["hemispheres"][hemisphere_idx]["center"][2],
+                    ]
+                )
+                intersection_points = intersect_plane_sphere(
+                    np.array(plane_gsha[:3]),
+                    point_pi,
+                    np.array(meshes_gsha["hemispheres"][hemisphere_idx]["center"]),
+                    meshes_gsha["hemispheres"][hemisphere_idx]["radius"],
+                )
                 is_in = True
                 break
         alpha = 1
         if not is_in:
             if not point_between_planes(ct_pt, np.array(frustum_planes)):
-                area += 2 * alpha * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] ** 2
+                area += 2 * alpha * np.pi * meshes_gsha["hemispheres"][hemisphere_idx]["radius"] ** 2
             else:
                 area += 0
         else:
             if point_between_planes(ct_pt, np.array(frustum_planes)):
-                area += alpha * 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] * np.linalg.norm(
-                    intersection_points[0] - intersection_points[1])
+                area += (
+                    alpha
+                    * 2
+                    * np.pi
+                    * meshes_gsha["hemispheres"][hemisphere_idx]["radius"]
+                    * np.linalg.norm(intersection_points[0] - intersection_points[1])
+                )
             else:
-                area += alpha * (2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'] *
-                                 np.linalg.norm(intersection_points[0] - intersection_points[1]) +
-                                 2 * np.pi * meshes_gsha['hemispheres'][hemisphere_idx]['radius'])
+                area += alpha * (
+                    2
+                    * np.pi
+                    * meshes_gsha["hemispheres"][hemisphere_idx]["radius"]
+                    * np.linalg.norm(intersection_points[0] - intersection_points[1])
+                    + 2 * np.pi * meshes_gsha["hemispheres"][hemisphere_idx]["radius"]
+                )
     return area
 
 
@@ -1230,6 +1259,7 @@ def is_point_inside(point, hull):
     point_in_hull = hull.find_simplex(point) >= 0
     return point_in_hull
 
+
 def is_line_through_convex_hull(hull, line):
     """
     Verify if a line pass by a Delaunay convex hull
@@ -1245,43 +1275,43 @@ def is_line_through_convex_hull(hull, line):
 
 def get_rotation_quat(curr_pos, target_pos):
     """
-    Calculates the quaternion representing the rotation needed to align the current position 
+    Calculates the quaternion representing the rotation needed to align the current position
     to face the target position.
 
-    The function computes a "look-at" vector from the current position to the target position, 
-    then calculates the corresponding rotation matrix. The matrix is converted into a quaternion 
+    The function computes a "look-at" vector from the current position to the target position,
+    then calculates the corresponding rotation matrix. The matrix is converted into a quaternion
     to represent the 3D rotation.
 
     Parameters:
     ----------
     curr_pos : array-like
         The current position as a 3D vector (x, y, z).
-        
+
     target_pos : array-like
         The target position as a 3D vector (x, y, z).
-        
+
     Returns:
     --------
     quaternion : np.ndarray
         A 4-element array representing the rotation as a quaternion [x, y, z, w].
-        
+
     Notes:
     ------
-    - The "look-at" vector is normalized to get the direction from the current position 
+    - The "look-at" vector is normalized to get the direction from the current position
       to the target.
     - The "up" vector is assumed to be [0, 0, 1], which is aligned with the Z-axis.
     - The right and new up vectors are calculated via cross products to form an orthogonal
       coordinate system, which is then used to create the rotation matrix.
-    - The `Rot.from_matrix()` function from `scipy.spatial.transform` is used to convert the 
+    - The `Rot.from_matrix()` function from `scipy.spatial.transform` is used to convert the
       rotation matrix into a quaternion.
     """
     look_at = np.array(target_pos) - np.array(curr_pos)
-    look_at = look_at / np.linalg.norm(look_at)  
+    look_at = look_at / np.linalg.norm(look_at)
 
     up = np.array([0.0, 0.0, 1.0])
-    
+
     right = np.cross(up, look_at)
-    right = right / np.linalg.norm(right)  
+    right = right / np.linalg.norm(right)
 
     new_up = np.cross(look_at, right)
 
@@ -1320,7 +1350,7 @@ def horn(P: ndarray, Q: ndarray) -> ndarray:
         R = np.dot(Vt.T, U.T)
 
     # Compute the scale factor
-    scale = np.sum(S) / np.sum(P_centered ** 2)
+    scale = np.sum(S) / np.sum(P_centered**2)
 
     # Compute the translation
     t = centroid_Q - scale * np.dot(R, centroid_P)
@@ -1346,8 +1376,9 @@ if __name__ == "__main__":
 
     # Create a plotter
     plotter = pv.Plotter()
-    meshes = draw_cylinder_with_hemisphere(plotter, cy_direction, cy_height, n_resolution, 2.0,
-                                           np.array([0.0, 0.0, 0.0]), 0.0)
+    meshes = draw_cylinder_with_hemisphere(
+        plotter, cy_direction, cy_height, n_resolution, 2.0, np.array([0.0, 0.0, 0.0]), 0.0
+    )
     first_hemisphere = meshes["hemispheres"][20]
     cam_pos = np.array(first_hemisphere["direction"])
     pos_mesh = np.array(first_hemisphere["center"])

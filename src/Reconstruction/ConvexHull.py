@@ -27,17 +27,6 @@ from GeometryOperations import (
 from IO import write_OP_file_3d, write_problem_file_3d
 
 settings = Config.Settings.get()
-height_proportion = float(settings["height proportion"])
-n_resolution = int(settings["n resolution"])
-max_route_radius = float(settings["max route radius"])
-points_per_unit = float(settings["points per unit"])
-points_per_sphere = float(settings["points per sphere"])
-CA_max = float(settings["CA_max"])
-max_visits = int(settings["max visits"])
-max_iter = int(settings["max iter"])
-n_resolution = int(settings["n resolution"])
-search_size = 20  # Size of the random points that will be used to search the next position of the UAV.
-number_of_line_points = 10  # The number of the points that will be used to define a line that will be verified if is through the convex hull
 
 
 def compute_edge_weight_matrix(S_cewm: dict, targets_points_of_view_cewm: dict[Any, ndarray]) -> ndarray:
@@ -108,6 +97,14 @@ def draw_cylinders_hemispheres(centroid_points_pf: dict, radius_pf: dict, target
     :return: Dictionary for weight of each point
     """
     print("Starting showing data")
+
+    height_proportion = float(settings["height proportion"])
+    n_resolution = int(settings["n resolution"])
+    max_route_radius = float(settings["max route radius"])
+    points_per_unit = float(settings["points per unit"])
+    points_per_sphere = float(settings["points per sphere"])
+    n_resolution = int(settings["n resolution"])
+
     # Create a plotter
     plotter = pv.Plotter()
     vector_points_pf = {}  # Dictionary with points of view around each object
@@ -208,6 +205,13 @@ def subgroup_formation(
     :return length: Total number of subgroups
     """
     print("Starting subgroup formation")
+
+    CA_max = float(settings["CA_max"])
+    max_visits = int(settings["max visits"])
+    max_iter = int(settings["max iter"])
+    search_size = 20  # Size of the random points that will be used to search the next position of the UAV.
+    number_of_line_points = 10  # The number of the points that will be used to define a line that will be verified if is through the convex hull
+
     S = {}
     contribution = 0
     subgroup_idx = 0
