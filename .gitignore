@@ -1,0 +1,7 @@
+.idea
+.venv
+.vscode
+.tool-versions
+__pycache__
+mesh_obj
+calibration_images
