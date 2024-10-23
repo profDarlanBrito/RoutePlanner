@@ -784,10 +784,9 @@ def draw_cylinder_with_hemisphere(
     # Find the radius of the spheres
     z_resolution = int(np.ceil(cy_height / l))
     h = cy_height / z_resolution
-    spheres_radius = np.max([l, h]) / 2
+    spheres_radius = np.min([l, h]) / 2
 
-    if (cy_center[2] - (cy_height / 2)) < low_cylinder_limit:
-        cy_center[2] = low_cylinder_limit + (cy_height / 2)
+    cy_center[2] = low_cylinder_limit + (cy_height / 2)
 
     cylinder = pv.CylinderStructured(
         center=cy_center,
@@ -816,13 +815,14 @@ def draw_cylinder_with_hemisphere(
         pos_cell = cell.center
         points_cell = cell.points[:3]
         norm_vec = find_normal_vector(*points_cell)
-        sub_mesh = pv.Sphere(radius=spheres_radius, center=pos_cell, direction=norm_vec, phi_resolution=10, end_phi=90)
+        sub_mesh = pv.Sphere(radius=spheres_radius, center=pos_cell, direction=norm_vec, phi_resolution=5, theta_resolution=10, end_phi=90)
         hemisphere_dict = {
             "mesh": sub_mesh,
             "radius": spheres_radius,
             "center": pos_cell,
             "direction": norm_vec,
-            "phi_resolution": 10,
+            "phi_resolution": 5,
+            "theta_resolution": 10,
             "end_phi": 90,
         }
         meshes["hemispheres"].append(hemisphere_dict)
