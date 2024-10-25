@@ -429,21 +429,25 @@ def convex_hull(experiment: int):
         coppelia.sim.stopSimulation()
         del coppelia
 
-    targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(
-        centroid_points, radius, positions
-    )
+    # targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(
+    #     centroid_points, radius, positions
+    # )
 
-    S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
+    plotter, target_meshes = draw_cylinders_with_hemispheres(centroid_points, radius, positions)
+    target_view_points, conversion_table = generate_target_view_points(target_meshes)
+    target_view_weights = compute_points_weights(target_view_points, target_meshes, plotter)
+
+    S, subgroup_size = subgroup_formation(target_hull, target_view_weights, target_view_points, positions)
     name_cops_file = settings["COPS problem"] + str(experiment)
     name_op_file = settings["OP problem"] + str(experiment)
 
     offset_table = {}
-    for key, value in targets_points_of_view.items():
+    for key, value in target_view_points.items():
         offset_table[key] = len(value)
 
     interval = {}
     offset = 0
-    for key, value in targets_points_of_view.items():
+    for key, value in target_view_points.items():
 
         n = len(value)
         if all(value[0] == conversion_table[offset]) and all(value[-1] == conversion_table[offset + n - 1]):
@@ -460,27 +464,28 @@ def convex_hull(experiment: int):
         subgroup_size,
     )
 
-    write_OP_file_3d(
-        settings["COPS dataset"], name_op_file, conversion_table, points_of_view_contribution, targets_points_of_view
-    )
+    # write_OP_file_3d(
+    #     settings["COPS dataset"], name_op_file, conversion_table, target_view_weights, target_view_points
+    # )
 
     process_cops = execute_script(name_cops_file)
-    process_op = execute_script(name_op_file)
+    # process_op = execute_script(name_op_file)
 
-    print("Executing COPS ...")
-    print("Executing OP ...")
 
-    print_process(process_cops)
-    print_process(process_op)
 
     with open(os.path.join(settings["save path"], f"variables/convex_hull_{experiment}.var"), "wb") as file:
         pickle.dump(S, file)
-        pickle.dump(targets_points_of_view, file)
+        pickle.dump(target_view_weights, file)
         pickle.dump(centroid_points, file)
         pickle.dump(radius, file)
         pickle.dump(conversion_table, file)
         pickle.dump(interval, file)
 
+    print("Executing COPS ...")
+    print("Executing OP ...")
+
+    # print_process(process_cops)
+    # print_process(process_op)
     print("Ending convex hull")
 
 
@@ -522,14 +527,20 @@ def generate_target_view_points(target_meshes):
     hight_step = 2 + 1
     start_radius = 1.0
     step_radius_point = 1.5
-    max_radius = 6
+    max_radius = 3
     theta_step = np.deg2rad(15)
     tilt = np.deg2rad(-5)
 
     target_points = {}
+    list_points = []
 
     for target in target_meshes:
-        target_points[target] = []
+
+        if len(target_points) == 0:
+            target_points[target] = [np.array([0, 0, 0, 0, 0, 0])]
+            list_points.append(np.array([0, 0, 0, 0, 0, 0]))
+        else:
+            target_points[target] = []
 
         cylinder_radius = target_meshes[target]["cylinder"]["radius"]
         cylinder_center = target_meshes[target]["cylinder"]["center"]
@@ -540,7 +551,7 @@ def generate_target_view_points(target_meshes):
             if np.isclose(z, 2 * cylinder_center[2], atol=1e-6):
                 continue
 
-            for r in np.arange(cylinder_radius + start_radius, max_radius, step_radius_point):
+            for r in np.arange(cylinder_radius + start_radius, cylinder_radius + max_radius, step_radius_point):
                 if np.isclose(r, max_radius, atol=1e-6):
                     continue
 
@@ -553,8 +564,11 @@ def generate_target_view_points(target_meshes):
 
                     pan = theta + np.pi if theta + np.pi >= 2 * np.pi else theta - np.pi
                     target_points[target].append(np.array([x, y, z, pan, tilt, 0]))
+                    list_points.append(np.array([x, y, z, pan, tilt, 0]))
 
-    return target_points
+        target_points[target] = np.array(target_points[target])
+
+    return target_points, np.array(list_points)
 
 
 def is_cell_visible(cell, camera_position):
@@ -628,13 +642,13 @@ def get_hemisphere_in_frustum(cylinder, camera_position: tuple, hemispheres: lis
     return hemisphere_in_frustum
 
 
-def reward_point(distance):
-    d = 0.75
-    k = 2
+def reward_point(capture_area, cylinder_distance, cylinder_radius):
+    k = np.sqrt(cylinder_radius)
+    d = 1 / (np.sqrt(2) * cylinder_radius)
 
-    f = lambda x: 1 / (x * d) ** k + x * d
-    g = lambda x: 1 / f(x)
-    return g(distance)
+    reward = lambda x: (d * x) ** k / (1 + (d * x) ** (k + 1))
+
+    return capture_area * reward(cylinder_distance)
 
 
 def compute_points_weights(target_view_points: dict, target_meshes: dict, plotter):
@@ -643,10 +657,17 @@ def compute_points_weights(target_view_points: dict, target_meshes: dict, plotte
 
     for target, points in target_view_points.items():
         print("Computing weights for hemisphere")
-        target_view_weights[target] = []
+
+        if len(target_view_weights) == 0:
+            points = points[1:]
+            target_view_weights[target] = [0]
+        else:
+            target_view_weights[target] = []
+
         cylinder_hemispheres = target_meshes[target]["hemispheres"]
         target_cylinder = target_meshes[target]["cylinder"]
         cylinder_center = target_cylinder["center"]
+        cylinder_radius = target_cylinder["radius"]
 
         for i, point in enumerate(points):
 
@@ -670,7 +691,7 @@ def compute_points_weights(target_view_points: dict, target_meshes: dict, plotte
 
             camera_area = 0
             for hemisphere in target_hemispheres:
-                print(f"\r\033[Kpoint [{i +1}:{len(points)}], hemisphere: len({len(target_hemispheres)})", end="")
+                print(f"\r\033[Kpoint [{i + 1}:{len(points)}], hemisphere: len({len(target_hemispheres)})", end="")
 
                 for cell in get_geometric_objects_cell(hemisphere["mesh"]):
                     if not is_point_close_frustum(cell.center, camera_position, frustum):
@@ -688,16 +709,14 @@ def compute_points_weights(target_view_points: dict, target_meshes: dict, plotte
                     # mesh = pv.Line(camera_position, cell.center)
                     # plotter.add_mesh(mesh, color="k", line_width=2)
 
-            target_view_weights[target].append(camera_area * reward_point(distance_camera))
+            target_view_weights[target].append(reward_point(camera_area, distance_camera, cylinder_radius))
+
             # frustum_actor = plotter.add_mesh(frustum, style="wireframe")
-            # plotter.render()
-            # plotter.show(interactive_update=True)
             # plotter.show()
-            # plotter.update()
-            # time.sleep(1)
             # plotter.remove_actor(frustum_actor)
+
+        target_view_weights[target] = np.array(target_view_weights[target])
         print("\r\033[K", end="")
-    print(target_view_weights)
 
     return target_view_weights
 
@@ -726,8 +745,7 @@ def test():
     plane.point_data.clear()
     plotter.add_mesh(plane, show_edges=True)
 
-    target_view_points = generate_target_view_points(target_meshes)
-
+    target_view_points, conversion_table = generate_target_view_points(target_meshes)
     target_view_weights = compute_points_weights(target_view_points, target_meshes, plotter)
 
     for _, points in target_view_points.items():

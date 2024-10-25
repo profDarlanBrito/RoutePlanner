@@ -770,22 +770,18 @@ def draw_cylinder_with_hemisphere(
     plotter,
     cy_direction: ndarray,
     cy_height: float,
-    n_resolution: int,
+    theta_resolution: int,
     cy_radius: float,
     cy_center: ndarray,
     low_cylinder_limit=0.0,
 ):
     print("Drawing cylinder with hemispheres")
     meshes = {}
+
     # Calculate the length of the lateral surface of an inscribed cylinder
-    h = np.cos(np.pi / n_resolution) * cy_radius
-    l = np.sqrt(np.abs(4 * h**2 - 4 * cy_radius**2))
-
-    # Find the radius of the spheres
-    z_resolution = int(np.ceil(cy_height / l))
-    h = cy_height / z_resolution
-    spheres_radius = np.min([l, h]) / 2
-
+    spheres_radius = np.sin(np.pi / theta_resolution) * cy_radius
+    z_resolution = int(np.round(cy_height / spheres_radius)) + 1
+    cy_height = 2 * (z_resolution - 1) * spheres_radius
     cy_center[2] = low_cylinder_limit + (cy_height / 2)
 
     cylinder = pv.CylinderStructured(
@@ -793,7 +789,7 @@ def draw_cylinder_with_hemisphere(
         direction=cy_direction,
         radius=cy_radius,
         height=cy_height,
-        theta_resolution=n_resolution,
+        theta_resolution=theta_resolution,
         z_resolution=z_resolution,
     )
     cylinder_dict = {
@@ -802,7 +798,7 @@ def draw_cylinder_with_hemisphere(
         "direction": cy_direction,
         "radius": cy_radius,
         "height": cy_height,
-        "theta_resolution": n_resolution,
+        "theta_resolution": theta_resolution,
         "z_resolution": z_resolution,
     }
     meshes["cylinder"] = cylinder_dict
