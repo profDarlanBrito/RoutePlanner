@@ -34,21 +34,19 @@ def get_result_cops_route(result_cops_path: str, points_by_id: dict):
     return route, route_id
 
 
-def calculate_position_orientation(find_point: list, tilt_angle_deg: float = -5) -> np.ndarray:
+def calculate_position_orientation(find_point: list) -> np.ndarray:
     """
     Auxiliary function to calculate the position and orientation based on the current position and camera angle.
 
     Parameters:
     - find_point: List containing the coordinates (x, y, z) and the angle (theta) of the point.
-    - tilt_angle_deg: Camera tilt angle in degrees (default: -5).
 
     Returns:
     - An array with the position and orientation of the point.
     """
-    theta = np.deg2rad(find_point[3])
+    theta = find_point[3]
     curr_pos = find_point[:3]
-
-    tilt_camera = np.deg2rad(tilt_angle_deg)
+    tilt_camera = find_point[4]
 
     target_pos = np.copy(curr_pos)
     target_pos[0] += np.cos(theta)
@@ -459,8 +457,10 @@ def quadcopter_control_direct_points(
     count_image = 0
 
     for point_qcdp in route_qc:
-        pos = list(point_qcdp[:3])
-        ori = list(point_qcdp[3:])
+        pos_ori = calculate_position_orientation(point_qcdp)
+
+        pos = list(pos_ori[:3])
+        ori = list(pos_ori[3:])
 
         sim.setObjectPosition(vision_handle, pos, sim.handle_world)
         sim.setObjectQuaternion(vision_handle, ori, sim.handle_world)

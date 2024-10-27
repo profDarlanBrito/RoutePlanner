@@ -3,6 +3,7 @@ import pickle
 import platform
 import subprocess
 import sys
+from datetime import datetime
 from random import sample
 from typing import Any
 
@@ -26,6 +27,7 @@ from GeometryOperations import (
     points_along_line,
 )
 from IO import write_OP_file_3d, write_problem_file_3d
+from Reconstruction.ViewPoint import quadcopter_control_direct_points
 
 settings = Config.Settings.get()
 
@@ -388,7 +390,6 @@ def print_process(process):
 
 
 def load_variables():
-
     if len(sys.argv) >= 7:
         settings["points per unit"] = float(sys.argv[2])
         settings["T_max"] = int(sys.argv[3])
@@ -471,8 +472,6 @@ def convex_hull(experiment: int):
     process_cops = execute_script(name_cops_file)
     # process_op = execute_script(name_op_file)
 
-
-
     with open(os.path.join(settings["save path"], f"variables/convex_hull_{experiment}.var"), "wb") as file:
         pickle.dump(S, file)
         pickle.dump(target_view_weights, file)
@@ -486,6 +485,7 @@ def convex_hull(experiment: int):
 
     # print_process(process_cops)
     # print_process(process_op)
+    
     print("Ending convex hull")
 
 
@@ -735,20 +735,36 @@ def test():
             settings["object names"] = pickle.load(file)
 
     else:
-        coppelia = CoppeliaInterface(settings)
-        positions, target_hull, centroid_points, radius = initializations(coppelia)
-        coppelia.sim.stopSimulation()
-        del coppelia
+        copp = CoppeliaInterface(settings)
+        positions, target_hull, centroid_points, radius = initializations(copp)
+        # coppelia.sim.stopSimulation()
+        # del coppelia
 
     plotter, target_meshes = draw_cylinders_with_hemispheres(centroid_points, radius, positions)
     plane = pv.Plane(i_size=18, j_size=18)
     plane.point_data.clear()
     plotter.add_mesh(plane, show_edges=True)
 
+    copp.handles[settings["vision sensor names"]] = copp.sim.getObject(settings["vision sensor names"])
     target_view_points, conversion_table = generate_target_view_points(target_meshes)
-    target_view_weights = compute_points_weights(target_view_points, target_meshes, plotter)
+    # target_view_weights = compute_points_weights(target_view_points, target_meshes, plotter)
 
-    for _, points in target_view_points.items():
-        plotter.add_points(np.array(points)[:, :3])
+    current_datetime = datetime.now()
+    month = str(current_datetime.month)
+    day = str(current_datetime.day)
+    hour = str(current_datetime.hour)
+    minute = str(current_datetime.minute)
 
-    plotter.show()
+    experiment = 0
+    spiral_route_key = target_view_points.keys()
+    for object_key, route_of_object in target_view_points.items():
+        # for route, count_group in zip(route_by_group, range(len(route_by_group))):
+        filename = settings["filename"]
+        vision_handle = copp.handles[settings["vision sensor names"]]
+
+        group_name = f"_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+        directory_name = settings["directory name"] + group_name
+
+        quadcopter_control_direct_points(
+            copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
+        )
