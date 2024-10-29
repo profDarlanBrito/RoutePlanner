@@ -483,10 +483,10 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         interval = pickle.load(file)
 
     result_cops_path = os.path.join(settings["COPS result"], f"{settings['COPS problem']}{str(experiment)}.csv")
-    result_op_path = os.path.join(settings["COPS result"], f"{settings['OP problem']}{str(experiment)}.csv")
+    # result_op_path = os.path.join(settings["COPS result"], f"{settings['OP problem']}{str(experiment)}.csv")
 
     cops_route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval, conversion_table)
-    op_route_distace, op_route, op_route_by_group = read_route_cops(result_op_path, interval, conversion_table)
+    # op_route_distace, op_route, op_route_by_group = read_route_cops(result_op_path, interval, conversion_table)
 
     parts_to_spiral = 100
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = get_spiral_trajectories(
@@ -535,13 +535,13 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
         )
 
-        route_of_object = op_route_by_group[object_key]
-        group_name = f"_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
-        directory_name = settings["directory name"] + group_name
+        # route_of_object = op_route_by_group[object_key]
+        # group_name = f"_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+        # directory_name = settings["directory name"] + group_name
 
-        quadcopter_control_direct_points(
-            copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
-        )
+        # quadcopter_control_direct_points(
+        #     copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
+        # )
 
         spiral_route = spiral_route_by_target[object_key]
         spiral_group_name = f"_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
@@ -551,13 +551,13 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             copp.sim, copp.client, vision_handle, spiral_route, "spiral_route", spiral_directory_name
         )
 
-        random_route = random_route_by_target[object_key]
-        random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
-        random_directory_name = settings["directory name"] + random_group_name
+        # random_route = random_route_by_target[object_key]
+        # random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+        # random_directory_name = settings["directory name"] + random_group_name
 
-        quadcopter_control_direct_points(
-            copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
-        )
+        # quadcopter_control_direct_points(
+        #     copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
+        # )
 
     with open(os.path.join(settings["save path"], f"variables/view_point_{experiment}.var"), "wb") as file:
         pickle.dump(cops_route_distace, file)

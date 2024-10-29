@@ -463,14 +463,8 @@ def convex_hull(experiment: int):
         settings["COPS dataset"], name_op_file, conversion_table, points_of_view_contribution, targets_points_of_view
     )
 
-    process_cops = execute_script(name_cops_file)
-    process_op = execute_script(name_op_file)
-
     print("Executing COPS ...")
-    print("Executing OP ...")
-
-    print_process(process_cops)
-    print_process(process_op)
+    # print("Executing OP ...")
 
     with open(os.path.join(settings["save path"], f"variables/convex_hull_{experiment}.var"), "wb") as file:
         pickle.dump(S, file)
@@ -479,5 +473,11 @@ def convex_hull(experiment: int):
         pickle.dump(radius, file)
         pickle.dump(conversion_table, file)
         pickle.dump(interval, file)
+
+    process_cops = execute_script(name_cops_file)
+    # process_op = execute_script(name_op_file)
+
+    print_process(process_cops)
+    # print_process(process_op)
 
     print("Ending convex hull")
