@@ -76,7 +76,7 @@ far clip: 100
 # Perspective angle
 perspective angle: 82.6
 # Compute the COLMAP dense model
-dense model: 0
+dense model: 1
 # Path to save experiments
 save path: ./save_files/
 # Python exec, on the laboratory machines, it's python3.11
