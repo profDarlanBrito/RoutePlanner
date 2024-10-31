@@ -551,13 +551,13 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             copp.sim, copp.client, vision_handle, spiral_route, "spiral_route", spiral_directory_name
         )
 
-        # random_route = random_route_by_target[object_key]
-        # random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
-        # random_directory_name = settings["directory name"] + random_group_name
+        random_route = random_route_by_target[object_key]
+        random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+        random_directory_name = settings["directory name"] + random_group_name
 
-        # quadcopter_control_direct_points(
-        #     copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
-        # )
+        quadcopter_control_direct_points(
+            copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
+        )
 
     with open(os.path.join(settings["save path"], f"variables/view_point_{experiment}.var"), "wb") as file:
         pickle.dump(cops_route_distace, file)

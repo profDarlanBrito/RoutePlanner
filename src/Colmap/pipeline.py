@@ -1,9 +1,11 @@
 import os
+import shutil
 import subprocess
 
 feature_extractor_file = "config/feature_extractor.ini"
 exhaustive_file = "config/exhaustive_matcher.ini"
 mapper_file = "config/mapper.ini"
+point_triangulator_file = "config/point_triangulator.ini"
 image_undistorter_file = "config/image_undistorter.ini"
 patch_match_stereo_file = "config/patch_match_stereo.ini"
 stereo_fusion_file = "config/stereo_fusion.ini"
@@ -21,6 +23,12 @@ def write_config_file(config_file_name: str, workspace_folder: str, config_lines
 
 def execute_colmap_command(colmap_exec: str, command: str, config_file_path: str):
     process = subprocess.Popen([colmap_exec, command, "--project_path", config_file_path])
+    process.communicate()  # Wait for the process to finish
+
+
+def database_creator(colmap_exec, workspace_folder):
+    database_path = os.path.join(workspace_folder, "database.db")
+    process = subprocess.Popen([colmap_exec, "database_creator", "--database_path", database_path])
     process.communicate()  # Wait for the process to finish
 
 
@@ -43,6 +51,26 @@ def perform_exhaustive_matching(colmap_exec, workspace_folder):
 
     exhaustive_matcher_config_path = write_config_file(exhaustive_file, workspace_folder, exhaustive_config_str)
     execute_colmap_command(colmap_exec, "exhaustive_matcher", exhaustive_matcher_config_path)
+
+
+def point_triangulator(colmap_exec, workspace_folder, image_folder, sparse_dir):
+
+    model_folder = os.path.join(sparse_dir, "model")
+    model_output_folder = os.path.join(sparse_dir, "0")
+
+    os.mkdir(model_output_folder)
+
+    # Run the point_triangulator
+    with open(point_triangulator_file, "r") as point_triangulator_file_read:
+        point_tri_config_str = point_triangulator_file_read.readlines()
+        point_tri_config_str[3] = f"database_path={workspace_folder}/database.db\n"
+        point_tri_config_str[4] = f"image_path={image_folder}\n"
+        point_tri_config_str[5] = f"input_path={model_folder}\n"
+        point_tri_config_str[6] = f"output_path={model_output_folder}\n"
+
+    point_triangulator_config_path = write_config_file(point_triangulator_file, workspace_folder, point_tri_config_str)
+    execute_colmap_command(colmap_exec, "point_triangulator", point_triangulator_config_path)
+    shutil.rmtree(model_folder)
 
 
 def run_mapper(colmap_exec, workspace_folder, image_folder, sparse_dir):

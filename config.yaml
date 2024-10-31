@@ -30,7 +30,7 @@ time to stabilize: 10.0
 # The displacement that the robot will do before the simulation stops
 max displacement: 0.5
 # The total maximum time of the simulation
-total simulation time: 0.2
+total simulation time: 0.02
 # The height of the checkerboard black squares corners. The height variable is the number of inner square corners of the calibration target
 height: 5
 # The width of the checkerboard black squares corners. The width variable is the number of inner square corners of the calibration target
@@ -44,11 +44,13 @@ CA_min: 1
 max route radius: 2
 # Define the number of points by measure unit for points of view radius. Increase points per unit above 1 decrease the number of points between 0 and 1
 # when you decrease, increase the number of points. The max route radius divided by points per unit must be greater than one
-points per unit: 0.5
+points per unit: 1.0
 # Density of points in the radius. If the number increase density decrease
 points per sphere: 1
 # The proportion of the tallest z height to make the cylinder
 height proportion: 2.0
+# Camera calibration [width, height, fx, fy, cx, cy]
+camera param: [1920, 1080, 1066.0221301765448, 1075.7395515688547, 950.9797245332444, 516.0743430542202]
 # Define the maximum number of times that the point can be visited
 max visits: 10
 # Maximum number of iterations to try catch a subgroup
@@ -72,9 +74,9 @@ near clip: 1e-4
 # Far clip for vision sensor
 far clip: 100
 # Perspective angle
-perspective angle: 100.0
+perspective angle: 82.6
 # Compute the COLMAP dense model
-dense model: 1
+dense model: 0
 # Path to save experiments
 save path: ./save_files/
 # Python exec, on the laboratory machines, it's python3.11

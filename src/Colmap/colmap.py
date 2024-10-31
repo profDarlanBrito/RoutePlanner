@@ -3,9 +3,11 @@ import platform
 
 import numpy as np
 from numpy import ndarray
+from scipy.spatial.transform import Rotation as Rot
 
 import Config
 from Colmap.pipeline import *
+from Database import COLMAPDatabase
 
 settings = Config.Settings.get()
 
@@ -18,16 +20,93 @@ def run_colmap_program(colmap_folder: str, workspace_folder: str, images_folder:
         run_colmap("colmap", workspace_folder, images_folder)
 
 
+def camera_file(db, model_folder):
+    # https://github.com/colmap/colmap/blob/main/src/colmap/sensor/models.h
+
+    camera = "cameras.txt"
+    with open(os.path.join(model_folder, camera), "w") as camera_file:
+        camera_param = settings["camera param"]
+        camera_id = 1
+        camera_file.write(
+            f"{camera_id} PINHOLE {camera_param[0]} {camera_param[1]} {camera_param[2]} {camera_param[3]} {camera_param[4]} {camera_param[5]}\n"
+        )
+    
+    camera_model = 1 # PINHOLE
+    camera_param = settings["camera param"]
+    width_height = camera_param[:2]
+    params = camera_param[2:]
+    db.add_camera(camera_model, width_height[0], width_height[1], params, camera_id=camera_id)
+
+    return camera_id
+
+
+def images_file(db, model_folder, camera_id, image_folder):
+    ref_file = "ref_images.txt"
+    with open(os.path.join(image_folder, ref_file), "r") as ref_file:
+        lines = ref_file.readlines()
+
+    lines = [l.split() for l in lines]
+    lines.sort(key=lambda l: l[0])  # sort by the image name
+
+    images = "images.txt"
+    with open(os.path.join(model_folder, images), "w") as images_file:
+        for i, (name, x, y, z, qw, qx, qy, qz) in enumerate(lines):
+            
+            R = Rot.from_quat([float(qx), float(qy), float(qz), float(qw)]).as_matrix().T
+            c = np.array([float(x), float(y), float(z)])
+
+            R_180 = np.diag([-1, -1, 1]) @ R
+            t = -R_180 @ c
+            tx, ty, tz = t
+
+            qx, qy, qz, qw = Rot.from_matrix(R_180).as_quat()
+
+            image_id = i + 1
+            images_file.write(f"{image_id} {qw} {qx} {qy} {qz} {tx} {ty} {tz} {camera_id} {name}\n\n")
+            db.add_image(name, camera_id, image_id, qw, qx, qy, qz, tx, ty, tz)
+
+
+def points_file(model_folder):
+
+    points3D = "points3D.txt"
+    with open(os.path.join(model_folder, points3D), "w") as points_file:
+        points_file.write("")
+
+
+def create_base_files(workspace_folder, image_folder, sparse_dir):
+
+    database_path = os.path.join(workspace_folder, "database.db")
+    db = COLMAPDatabase.connect(database_path)
+    db.create_tables()
+
+    model_folder = os.path.join(sparse_dir, "model")
+    os.mkdir(model_folder)
+
+    camera_id = camera_file(db, model_folder)
+
+    images_file(db, model_folder, camera_id, image_folder)
+
+    points_file(model_folder)
+
+    db.commit()
+    db.close()
+
+
 def sparse_reconstruction(colmap_exec: str, workspace_folder: str, image_folder: str):
-    extract_features(colmap_exec, workspace_folder, image_folder)
-
-    perform_exhaustive_matching(colmap_exec, workspace_folder)
-
     # Create sparse folder
     sparse_dir = os.path.join(workspace_folder, "sparse").replace("\\", "/")
     os.mkdir(sparse_dir)
 
-    run_mapper(colmap_exec, workspace_folder, image_folder, sparse_dir)
+    database_creator(colmap_exec, workspace_folder)
+
+    create_base_files(workspace_folder, image_folder, sparse_dir)
+
+    extract_features(colmap_exec, workspace_folder, image_folder)
+
+    perform_exhaustive_matching(colmap_exec, workspace_folder)
+
+    point_triangulator(colmap_exec, workspace_folder, image_folder, sparse_dir)
+
     return sparse_dir
 
 

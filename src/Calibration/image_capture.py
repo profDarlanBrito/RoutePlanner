@@ -3,8 +3,56 @@ import os
 import cv2 as cv
 import numpy as np
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
+from scipy.spatial.transform import Rotation as Rot
 
-from GeometryOperations import get_rotation_quat
+
+def get_rotation_quat(curr_pos, target_pos):
+    """
+    Calculates the quaternion representing the rotation needed to align the current position
+    to face the target position.
+
+    The function computes a "look-at" vector from the current position to the target position,
+    then calculates the corresponding rotation matrix. The matrix is converted into a quaternion
+    to represent the 3D rotation.
+
+    Parameters:
+    ----------
+    curr_pos : array-like
+        The current position as a 3D vector (x, y, z).
+
+    target_pos : array-like
+        The target position as a 3D vector (x, y, z).
+
+    Returns:
+    --------
+    quaternion : np.ndarray
+        A 4-element array representing the rotation as a quaternion [x, y, z, w].
+
+    Notes:
+    ------
+    - The "look-at" vector is normalized to get the direction from the current position
+      to the target.
+    - The "up" vector is assumed to be [0, 0, 1], which is aligned with the Z-axis.
+    - The right and new up vectors are calculated via cross products to form an orthogonal
+      coordinate system, which is then used to create the rotation matrix.
+    - The `Rot.from_matrix()` function from `scipy.spatial.transform` is used to convert the
+      rotation matrix into a quaternion.
+    """
+    look_at = np.array(target_pos) - np.array(curr_pos)
+    look_at = look_at / np.linalg.norm(look_at)
+
+    up = np.array([0.0, 0.0, 1.0])
+
+    right = np.cross(up, look_at)
+    right = right / np.linalg.norm(right)
+
+    new_up = np.cross(look_at, right)
+
+    rotation_matrix = np.array([right, new_up, look_at]).T
+
+    rotation = Rot.from_matrix(rotation_matrix)
+
+    return rotation.as_quat()
 
 
 def generate_points(num_points, bounding_box):

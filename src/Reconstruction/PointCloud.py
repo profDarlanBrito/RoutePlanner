@@ -122,7 +122,6 @@ def point_cloud(experiment: int) -> None:
     MNRE_array = np.empty(0)
     spiral_route_key = spiral_route_by_target.keys()
     for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
-        # for route, count_group in zip(route_by_group, range(len(route_by_group))):
 
         # Reconstruction COPS
         workspace_folder = os.path.join(
@@ -183,10 +182,10 @@ def point_cloud(experiment: int) -> None:
         with open(os.path.join(op_workspace_folder, "object_name.txt"), "w") as object_name_file:
             object_name_file.write(object_key)
 
-        images_folder = str(os.path.join(settings["path"], op_image_directory_name))
-        run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
-        MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
-        remove_unused_files(op_workspace_folder)
+        # images_folder = str(os.path.join(settings["path"], op_image_directory_name))
+        # run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
+        # MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
+        # remove_unused_files(op_workspace_folder)
 
         # Reconstruction Spiral
         spiral_workspace_folder = os.path.join(
