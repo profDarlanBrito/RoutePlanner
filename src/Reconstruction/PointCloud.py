@@ -240,3 +240,5 @@ def point_cloud(experiment: int) -> None:
         run_colmap_program(colmap_folder, random_workspace_folder, random_images_folder)
         statistics_colmap(colmap_folder, random_workspace_folder)
         remove_unused_files(random_workspace_folder)
+
+        break

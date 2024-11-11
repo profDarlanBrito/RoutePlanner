@@ -45,7 +45,7 @@ def calculate_position_orientation(find_point: list, tilt_angle_deg: float = -5)
     Returns:
     - An array with the position and orientation of the point.
     """
-    theta = np.deg2rad(find_point[3])
+    theta = find_point[3]
     curr_pos = find_point[:3]
 
     tilt_camera = np.deg2rad(tilt_angle_deg)
@@ -472,21 +472,25 @@ def quadcopter_control_direct_points(
         get_image(sim, count_image, filename_qcdp, vision_handle, directory_name_qcdp)
         count_image += 1
 
-
 def view_point(copp: CoppeliaInterface, experiment: int):
     with open(os.path.join(settings["save path"], f"variables/convex_hull_{experiment}.var"), "rb") as file:
         S = pickle.load(file)
         targets_points_of_view = pickle.load(file)
         centroid_points = pickle.load(file)
         radius = pickle.load(file)
-        conversion_table = pickle.load(file)
-        interval = pickle.load(file)
+        conversion_table_cops = pickle.load(file)
+        conversion_table_op = pickle.load(file)
+        interval_cops = pickle.load(file)
+        interval_op = pickle.load(file)
 
     result_cops_path = os.path.join(settings["COPS result"], f"{settings['COPS problem']}{str(experiment)}.csv")
-    # result_op_path = os.path.join(settings["COPS result"], f"{settings['OP problem']}{str(experiment)}.csv")
+    result_op_path = os.path.join(settings["COPS result"], f"{settings['OP problem']}{str(experiment)}.csv")
 
-    cops_route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval, conversion_table)
-    # op_route_distace, op_route, op_route_by_group = read_route_cops(result_op_path, interval, conversion_table)
+    for pos_ori in conversion_table_cops:
+        pos_ori[3] = np.deg2rad(pos_ori[3])
+
+    cops_route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval_cops, conversion_table_cops)
+    op_route_distace, op_route, op_route_by_group = read_route_cops(result_op_path, interval_op, conversion_table_op)
 
     parts_to_spiral = 100
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = get_spiral_trajectories(
@@ -494,7 +498,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     )
 
     random_route_by_target, random_target_distance = get_random_points(
-        interval, conversion_table, targets_points_of_view
+        interval_cops, conversion_table_cops, targets_points_of_view
     )
 
     copp.handles[settings["vision sensor names"]] = copp.sim.getObject(settings["vision sensor names"])
@@ -527,37 +531,41 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         filename = settings["filename"]
         vision_handle = copp.handles[settings["vision sensor names"]]
 
-        route_of_object = cops_route_by_group[object_key]
-        group_name = f"_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
-        directory_name = settings["directory name"] + group_name
+        try:
 
-        quadcopter_control_direct_points(
-            copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
-        )
+            route_of_object = cops_route_by_group[object_key]
+            group_name = f"_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+            directory_name = settings["directory name"] + group_name
 
-        # route_of_object = op_route_by_group[object_key]
-        # group_name = f"_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
-        # directory_name = settings["directory name"] + group_name
+            quadcopter_control_direct_points(
+                copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
+            )
 
-        # quadcopter_control_direct_points(
-        #     copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
-        # )
+            route_of_object = op_route_by_group[object_key]
+            group_name = f"_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+            directory_name = settings["directory name"] + group_name
 
-        spiral_route = spiral_route_by_target[object_key]
-        spiral_group_name = f"_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
-        spiral_directory_name = settings["directory name"] + spiral_group_name
+            quadcopter_control_direct_points(
+                copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
+            )
 
-        quadcopter_control_direct_points(
-            copp.sim, copp.client, vision_handle, spiral_route, "spiral_route", spiral_directory_name
-        )
+            spiral_route = spiral_route_by_target[object_key]
+            spiral_group_name = f"_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+            spiral_directory_name = settings["directory name"] + spiral_group_name
 
-        random_route = random_route_by_target[object_key]
-        random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
-        random_directory_name = settings["directory name"] + random_group_name
+            quadcopter_control_direct_points(
+                copp.sim, copp.client, vision_handle, spiral_route, "spiral_route", spiral_directory_name
+            )
 
-        quadcopter_control_direct_points(
-            copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
-        )
+            random_route = random_route_by_target[object_key]
+            random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
+            random_directory_name = settings["directory name"] + random_group_name
+
+            quadcopter_control_direct_points(
+                copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
+            )
+        except KeyError as e:
+            print("Key not found:", e)
 
     with open(os.path.join(settings["save path"], f"variables/view_point_{experiment}.var"), "wb") as file:
         pickle.dump(cops_route_distace, file)
