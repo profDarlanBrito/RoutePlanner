@@ -22,7 +22,7 @@ def rdraw_cylinder_with_hemisphere(
     # Calculate the length of the lateral surface of an inscribed cylinder
     spheres_radius = np.sin(np.pi / theta_resolution) * cy_radius
     z_resolution = int(np.round(cy_height / spheres_radius)) + 1
-    cy_height = 2 * (z_resolution - 1) * spheres_radius
+    cy_height = 1.15 * (z_resolution - 1) * spheres_radius
     cy_center[2] = low_cylinder_limit + (cy_height / 2)
 
     cylinder = pv.CylinderStructured(
@@ -102,7 +102,7 @@ def draw_cylinders_with_hemispheres(centroid_points, radius, target_points):
 
 
 def generate_target_view_points(target_meshes, radius):
-    hight_step = 3 + 1
+    hight_step = 4 + 1
     theta_step = np.deg2rad(15)
     tilt = np.deg2rad(-5)
 
@@ -116,7 +116,7 @@ def generate_target_view_points(target_meshes, radius):
 
         if len(target_points) == 0:
             target_points[target] = [np.array([-2.0, 0.0, 1.0, 0.0, 0.0, 0.0])]
-            list_points.append(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+            list_points.append(np.array([-2.0, 0.0, 1.0, 0.0, 0.0, 0.0]))
         else:
             target_points[target] = []
 

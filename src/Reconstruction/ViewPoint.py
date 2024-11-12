@@ -96,9 +96,13 @@ def read_route_cops(result_cops_path: str, interval: dict, conversion_table: lis
 
     cops_route_by_group = get_result_by_cluster(conversion_table, cops_by_id, interval)
 
-    route_distace = compute_route_distance(cops_route)
+    route_distance = compute_route_distance(cops_route)
 
-    return route_distace, cops_route, cops_route_by_group
+    route_target_distance = {}
+    for target, route in cops_route_by_group.items():
+        route_target_distance[target] = compute_route_distance(route)
+
+    return route_distance, route_target_distance,cops_route, cops_route_by_group
 
 
 def generate_true_spiral_points(radius: float, num_points: int) -> list[ndarray]:
@@ -489,8 +493,8 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     for pos_ori in conversion_table_cops:
         pos_ori[3] = np.deg2rad(pos_ori[3])
 
-    cops_route_distace, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval_cops, conversion_table_cops)
-    op_route_distace, op_route, op_route_by_group = read_route_cops(result_op_path, interval_op, conversion_table_op)
+    cops_route_distance, cops_route_target_distance, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval_cops, conversion_table_cops)
+    op_route_distance, op_route_target_distance, op_route, op_route_by_group = read_route_cops(result_op_path, interval_op, conversion_table_op)
 
     parts_to_spiral = 100
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = get_spiral_trajectories(
@@ -532,7 +536,6 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         vision_handle = copp.handles[settings["vision sensor names"]]
 
         try:
-
             route_of_object = cops_route_by_group[object_key]
             group_name = f"_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
             directory_name = settings["directory name"] + group_name
@@ -540,7 +543,10 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             quadcopter_control_direct_points(
                 copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
             )
+        except KeyError as e:
+            print("Key not found:", e)
 
+        try:
             route_of_object = op_route_by_group[object_key]
             group_name = f"_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
             directory_name = settings["directory name"] + group_name
@@ -548,7 +554,10 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             quadcopter_control_direct_points(
                 copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
             )
+        except KeyError as e:
+            print("Key not found:", e)
 
+        try:
             spiral_route = spiral_route_by_target[object_key]
             spiral_group_name = f"_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
             spiral_directory_name = settings["directory name"] + spiral_group_name
@@ -556,7 +565,10 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             quadcopter_control_direct_points(
                 copp.sim, copp.client, vision_handle, spiral_route, "spiral_route", spiral_directory_name
             )
+        except KeyError as e:
+            print("Key not found:", e)
 
+        try:
             random_route = random_route_by_target[object_key]
             random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
             random_directory_name = settings["directory name"] + random_group_name
@@ -568,10 +580,12 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             print("Key not found:", e)
 
     with open(os.path.join(settings["save path"], f"variables/view_point_{experiment}.var"), "wb") as file:
-        pickle.dump(cops_route_distace, file)
+        pickle.dump(cops_route_distance, file)
         pickle.dump(travelled_spiral_distance, file)
         pickle.dump(spiral_route_by_target, file)
         pickle.dump(cops_route_by_group, file)
+        pickle.dump(cops_route_target_distance, file)
+        pickle.dump(op_route_target_distance, file)
         pickle.dump(spiral_target_distance, file)
         pickle.dump(random_target_distance, file)
         pickle.dump(day, file)

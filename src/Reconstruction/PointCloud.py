@@ -67,10 +67,12 @@ def remove_unused_files(workspace_folder):
 
 def point_cloud(experiment: int) -> None:
     with open(os.path.join(settings["save path"], f"variables/view_point_{experiment}.var"), "rb") as f:
-        travelled_distance_main = pickle.load(f)
-        travelled_spiral_distance = pickle.load(f)
+        traveled_distance_main = pickle.load(f)
+        traveled_spiral_distance = pickle.load(f)
         spiral_route_by_target = pickle.load(f)
         route_by_group = pickle.load(f)
+        cops_target_distance = pickle.load(f)
+        op_target_distance = pickle.load(f)
         spiral_target_distance = pickle.load(f)
         random_target_distance = pickle.load(f)
         day = pickle.load(f)
@@ -97,7 +99,7 @@ def point_cloud(experiment: int) -> None:
     os.makedirs(workspace_folder)
 
     with open(os.path.join(workspace_folder, "distance.txt"), "w") as distance_file:
-        distance_file.write(f"distance: {str(travelled_distance_main)}\n")
+        distance_file.write(f"distance: {str(traveled_distance_main)}\n")
         distance_file.write(f'CA_max: {settings["CA_max"]}\n')
         distance_file.write(f'CA_min: {settings["CA_min"]}')
 
@@ -139,13 +141,8 @@ def point_cloud(experiment: int) -> None:
         # Create the directory
         os.makedirs(workspace_folder)
 
-        travelled_distance_main = 0
-        route_points = route_by_group[object_key]
-        for i in range(1, len(route_by_group[object_key])):
-            travelled_distance_main += np.linalg.norm(route_points[i - 1][:3] - route_points[i][:3])
-
         with open(os.path.join(workspace_folder, "distance.txt"), "w") as distance_file:
-            distance_file.write(str(travelled_distance_main))
+            distance_file.write(str(cops_target_distance[object_key]))
 
         with open(os.path.join(workspace_folder, "object_name.txt"), "w") as object_name_file:
             object_name_file.write(object_key)
@@ -171,21 +168,16 @@ def point_cloud(experiment: int) -> None:
         # Create the directory
         os.makedirs(op_workspace_folder)
 
-        travelled_distance_main = 0
-        route_points = route_by_group[object_key]
-        for i in range(1, len(route_by_group[object_key])):
-            travelled_distance_main += np.linalg.norm(route_points[i - 1][:3] - route_points[i][:3])
-
         with open(os.path.join(op_workspace_folder, "distance.txt"), "w") as distance_file:
-            distance_file.write(str(travelled_distance_main))
+            distance_file.write(str(op_target_distance[object_key]))
 
         with open(os.path.join(op_workspace_folder, "object_name.txt"), "w") as object_name_file:
             object_name_file.write(object_key)
 
-        # images_folder = str(os.path.join(settings["path"], op_image_directory_name))
-        # run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
-        # MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
-        # remove_unused_files(op_workspace_folder)
+        images_folder = str(os.path.join(settings["path"], op_image_directory_name))
+        run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
+        MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
+        remove_unused_files(op_workspace_folder)
 
         # Reconstruction Spiral
         spiral_workspace_folder = os.path.join(

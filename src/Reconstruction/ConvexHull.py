@@ -434,12 +434,6 @@ def convex_hull(experiment: int):
         centroid_points, radius, positions
     )
 
-    array_conversion_table = np.array(conversion_table_cops)
-    pontos_pv = pv.PolyData(array_conversion_table[:,:3])
-    plotter = pv.Plotter()
-    plotter.add_points(pontos_pv, color='red', point_size=10)  # Altere o tamanho e cor conforme necessário
-    plotter.show()
-
     S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
     name_cops_file = settings["COPS problem"] + str(experiment)
 
