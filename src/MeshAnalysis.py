@@ -382,10 +382,12 @@ def mesh_analysis():
     experiment = settings["number of trials"]
     for exp in range(experiment):
         with open(os.path.join(settings["save path"], f"variables/view_point_{exp}.var"), "rb") as f:
-            travelled_distance_main = pickle.load(f)
-            travelled_spiral_distance = pickle.load(f)
+            traveled_distance_main = pickle.load(f)
+            traveled_spiral_distance = pickle.load(f)
             spiral_route_by_target = pickle.load(f)
             route_by_group = pickle.load(f)
+            cops_target_distance = pickle.load(f)
+            op_target_distance = pickle.load(f)
             spiral_target_distance = pickle.load(f)
             random_target_distance = pickle.load(f)
             day = pickle.load(f)
