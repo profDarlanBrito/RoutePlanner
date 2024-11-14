@@ -69,10 +69,10 @@ def get_result_cops_route(result_cops_path: str, key_points: dict):
 # Load data from files
 exp = 2
 sub_exp = 0
-workspace = f"t/3/office"
+workspace = f"save_files/0"
 convex_hull_file_path = f"{workspace}/variables/convex_hull_{sub_exp}.var"
-cops_file_path = f"{workspace}/datasets/3dreconstructionPathPlannerBuilds{sub_exp}.cops"
-results_cops_file_path = f"{workspace}/datasets/results/3dreconstructionPathPlannerBuilds{sub_exp}.csv"
+cops_file_path = f"{workspace}/datasets/3dreconstructionPathCOPS{sub_exp}.cops"
+results_cops_file_path = f"{workspace}/datasets/results/3dreconstructionPathCOPS{sub_exp}.csv"
 
 with open(convex_hull_file_path, "rb") as file:
     S = pickle.load(file)

@@ -132,8 +132,6 @@ def dense_reconstruction(colmap_exec: str, workspace_folder: str, image_folder: 
 
         perform_stereo_fusion(colmap_exec, workspace_folder, sub_dense_dir)
 
-        generate_mesh_poisson(colmap_exec, workspace_folder, sub_dense_dir)
-
         convert_model(colmap_exec, workspace_folder, sub_dense_sparse_dir)
 
 

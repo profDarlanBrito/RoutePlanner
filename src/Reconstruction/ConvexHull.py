@@ -25,6 +25,7 @@ from GeometryOperations import (
     points_along_line,
 )
 from IO import write_OP_file_3d, write_problem_file_3d
+from Reconstruction.Roberts import compute_points_weights, draw_cylinders_with_hemispheres, generate_target_view_points
 
 settings = Config.Settings.get()
 
@@ -428,56 +429,72 @@ def convex_hull(experiment: int):
         coppelia.sim.stopSimulation()
         del coppelia
 
-    targets_points_of_view, points_of_view_contribution, conversion_table = draw_cylinders_hemispheres(
+    # COPS
+    targets_points_of_view, points_of_view_contribution, conversion_table_cops = draw_cylinders_hemispheres(
         centroid_points, radius, positions
     )
 
     S, subgroup_size = subgroup_formation(target_hull, points_of_view_contribution, targets_points_of_view, positions)
     name_cops_file = settings["COPS problem"] + str(experiment)
-    name_op_file = settings["OP problem"] + str(experiment)
 
     offset_table = {}
     for key, value in targets_points_of_view.items():
         offset_table[key] = len(value)
 
-    interval = {}
+    interval_cops = {}
     offset = 0
     for key, value in targets_points_of_view.items():
 
         n = len(value)
-        if all(value[0] == conversion_table[offset]) and all(value[-1] == conversion_table[offset + n - 1]):
-            interval[key] = [offset, offset + n - 1]
+        if all(value[0] == conversion_table_cops[offset]) and all(value[-1] == conversion_table_cops[offset + n - 1]):
+            interval_cops[key] = [offset, offset + n - 1]
             offset += n
 
-    write_problem_file_3d(
-        settings["COPS dataset"],
+    write_problem_file_3d(settings["COPS dataset"],
         name_cops_file,
-        conversion_table,
+        conversion_table_cops,
         offset_table,
         len(settings["object names"]),
         S,
         subgroup_size,
     )
 
+    # Roberts
+    plotter, target_meshes = draw_cylinders_with_hemispheres(centroid_points, radius, positions)
+    target_view_points, conversion_table_op = generate_target_view_points(target_meshes, radius)
+    target_view_weights = compute_points_weights(target_view_points, target_meshes, plotter)
+    name_op_file = settings["OP problem"] + str(experiment)
+
+    interval_op = {}
+    offset = 0
+    for key, value in target_view_points.items():
+
+        n = len(value)
+        if all(value[0] == conversion_table_op[offset]) and all(value[-1] == conversion_table_op[offset + n - 1]):
+            interval_op[key] = [offset, offset + n - 1]
+            offset += n
+
     write_OP_file_3d(
-        settings["COPS dataset"], name_op_file, conversion_table, points_of_view_contribution, targets_points_of_view
+        settings["COPS dataset"], name_op_file, conversion_table_op, target_view_weights, target_view_points
     )
 
     print("Executing COPS ...")
-    # print("Executing OP ...")
+    print("Executing OP ...")
 
     with open(os.path.join(settings["save path"], f"variables/convex_hull_{experiment}.var"), "wb") as file:
         pickle.dump(S, file)
         pickle.dump(targets_points_of_view, file)
         pickle.dump(centroid_points, file)
         pickle.dump(radius, file)
-        pickle.dump(conversion_table, file)
-        pickle.dump(interval, file)
+        pickle.dump(conversion_table_cops, file)
+        pickle.dump(conversion_table_op, file)
+        pickle.dump(interval_cops, file)
+        pickle.dump(interval_op, file)
 
     process_cops = execute_script(name_cops_file)
-    # process_op = execute_script(name_op_file)
+    process_op = execute_script(name_op_file)
 
     print_process(process_cops)
-    # print_process(process_op)
+    print_process(process_op)
 
     print("Ending convex hull")

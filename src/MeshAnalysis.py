@@ -165,6 +165,9 @@ def metrics(source_points: ndarray, target_points: ndarray) -> dict:
         dist = np.linalg.norm(target_points - point, axis=1)
         curr_min = np.min(dist)
 
+        if curr_min < 0.05:
+            curr_min = 0
+
         if curr_min < min:
             min = curr_min
 
@@ -256,11 +259,13 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     file_name = "images.txt"
     ref_file_name = "ref_images.txt"
     mesh_file = "meshed-poisson.ply"
+    point_cloud_file = "fused.ply"
 
     sparce_path = os.path.join(reconstruction_path, sparce_folder)
     file_path = os.path.join(sparce_path, file_name)
     ref_file_path = os.path.join(image_path, ref_file_name)
     mesh_plt_path = os.path.join(reconstruction_path, mesh_file)
+    point_cloud_plt_path = os.path.join(reconstruction_path, point_cloud_file)
 
     camera_centers = read_camera_pos_files(file_path, ref_file_path)
 
@@ -290,7 +295,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
     target_mesh.transform(T)
 
     source_pcd = o3d.io.read_point_cloud(plt_path)
-    target_pcd = o3d.io.read_point_cloud(mesh_plt_path)
+    target_pcd = o3d.io.read_point_cloud(point_cloud_plt_path)
 
     target_pcd.transform(T)
 
@@ -303,7 +308,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     new_mesh_path = os.path.dirname(mesh_plt_path)
 
-    o3d.io.write_point_cloud(os.path.join(new_mesh_path, "point-cloud-crop.ply"), target_pcd)
+    o3d.io.write_point_cloud(os.path.join(new_mesh_path, "fused-crop.ply"), target_pcd)
     o3d.io.write_triangle_mesh(os.path.join(new_mesh_path, "meshed-poisson-crop.ply"), cropped_mesh)
 
     print("Start calculate hausdorff_distance")
@@ -377,10 +382,12 @@ def mesh_analysis():
     experiment = settings["number of trials"]
     for exp in range(experiment):
         with open(os.path.join(settings["save path"], f"variables/view_point_{exp}.var"), "rb") as f:
-            travelled_distance_main = pickle.load(f)
-            travelled_spiral_distance = pickle.load(f)
+            traveled_distance_main = pickle.load(f)
+            traveled_spiral_distance = pickle.load(f)
             spiral_route_by_target = pickle.load(f)
             route_by_group = pickle.load(f)
+            cops_target_distance = pickle.load(f)
+            op_target_distance = pickle.load(f)
             spiral_target_distance = pickle.load(f)
             random_target_distance = pickle.load(f)
             day = pickle.load(f)
