@@ -327,6 +327,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
 
     if last_dir.startswith("spiral") or last_dir.startswith("op") or last_dir.startswith("random"):
         route_reward = "none"
+        obj_reward = "none"
 
     else:
         results_cops_file = f"{settings['COPS problem']}{experiment}.csv"
@@ -337,6 +338,12 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
             route_reward = line["profit"]
             route_reward = float(route_reward.replace(",", "."))
 
+
+        reward_obj_file_path = back_directories(reconstruction_path, 2)
+        reward_obj_file_path = os.path.join(reward_obj_file_path, "reward_obj.txt")
+        with open(reward_obj_file_path, "r") as file:
+            obj_reward = float(file.readline().strip())
+
     return {
         "reconstruction_path": last_dir,
         "ply": os.path.basename(plt_path),
@@ -346,6 +353,7 @@ def process_reconstruction(image_path, reconstruction_path, plt_path):
         "max": np.max((metrics_dist[0]["max"], metrics_dist[1]["max"])),
         "mae": metrics_dist[0]["mae"] + metrics_dist[1]["mae"],
         "rmse": metrics_dist[0]["rmse"] + metrics_dist[1]["rmse"],
+        "obj_reward": obj_reward,
         "route_reward": route_reward,
     }
 
@@ -390,6 +398,7 @@ def mesh_analysis():
             op_target_distance = pickle.load(f)
             spiral_target_distance = pickle.load(f)
             random_target_distance = pickle.load(f)
+            cops_target_profit = pickle.load(f)
             day = pickle.load(f)
             month = pickle.load(f)
             hour = pickle.load(f)

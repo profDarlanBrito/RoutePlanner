@@ -152,7 +152,6 @@ def run_colmap(colmap_exec: str, workspace_folder: str, image_folder: str) -> No
         print("Script executed successfully.")
     except Exception as e:
         print("An error occurred:", e)
-        raise RuntimeError("Colmap could not be executed correctly")
 
 
 def statistics_colmap(colmap_folder_sc, workspace_folder_sc, MNRE_array=np.empty(0)) -> ndarray | None:

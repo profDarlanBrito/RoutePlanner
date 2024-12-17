@@ -21,8 +21,10 @@ def get_result_cops_route(result_cops_path: str, points_by_id: dict):
         reader = csv.reader(csv_file, delimiter=";")
         _ = next(reader)  # header
         line = next(reader)  # first line content
-        line = line[7].replace("  ", ", ")
-        cops_route = ast.literal_eval(line)
+        route = line[7].replace("  ", ", ")
+        str_clusters = line[8].replace("  ", ", ")
+        list_clusters = list(filter(lambda x: x > 0, ast.literal_eval(str_clusters)))
+        cops_route = ast.literal_eval(route)
 
     route = [points_by_id[cops_route[0][0]]]
     route_id = [cops_route[0][0]]
@@ -31,7 +33,9 @@ def get_result_cops_route(result_cops_path: str, points_by_id: dict):
         route.append(points_by_id[key_id])
         route_id.append(key_id)
 
-    return route, route_id
+    list_clusters = sorted(list_clusters)
+
+    return route, route_id, list_clusters
 
 
 def calculate_position_orientation(find_point: list, tilt_angle_deg: float = -5) -> np.ndarray:
@@ -92,7 +96,7 @@ def compute_route_distance(route: list):
 
 def read_route_cops(result_cops_path: str, interval: dict, conversion_table: list):
 
-    cops_route, cops_by_id = get_result_cops_route(result_cops_path, conversion_table)
+    cops_route, cops_by_id, list_clusters = get_result_cops_route(result_cops_path, conversion_table)
 
     cops_route_by_group = get_result_by_cluster(conversion_table, cops_by_id, interval)
 
@@ -102,7 +106,7 @@ def read_route_cops(result_cops_path: str, interval: dict, conversion_table: lis
     for target, route in cops_route_by_group.items():
         route_target_distance[target] = compute_route_distance(route)
 
-    return route_distance, route_target_distance,cops_route, cops_route_by_group
+    return route_distance, route_target_distance,cops_route, cops_route_by_group, list_clusters
 
 
 def generate_true_spiral_points(radius: float, num_points: int) -> list[ndarray]:
@@ -490,11 +494,36 @@ def view_point(copp: CoppeliaInterface, experiment: int):
     result_cops_path = os.path.join(settings["COPS result"], f"{settings['COPS problem']}{str(experiment)}.csv")
     result_op_path = os.path.join(settings["COPS result"], f"{settings['OP problem']}{str(experiment)}.csv")
 
+    dataset_cops_path = os.path.join(settings["COPS dataset"], f"{settings['COPS problem']}{str(experiment)}.cops")
+
     for pos_ori in conversion_table_cops:
         pos_ori[3] = np.deg2rad(pos_ori[3])
 
-    cops_route_distance, cops_route_target_distance, cops_route, cops_route_by_group = read_route_cops(result_cops_path, interval_cops, conversion_table_cops)
-    op_route_distance, op_route_target_distance, op_route, op_route_by_group = read_route_cops(result_op_path, interval_op, conversion_table_op)
+    cops_route_distance, cops_route_target_distance, cops_route, cops_route_by_group, list_clusters_cops = read_route_cops(result_cops_path, interval_cops, conversion_table_cops)
+    op_route_distance, op_route_target_distance, op_route, op_route_by_group, list_clusters_op = read_route_cops(result_op_path, interval_op, conversion_table_op)
+
+    interval_cops = dict(sorted(interval_cops.items(), key=lambda item: item[1]))
+    
+    with open(dataset_cops_path, "r") as cops_file:
+        for line in cops_file:
+            first_str =  line.strip().split(" ")[0]
+            if first_str == "GTSP_SUBGROUP_SECTION:":
+                break
+        
+        subgroup_profit = {}
+        for line in cops_file:
+            line_split_str = line.strip().split(" ")
+
+            if line_split_str[0] == "GTSP_CLUSTER_SECTION:":
+                break
+            
+            index = int(line_split_str[0])
+            profit = float(line_split_str[1])
+            subgroup_profit[index] = profit
+    
+    cops_target_profit = {}
+    for key, cluster in zip(interval_cops.keys(), list_clusters_cops):
+        cops_target_profit[key] = subgroup_profit[cluster]
 
     parts_to_spiral = 100
     spiral_routes, spiral_route_by_target, spiral_target_distance, travelled_spiral_distance = get_spiral_trajectories(
@@ -573,9 +602,9 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             random_group_name = f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
             random_directory_name = settings["directory name"] + random_group_name
 
-            quadcopter_control_direct_points(
-                copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
-            )
+            # quadcopter_control_direct_points(
+            #     copp.sim, copp.client, vision_handle, random_route, "random_route", random_directory_name
+            # )
         except KeyError as e:
             print("Key not found:", e)
 
@@ -588,6 +617,7 @@ def view_point(copp: CoppeliaInterface, experiment: int):
         pickle.dump(op_route_target_distance, file)
         pickle.dump(spiral_target_distance, file)
         pickle.dump(random_target_distance, file)
+        pickle.dump(cops_target_profit, file)
         pickle.dump(day, file)
         pickle.dump(month, file)
         pickle.dump(hour, file)

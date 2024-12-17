@@ -48,21 +48,33 @@ def generate_poisson_mesh() -> None:
 
 def remove_unused_files(workspace_folder):
     """
-    Remove the stereo folder and the images folder in the dense folder
+    Remove the stereo folder and the images folder in the dense folder if they exist.
     """
     dense_folder = os.path.join(workspace_folder, "dense")
-    for folder in os.listdir(dense_folder):
-        stereo_folder = os.path.join(folder, "stereo")
-        images_folder = os.path.join(folder, "images")
-        vis_file = os.path.join(folder, "fused.ply.vis")
+    
+    if os.path.exists(dense_folder):
+        for folder in os.listdir(dense_folder):
+            stereo_folder = os.path.join(folder, "stereo")
+            images_folder = os.path.join(folder, "images")
+            vis_file = os.path.join(folder, "fused.ply.vis")
 
-        stereo_folder_path = os.path.join(dense_folder, stereo_folder)
-        images_folder_path = os.path.join(dense_folder, images_folder)
-        vis_file_path = os.path.join(dense_folder, vis_file)
+            stereo_folder_path = os.path.join(dense_folder, stereo_folder)
+            images_folder_path = os.path.join(dense_folder, images_folder)
+            vis_file_path = os.path.join(dense_folder, vis_file)
 
-        shutil.rmtree(stereo_folder_path)
-        shutil.rmtree(images_folder_path)
-        os.remove(vis_file_path)
+            # Check if stereo folder exists and remove it
+            if os.path.exists(stereo_folder_path):
+                shutil.rmtree(stereo_folder_path)
+            
+            # Check if images folder exists and remove it
+            if os.path.exists(images_folder_path):
+                shutil.rmtree(images_folder_path)
+            
+            # Check if vis file exists and remove it
+            if os.path.exists(vis_file_path):
+                os.remove(vis_file_path)
+    else:
+        print(f"The dense folder '{dense_folder}' does not exist.")
 
 
 def point_cloud(experiment: int) -> None:
@@ -75,6 +87,7 @@ def point_cloud(experiment: int) -> None:
         op_target_distance = pickle.load(f)
         spiral_target_distance = pickle.load(f)
         random_target_distance = pickle.load(f)
+        cops_target_profit = pickle.load(f)
         day = pickle.load(f)
         month = pickle.load(f)
         hour = pickle.load(f)
@@ -146,6 +159,9 @@ def point_cloud(experiment: int) -> None:
 
         with open(os.path.join(workspace_folder, "object_name.txt"), "w") as object_name_file:
             object_name_file.write(object_key)
+
+        with open(os.path.join(workspace_folder, "reward_obj.txt"), "w") as reward_obj_file:
+            reward_obj_file.write(str(cops_target_profit[object_key]))
 
         images_folder = str(os.path.join(settings["path"], image_directory_name))
         run_colmap_program(colmap_folder, workspace_folder, images_folder)
@@ -229,6 +245,6 @@ def point_cloud(experiment: int) -> None:
             object_name_file.write(object_key)
 
         random_images_folder = str(os.path.join(settings["path"], random_directory_name))
-        run_colmap_program(colmap_folder, random_workspace_folder, random_images_folder)
+        # run_colmap_program(colmap_folder, random_workspace_folder, random_images_folder)
         statistics_colmap(colmap_folder, random_workspace_folder)
         remove_unused_files(random_workspace_folder)

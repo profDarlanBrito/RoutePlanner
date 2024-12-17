@@ -225,7 +225,8 @@ def subgroup_formation(
             object_area = 1.0
         else:
             object_area = ConvexHull(positions[target]).volume
-        CA_max_sf = CA_max * object_area / 10
+            
+        CA_max_sf = object_area * CA_max
         S[target] = []
         # Create a subgroup 0 with position and orientation equals to zero. This subgroup is the start and end subgroup
         if subgroup_idx == 0:
@@ -309,6 +310,11 @@ def subgroup_formation(
                 )
                 total_distance = distance_p2p + total_distance
                 CA += contribution
+
+                # CA can not be greater than CA_max_sf
+                if CA >= CA_max_sf:
+                    break
+
                 visits_to_position[max_idx] += 1
                 prior_idx_s = length + prior_idx
                 max_idx_s = length + max_idx
@@ -335,7 +341,8 @@ def subgroup_formation(
             #     print(f'{len(S[target][-1])=}')
             # If the subgroup is empty remove it from the subgroup list
 
-            if len(S[target][-1]) == 0 or CA < settings["CA_min"]:
+            # if len(S[target][-1]) == 0 or CA < settings["CA_min"]:
+            if len(S[target][-1]) == 0 or CA < CA_max_sf / 2:
                 S[target].pop()
             else:
                 subgroup_idx += 1
@@ -392,7 +399,7 @@ def load_variables():
     if len(sys.argv) >= 7:
         settings["points per unit"] = float(sys.argv[2])
         settings["T_max"] = int(sys.argv[3])
-        settings["CA_min"] = int(sys.argv[4])
+        settings["number of trials"] = int(sys.argv[4])
         settings["CA_max"] = int(sys.argv[5])
         settings["obj_file"] = sys.argv[6]
 
@@ -458,6 +465,8 @@ def convex_hull(experiment: int):
         S,
         subgroup_size,
     )
+
+    return
 
     # Roberts
     plotter, target_meshes = draw_cylinders_with_hemispheres(centroid_points, radius, positions)

@@ -67,9 +67,9 @@ def get_result_cops_route(result_cops_path: str, key_points: dict):
 
 
 # Load data from files
-exp = 2
+exp = 0
 sub_exp = 0
-workspace = f"save_files/0"
+workspace = f"/mnt/e/Arquivos/wsl_arquivos/experiments_artigo/wall-e/build/0"
 convex_hull_file_path = f"{workspace}/variables/convex_hull_{sub_exp}.var"
 cops_file_path = f"{workspace}/datasets/3dreconstructionPathCOPS{sub_exp}.cops"
 results_cops_file_path = f"{workspace}/datasets/results/3dreconstructionPathCOPS{sub_exp}.csv"
@@ -103,7 +103,7 @@ for i, r in enumerate(route_points[1:]):
     plotter.add_mesh(line, color="blue", line_width=3)
 
 for point in route_points:
-    sphere = pv.Sphere(radius=0.05, center=point)
+    sphere = pv.Sphere(radius=0.2, center=point)
     plotter.add_mesh(sphere)
 
 # Define primary colors for clusters
