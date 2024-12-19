@@ -466,8 +466,6 @@ def convex_hull(experiment: int):
         subgroup_size,
     )
 
-    return
-
     # Roberts
     plotter, target_meshes = draw_cylinders_with_hemispheres(centroid_points, radius, positions)
     target_view_points, conversion_table_op = generate_target_view_points(target_meshes, radius)
