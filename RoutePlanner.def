@@ -84,7 +84,7 @@ From: ubuntu:22.04
     
     pip3 install -r RoutePlanner/requirements.txt
     cd RoutePlanner
-    gdown 1w1AdYegAplRWNPhswgpy8qSmuBjSTAc4
+    gdown 1wCchp0LMslwUiWdKdWwlbWu-hxTvwwR5
     unzip mesh_obj.zip
     cd
 
