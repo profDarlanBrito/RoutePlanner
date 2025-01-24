@@ -342,7 +342,7 @@ def subgroup_formation(
             # If the subgroup is empty remove it from the subgroup list
 
             # if len(S[target][-1]) == 0 or CA < settings["CA_min"]:
-            if len(S[target][-1]) == 0 or CA < CA_max_sf / 2:
+            if len(S[target][-1]) == 0 or CA < CA_max_sf / 5:
                 S[target].pop()
             else:
                 subgroup_idx += 1

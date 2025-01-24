@@ -136,7 +136,7 @@ def point_cloud(experiment: int) -> None:
 
     MNRE_array = np.empty(0)
     spiral_route_key = spiral_route_by_target.keys()
-    for route, object_key, count_group in zip(route_by_group, spiral_route_key, range(len(route_by_group))):
+    for object_key in spiral_route_key:
 
         # Reconstruction COPS
         workspace_folder = os.path.join(
@@ -147,26 +147,30 @@ def point_cloud(experiment: int) -> None:
             settings["directory name"] + f"_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
         )
 
-        # remove folder if exist
-        if os.path.exists(workspace_folder):
-            shutil.rmtree(workspace_folder)
+        try:
+            if object_key in cops_target_distance:
+                # remove folder if exist
+                if os.path.exists(workspace_folder):
+                    shutil.rmtree(workspace_folder)
 
-        # Create the directory
-        os.makedirs(workspace_folder)
+                # Create the directory
+                os.makedirs(workspace_folder)
 
-        with open(os.path.join(workspace_folder, "distance.txt"), "w") as distance_file:
-            distance_file.write(str(cops_target_distance[object_key]))
+                with open(os.path.join(workspace_folder, "distance.txt"), "w") as distance_file:
+                    distance_file.write(str(cops_target_distance[object_key]))
 
-        with open(os.path.join(workspace_folder, "object_name.txt"), "w") as object_name_file:
-            object_name_file.write(object_key)
+                with open(os.path.join(workspace_folder, "object_name.txt"), "w") as object_name_file:
+                    object_name_file.write(object_key)
 
-        with open(os.path.join(workspace_folder, "reward_obj.txt"), "w") as reward_obj_file:
-            reward_obj_file.write(str(cops_target_profit[object_key]))
+                with open(os.path.join(workspace_folder, "reward_obj.txt"), "w") as reward_obj_file:
+                    reward_obj_file.write(str(cops_target_profit[object_key]))
 
-        images_folder = str(os.path.join(settings["path"], image_directory_name))
-        run_colmap_program(colmap_folder, workspace_folder, images_folder)
-        MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
-        remove_unused_files(workspace_folder)
+                images_folder = str(os.path.join(settings["path"], image_directory_name))
+                run_colmap_program(colmap_folder, workspace_folder, images_folder)
+                MNRE_array = statistics_colmap(colmap_folder, workspace_folder, MNRE_array)
+                remove_unused_files(workspace_folder)
+        except KeyError as e:
+            print("Key not found:", e)
 
         # Reconstruction OP
         op_workspace_folder = os.path.join(
@@ -177,25 +181,29 @@ def point_cloud(experiment: int) -> None:
             settings["directory name"] + f"_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
         )
 
-        # remove folder if exist
-        if os.path.exists(op_workspace_folder):
-            shutil.rmtree(op_workspace_folder)
+        try:
+            if object_key in cops_target_distance:
+                # remove folder if exist
+                if os.path.exists(op_workspace_folder):
+                    shutil.rmtree(op_workspace_folder)
 
-        # Create the directory
-        os.makedirs(op_workspace_folder)
+                # Create the directory
+                os.makedirs(op_workspace_folder)
 
-        with open(os.path.join(op_workspace_folder, "distance.txt"), "w") as distance_file:
-            distance_file.write(str(op_target_distance[object_key]))
+                with open(os.path.join(op_workspace_folder, "distance.txt"), "w") as distance_file:
+                    distance_file.write(str(op_target_distance[object_key]))
 
-        with open(os.path.join(op_workspace_folder, "object_name.txt"), "w") as object_name_file:
-            object_name_file.write(object_key)
+                with open(os.path.join(op_workspace_folder, "object_name.txt"), "w") as object_name_file:
+                    object_name_file.write(object_key)
 
-        images_folder = str(os.path.join(settings["path"], op_image_directory_name))
-        run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
-        MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
-        remove_unused_files(op_workspace_folder)
+                images_folder = str(os.path.join(settings["path"], op_image_directory_name))
+                run_colmap_program(colmap_folder, op_workspace_folder, images_folder)
+                MNRE_array = statistics_colmap(colmap_folder, op_workspace_folder, MNRE_array)
+                remove_unused_files(op_workspace_folder)
+        except KeyError as e:
+            print("Key not found:", e)
 
-        # Reconstruction Spiral
+        # # Reconstruction Spiral
         spiral_workspace_folder = os.path.join(
             settings["workspace folder"], f"spiral_exp_{experiment}_{day}_{month}_{hour}_{minute}_group_{object_key}"
         )
@@ -204,23 +212,27 @@ def point_cloud(experiment: int) -> None:
             settings["directory name"] + f"_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
         )
 
-        # remove folder if exist
-        if os.path.exists(spiral_workspace_folder):
-            shutil.rmtree(spiral_workspace_folder)
+        try:
+            if object_key in cops_target_distance:
+                # remove folder if exist
+                if os.path.exists(spiral_workspace_folder):
+                    shutil.rmtree(spiral_workspace_folder)
 
-        # Create the directory
-        os.makedirs(spiral_workspace_folder)
+                # Create the directory
+                os.makedirs(spiral_workspace_folder)
 
-        with open(os.path.join(spiral_workspace_folder, "distance.txt"), "w") as distance_file:
-            distance_file.write(str(spiral_target_distance[object_key]))
+                with open(os.path.join(spiral_workspace_folder, "distance.txt"), "w") as distance_file:
+                    distance_file.write(str(spiral_target_distance[object_key]))
 
-        with open(os.path.join(spiral_workspace_folder, "object_name.txt"), "w") as object_name_file:
-            object_name_file.write(object_key)
+                with open(os.path.join(spiral_workspace_folder, "object_name.txt"), "w") as object_name_file:
+                    object_name_file.write(object_key)
 
-        spiral_images_folder = str(os.path.join(settings["path"], spiral_directory_name))
-        run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
-        statistics_colmap(colmap_folder, spiral_workspace_folder)
-        remove_unused_files(spiral_workspace_folder)
+                spiral_images_folder = str(os.path.join(settings["path"], spiral_directory_name))
+                run_colmap_program(colmap_folder, spiral_workspace_folder, spiral_images_folder)
+                statistics_colmap(colmap_folder, spiral_workspace_folder)
+                remove_unused_files(spiral_workspace_folder)
+        except KeyError as e:
+            print("Key not found:", e)
 
         # Reconstruction Random
         random_workspace_folder = os.path.join(
@@ -231,20 +243,24 @@ def point_cloud(experiment: int) -> None:
             settings["directory name"] + f"_random_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
         )
 
-        # remove folder if exist
-        if os.path.exists(random_workspace_folder):
-            shutil.rmtree(random_workspace_folder)
+        try:
+            if object_key in cops_target_distance:
+                # remove folder if exist
+                if os.path.exists(random_workspace_folder):
+                    shutil.rmtree(random_workspace_folder)
 
-        # Create the directory
-        os.makedirs(random_workspace_folder)
+                # Create the directory
+                os.makedirs(random_workspace_folder)
 
-        with open(os.path.join(random_workspace_folder, "distance.txt"), "w") as distance_file:
-            distance_file.write(str(random_target_distance[object_key]))
+                with open(os.path.join(random_workspace_folder, "distance.txt"), "w") as distance_file:
+                    distance_file.write(str(random_target_distance[object_key]))
 
-        with open(os.path.join(random_workspace_folder, "object_name.txt"), "w") as object_name_file:
-            object_name_file.write(object_key)
+                with open(os.path.join(random_workspace_folder, "object_name.txt"), "w") as object_name_file:
+                    object_name_file.write(object_key)
 
-        random_images_folder = str(os.path.join(settings["path"], random_directory_name))
-        # run_colmap_program(colmap_folder, random_workspace_folder, random_images_folder)
-        statistics_colmap(colmap_folder, random_workspace_folder)
-        remove_unused_files(random_workspace_folder)
+                random_images_folder = str(os.path.join(settings["path"], random_directory_name))
+                # run_colmap_program(colmap_folder, random_workspace_folder, random_images_folder)
+                statistics_colmap(colmap_folder, random_workspace_folder)
+                remove_unused_files(random_workspace_folder)
+        except KeyError as e:
+            print("Key not found:", e)
