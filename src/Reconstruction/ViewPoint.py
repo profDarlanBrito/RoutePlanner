@@ -580,9 +580,9 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             group_name = f"_op_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
             directory_name = settings["directory name"] + group_name
 
-            # quadcopter_control_direct_points(
-            #     copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
-            # )
+            quadcopter_control_direct_points(
+                copp.sim, copp.client, vision_handle, route_of_object, filename, directory_name
+            )
         except KeyError as e:
             print("Key not found:", e)
 
@@ -591,9 +591,9 @@ def view_point(copp: CoppeliaInterface, experiment: int):
             spiral_group_name = f"_spiral_exp_{experiment}_group_{object_key}_{day}_{month}_{hour}_{minute}"
             spiral_directory_name = settings["directory name"] + spiral_group_name
 
-            # quadcopter_control_direct_points(
-            #     copp.sim, copp.client, vision_handle, spiral_route, "spiral_route", spiral_directory_name
-            # )
+            quadcopter_control_direct_points(
+                copp.sim, copp.client, vision_handle, spiral_route, "spiral_route", spiral_directory_name
+            )
         except KeyError as e:
             print("Key not found:", e)
 
